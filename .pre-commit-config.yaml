@@ -1,0 +1,50 @@
+# Order plays a role here: we first need to run pyupgrade because it changes the code and the new code may not be correctly formatted so we need to run black afterwards. flake8 again should be run after black so that it doesn't e.g. complain about whitespace issues.
+repos:
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.3.1
+    hooks:
+      - id: pyupgrade
+        args: [--py39-plus]
+  - repo: https://github.com/psf/black
+    rev: 22.12.0
+    hooks:
+      - id: black-jupyter
+  - repo: https://github.com/pycqa/isort
+    rev: 5.11.4
+    hooks:
+      - id: isort
+  - repo: https://github.com/PyCQA/flake8
+    rev: 6.0.0
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-bugbear
+          - flake8-comprehensions
+          - flake8-use-pathlib
+          - flake8-docstrings
+  - repo: https://github.com/asottile/yesqa
+    rev: v1.4.0
+    hooks:
+      - id: yesqa
+        additional_dependencies:
+          - flake8-bugbear
+          - flake8-comprehensions
+          - flake8-use-pathlib
+          - flake8-docstrings
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.6.1
+    hooks:
+      - id: nbqa-pyupgrade
+        args: [--py39-plus]
+      - id: nbqa-isort
+      - id: nbqa-flake8
+        additional_dependencies:
+          - flake8-bugbear
+          - flake8-comprehensions
+          - flake8-use-pathlib
+          - flake8-docstrings
+        args: ["--extend-ignore=E402"]
+  - repo: https://github.com/citation-file-format/cff-converter-python
+    rev: "44e8fc9"
+    hooks:
+      - id: validate-cff

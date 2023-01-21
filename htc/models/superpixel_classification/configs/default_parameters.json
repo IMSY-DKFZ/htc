@@ -1,0 +1,7 @@
+{
+    "inherits": "default",
+    "input": {
+        "preprocessing": "parameter_images",
+        "n_channels": 4
+    }
+}

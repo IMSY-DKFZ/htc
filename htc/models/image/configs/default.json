@@ -1,0 +1,63 @@
+{
+    "lightning_class": "htc.models.image.LightningImage>LightningImage",
+    "input": {
+        "data_spec": "data/pigs_semantic-only_5foldsV2.json",
+        "preprocessing": "L1",
+        "n_channels": 100,
+        "epoch_size": 500,
+        "transforms_gpu": [{
+            "class": "KorniaTransform",
+            "transformation_name": "RandomAffine",
+            "translate": [0.0625, 0.0625],
+            "scale": [0.9, 1.1],
+            "degrees": 45,
+            "padding_mode": "reflection",
+            "p": 0.5
+        }, {
+            "class": "KorniaTransform",
+            "transformation_name": "RandomHorizontalFlip",
+            "p": 0.25
+        }, {
+            "class": "KorniaTransform",
+            "transformation_name": "RandomVerticalFlip",
+            "p": 0.25
+        }]
+    },
+    "label_mapping": "htc.settings_seg>label_mapping",
+    "optimization": {
+        "optimizer": {
+            "name": "Adam",
+            "lr": 0.001,
+            "weight_decay": 0
+        },
+        "lr_scheduler": {
+            "name": "ExponentialLR",
+            "gamma": 0.99
+        }
+    },
+    "model": {
+        "model_name": "ModelImage",
+        "architecture_name": "Unet",
+        "architecture_kwargs": {
+            "encoder_name": "efficientnet-b5",
+            "encoder_weights": "imagenet"
+        }
+    },
+    "dataloader_kwargs": {
+        "batch_size": 5,
+        "num_workers": 1
+    },
+    "trainer_kwargs": {
+        "max_epochs": 100,
+        "precision": 16,
+        "devices": 1,
+        "accelerator": "gpu"
+    },
+    "swa_kwargs": {
+        "annealing_epochs": 0
+    },
+    "validation": {
+        "checkpoint_metric": "dice_metric",
+        "dataset_index": 0
+    }
+}

@@ -1,0 +1,10 @@
+{
+    "inherits": "default",
+    "input": {
+        "preprocessing": null,
+        "n_channels": 3
+    },
+    "model": {
+        "model_name": "ModelPixelRGB"
+    }
+}

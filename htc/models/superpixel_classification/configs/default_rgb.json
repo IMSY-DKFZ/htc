@@ -1,0 +1,7 @@
+{
+    "inherits": "default",
+    "input": {
+        "preprocessing": null,
+        "n_channels": 3
+    }
+}

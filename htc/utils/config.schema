@@ -1,0 +1,185 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$comment": "This schema file defines the common structure of the config files used in this repository. It is not a complete list but describes the most important properties.",
+    "type": "object",
+    "properties": {
+        "lightning_class": {
+            "description": "Specification of the lightning class used for training. It must be in the format module>class (e.g. htc.models.image.LightningImage>LightningImage) and must refer to a valid Python class.",
+            "type": "string"
+        },
+        "input": {
+            "type": "object",
+            "properties": {
+                "data_spec": {
+                    "description": "Name or path of a data specification file which defines the folds with all image paths used for training, validation and testing. See the DataSpecification class for more details.",
+                    "type": "string"
+                },
+                "preprocessing": {
+                    "description": "Name of the folder inside the intermediates/preprocessing directory which contains preprocessed images (e.g. L1).",
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "parameter_names": {
+                    "description": "Name of the parameter images which are concatenated along the channel dimension. Defaults to StO2, NIR, TWI and OHI since THI is very similar to OHI and TLI offers only limited information.",
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": ["StO2", "NIR", "TWI", "OHI", "TLI", "THI"]
+                    }
+                },
+                "preprocessing_additional": {
+                    "description": "Additional preprocessing folder names which will be added to the batch as data_NAME. For example, if L1 is in the list, it will be added as data_L1.",
+                    "type": [
+                        "array",
+                        "null"
+                    ],
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "no_features": {
+                    "description": "Do not load any features (just labels).",
+                    "type": "boolean"
+                },
+                "no_labels": {
+                    "description": "Do not load any labels (just features).",
+                    "type": "boolean"
+                },
+                "n_channels": {
+                    "description": "Specifies which data should be loaded. 100 = HSI data, 4 = TPI data, 3 = RGB data.",
+                    "type": "integer",
+                    "enum": [3, 4, 100]
+                },
+                "n_classes": {
+                    "description": "Number of classes which should be used for training. This key is only required if a label mapping cannot be specified ( usually the number of classes is inferred from the label mapping).",
+                    "type": "integer"
+                },
+                "epoch_size": {
+                    "description": "Length of one training epoch in terms of number of images. Can also be a string like '500 images' and then it will translate automatically for non-image based models (like the pixel model) to the appropriate number depending on the image size.",
+                    "type": [
+                        "integer",
+                        "string"
+                    ]
+                },
+                "transforms_cpu": {
+                    "description": "Data augmentation specification as list of dicts (each entry denotes one augmentation step). Will be executed on the CPU (by the workers).",
+                    "type": [
+                        "array",
+                        "null"
+                    ]
+                },
+                "transforms_gpu": {
+                    "description": "Data augmentation specification as list of dicts (each entry denotes one augmentation step). Will be executed on the GPU.",
+                    "type": [
+                        "array",
+                        "null"
+                    ]
+                },
+                "test_time_transforms_cpu": {
+                    "description": "Similar to transforms_cpu but the transforms will also be applied during inference. This is for example useful for context analysis (e.g. removing organs in an image).",
+                    "type": [
+                        "array",
+                        "null"
+                    ]
+                },
+                "test_time_transforms_gpu": {
+                    "description": "Similar to transforms_gpu but the transforms will also be applied during inference. This is for example useful for applying normalization.",
+                    "type": [
+                        "array",
+                        "null"
+                    ]
+                },
+                "patch_sampling": {
+                    "description": "The strategy to extract patches from an image. `uniform` yields so many patches as a grid-based tiling would yield, i.e. the number of patches are simply a function of the patch and image size. `proportional` constraints the number of patches to the number of valid pixels, i.e. so many patches will be sampled until theoretically (!) all pixels are used. However, this it is not enforced that really all valid pixels are sampled. `all_valid` is similar to `proportional` but now makes sure that all valid pixels are part of a patch at least once. This is especially useful to ensure that smaller classes are sampled as well.",
+                    "type": "string",
+                    "enum": ["uniform", "proportional", "all_valid"]
+                },
+                "patch_size": {
+                    "description": "Height and width of the extracted patches.",
+                    "type": "array"
+                },
+                "annotation_name": {
+                    "description": "The annotations which should be loaded. Either a list of annotation names or 'all' if all available annotation names should be included in the batch. If no merge strategy is set (see merge_annotations), the annotations will appear as separate tensors with the name labels_annotation_name and valid_pixels_annotation_name. Please note that it is also possible to define the annotations you want to use on a per image bases by using the format image_name@name1&name.",
+                    "type": [
+                        "array",
+                        "string"
+                    ]
+                },
+                "merge_annotations": {
+                    "description": "Merge strategy in case there is more than one annotation per image. 'union' merges all annotations in one image. It assumes that the annotations are conflict-free, i.e. that there will be no pixel with more than one class label (overlap on the same class label is fine). Later annotator names overwrite previous ones.",
+                    "type": "string",
+                    "enum": ["union"]
+                }
+            }
+        },
+        "label_mapping": {
+            "description": "Mapping of label names to label indices. This will be used to remap the original labels of the dataset to the new labels for the current training. Can either be a dict with label_name:label_index mappings or a string in the format module>variable (e.g. htc.settings_seg>label_mapping) in which case it must refer to a variable inside a Python script.",
+            "type": [
+                "object",
+                "string"
+            ]
+        },
+        "model": {
+            "description": "Settings to configure a neural network.",
+            "type": "object",
+            "properties": {
+                "pretrained_model": {
+                    "description": "Properties of a trained neural network so that it can be found and its weight be used for pretraining. If a string, then it should be the path to the training run folder (either absolute or relative to the training run directory).",
+                    "type": ["object", "string"],
+                    "properties": {
+                        "model": {
+                            "description": "Name of the model (e.g. image)",
+                            "type": "string"
+                        },
+                        "run_folder": {
+                            "description": "Name of the run folder of the pretrained network, usually starts with a timestamp, e.g. 2022-02-03_22-58-44_generated_default_model_comparison.",
+                            "type": "string"
+                        },
+                        "fold_name": {
+                            "description": "Explicitly set the name of the fold which you want to use (per default the fold with the highest score is used).",
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "dataloader_kwargs": {
+            "description": "Keyword arguments which are passed to the PyTorch dataloader.",
+            "type": "object",
+            "properties": {
+                "batch_size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "validation": {
+            "type": "object",
+            "properties": {
+                "dataset_index": {
+                    "description": "Index of the dataset which should be used for checkpointing (relevant if there is more than one validation dataset).",
+                    "type": "integer"
+                },
+                "checkpoint_metric": {
+                    "description": "Name of the metric which should be used for checkpointing (the name will also be part of the filename of the checkpoint).",
+                    "type": "string"
+                },
+                "checkpoint_saving": {
+                    "description": "Strategy for checkpoint saving. Either the best (default) or the last checkpoint is saved.",
+                    "type": ["string", "null"],
+                    "enum": ["best", "last"]
+                }
+            }
+        },
+        "trainer_kwargs": {
+            "description": "Keyword arguments which are passed to the PyTorch Lightning trainer.",
+            "type": "object",
+            "properties": {
+                "max_epochs": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}

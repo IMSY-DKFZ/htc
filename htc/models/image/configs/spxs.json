@@ -1,0 +1,17 @@
+{
+    "inherits": "default",
+    "input": {
+        "superpixels": {
+            "n_segments": 1000,
+            "slic_zero": true,
+            "compactness": 10,
+            "sigma": 3
+        }
+    },
+    "optimization": {
+        "spx_loss_weight": {
+            "epochs": [20, 90, 100],
+            "weights": [0.1, 1, 2]
+        }
+    }
+}
