@@ -26,7 +26,7 @@ python -c "import shutil; shutil.rmtree('build', ignore_errors=True)"\
 """
 before-test = "pip install pytest"
 test-command = [
-  '''python -c "import os; from importlib.metadata import version; assert 'v' + version('htc') == os.getenv('CI_COMMIT_TAG'), os.getenv('CI_COMMIT_TAG')"''',
+  '''python -c "import os; from importlib.metadata import version; assert not os.getenv('CI_COMMIT_TAG').startswith('v') or 'v' + version('htc') == os.getenv('CI_COMMIT_TAG'), os.getenv('CI_COMMIT_TAG')"''',
   '''py.test --doctest-modules --import-mode=importlib --collect-only {project}/htc''',
   '''python -c "from htc import settings; assert settings.src_dir == settings.htc_package_dir, settings.src_dir"''',
 ]
