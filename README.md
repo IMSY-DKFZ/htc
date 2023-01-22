@@ -177,7 +177,7 @@ After successful installation of the `htc` package, you can use [`torch.hub.list
 ```python
 import torch
 
-run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"
+run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
 model = torch.hub.load("IMSY-DKFZ/htc", "image", run_folder=run_folder, n_channels=100, n_classes=19, trust_repo=True)
 input_data = torch.randn(1, 100, 480, 640)  # NCHW
 model(input_data).shape
