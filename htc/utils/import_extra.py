@@ -7,7 +7,7 @@ from typing import Callable
 
 def requires_extra(missing_library: str) -> Callable:
     """
-    Decorator which can be used to specify that a function needs an extra library which is not installed by default (the user has to install it via `pip install htc[extra]`).
+    Decorator which can be used to specify that a function needs an extra library which is not installed by default (the user has to install it via `pip install imsy-htc[extra]`).
 
     The general pattern is to import the library at the top in a try block:
     ```python
@@ -40,7 +40,7 @@ def requires_extra(missing_library: str) -> Callable:
 
                 raise ImportError(
                     f"{missing_library} library is missing. You can fix this by installing the extra dependencies"
-                    " (`htc[extra]`) as described in the README."
+                    " (`imsy-htc[extra]`) as described in the README."
                 )
             return function(*args, **kwargs)
 

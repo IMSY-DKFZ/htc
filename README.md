@@ -45,7 +45,7 @@ If you use the `htc` framework, please cite our paper [<q>Robust deep learning-b
 ### Package Installation
 This package can be installed via pip:
 ```bash
-pip install htc
+pip install imsy-htc
 ```
 This installs all the required dependencies defined in [`requirements.txt`](requirements.txt). The requirements include [PyTorch](https://pytorch.org/), so you may want to install it manually before installing the package in case you have specific needs (e.g. CUDA version).
 
@@ -54,16 +54,16 @@ This installs all the required dependencies defined in [`requirements.txt`](requ
 > &#x26a0;&#xfe0f; Network training and inference was conducted using a RTX 3090 GPU with 24 GiB of memory. It should also work with GPUs which have less memory but you may have to adjust some settings (e.g. the batch size).
 
 <details close>
-<summary>Optional Dependencies (<code>htc[extra]</code>)</summary>
+<summary>Optional Dependencies (<code>imsy-htc[extra]</code>)</summary>
 
 Some requirements are considered optional (e.g. if they are only needed by certain scripts) and you will get an error message if they are needed but unavailable. You can install them via
 ```bash
-pip install --extra-index-url https://read_package:CnzBrgDfKMWS4cxf-r31@git.dkfz.de/api/v4/projects/15/packages/pypi/simple htc[extra]
+pip install --extra-index-url https://read_package:CnzBrgDfKMWS4cxf-r31@git.dkfz.de/api/v4/projects/15/packages/pypi/simple imsy-htc[extra]
 ```
 or by adding the following lines to your `requirements.txt`
 ```
 --extra-index-url https://read_package:CnzBrgDfKMWS4cxf-r31@git.dkfz.de/api/v4/projects/15/packages/pypi/simple
-htc[extra]
+imsy-htc[extra]
 ```
 
 This installs the optional dependencies defined in [`requirements-extra.txt`](requirements-extra.txt), including for example our Python wrapper for the [challengeR toolkit](https://github.com/wiesenfa/challengeR).

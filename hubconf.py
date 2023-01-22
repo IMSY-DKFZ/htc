@@ -10,7 +10,7 @@ from htc.models.pixel.ModelPixelRGB import ModelPixelRGB
 from htc.models.superpixel_classification.ModelSuperpixelClassification import ModelSuperpixelClassification
 from htc.utils.Config import Config
 
-dependencies = ["htc"]
+dependencies = ["imsy-htc"]
 
 
 def inherit_doc(origin: Callable, replacements: dict[str, str]):

@@ -58,7 +58,7 @@ else:
     compiler_flags = ["-O3", "-std=c++2a"]
 
 setup(
-    name="htc",
+    name="imsy-htc",
     version="0.0.5",
     # We are using find_namespace_packages() instead of find_packages() to resolve this deprecation warning: https://github.com/pypa/setuptools/issues/3340
     packages=find_namespace_packages(include=["htc*"]),

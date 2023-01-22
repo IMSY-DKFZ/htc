@@ -3,7 +3,7 @@
 
 import os
 import subprocess
-from importlib.metadata import version
+from importlib import metadata
 
 from rich import print
 from torch.utils import collect_env
@@ -12,7 +12,8 @@ from htc.settings import settings
 
 if __name__ == "__main__":
     print("[b]htc framework[/]")
-    print("- version: " + version("htc"))
+    print("- version: " + metadata.version("imsy-htc"))
+    print("- url: " + metadata.metadata("imsy-htc")["Home-page"])
     try:
         git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
     except subprocess.CalledProcessError:
