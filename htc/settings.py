@@ -410,9 +410,8 @@ class Settings:
         return None if not self._results_dir else self._results_dir
 
     @property
-    def training_dir(self) -> MultiPath:
-        assert self.results_dir is not None, "Results directory is not set, cannot determine the training directory"
-        return self.results_dir / "training"
+    def training_dir(self) -> Union[MultiPath, None]:
+        return self.results_dir / "training" if self.results_dir is not None else None
 
 
 settings = Settings()

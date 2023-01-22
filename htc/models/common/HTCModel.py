@@ -273,10 +273,11 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         Returns: Path to the requested training run.
         """
         # Option 1: local training directory
-        run_dir = settings.training_dir / model_name / run_folder
-        if run_dir.is_dir():
-            settings.log_once.info(f"Found pretrained run in the local training dir at {run_dir}")
-            return run_dir
+        if settings.training_dir is not None:
+            run_dir = settings.training_dir / model_name / run_folder
+            if run_dir.is_dir():
+                settings.log_once.info(f"Found pretrained run in the local training dir at {run_dir}")
+                return run_dir
 
         # Option 2: local hub dir (cache folder)
         hub_dir = Path(torch.hub.get_dir()) / "htc_checkpoints"
