@@ -46,8 +46,25 @@ def parse_requirements(requirements_file: Path) -> list[str]:
     return req
 
 
+def parse_readme(readme_file: Path) -> str:
+    """
+    Reads and adjusts a readme file so that it can be used for PyPi.
+
+    Args:
+        readme_file: Path to the readme file.
+
+    Returns: Readme as string with adjusted links.
+    """
+    readme = read_file(readme_file)
+
+    # Make local anchors and links to files absolute since they don't work on PyPi
+    readme = re.sub(r"\(\./([^)]+)\)", r"(https://github.com/IMSY-DKFZ/htc/tree/main/\1)", readme)
+    readme = re.sub(r"\(#([^)]+)\)", r"(https://github.com/IMSY-DKFZ/htc/#\1)", readme)
+
+    return readme
+
+
 repo_root = Path(__file__).parent
-readme = read_file(repo_root / "README.md")
 
 source_files = sorted(repo_root.rglob("htc/cpp/*.cpp"))
 source_files = [str(f.relative_to(repo_root)) for f in source_files]
@@ -59,7 +76,7 @@ else:
 
 setup(
     name="imsy-htc",
-    version="0.0.5",
+    version="0.0.6",
     # We are using find_namespace_packages() instead of find_packages() to resolve this deprecation warning: https://github.com/pypa/setuptools/issues/3340
     packages=find_namespace_packages(include=["htc*"]),
     author="Division of Intelligent Medical Systems, DKFZ",
@@ -74,7 +91,24 @@ setup(
         "semantic scene segmentation",
         "deep learning",
     ],
-    long_description=readme,
+    classifiers=[
+        "Intended Audience :: Developers",
+        "Intended Audience :: Science/Research",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: MacOS",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "Topic :: Scientific/Engineering :: Image Processing",
+        "Topic :: Software Development",
+        "Topic :: Software Development :: Libraries",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+    ],
+    long_description=parse_readme(repo_root / "README.md"),
     long_description_content_type="text/markdown",
     python_requires=">=3.9",
     install_requires=parse_requirements(repo_root / "requirements.txt"),

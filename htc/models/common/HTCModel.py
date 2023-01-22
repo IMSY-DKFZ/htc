@@ -352,7 +352,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
 
             model_lines.append(
                 f"| {model_type} | {model_info['model_type']} | [{run_folder}]({download_info['url']}) |"
-                f" [`{class_name}`]({class_path}) |"
+                f" [`{class_name}`](./{class_path}) |"
             )
 
         table_lines += reversed(model_lines)
