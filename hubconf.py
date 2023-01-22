@@ -1,18 +1,20 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from typing import Callable
+from typing import Callable as _Callable
 
-from htc.models.common.HTCModel import HTCModel
-from htc.models.image.ModelImage import ModelImage
-from htc.models.pixel.ModelPixel import ModelPixel
-from htc.models.pixel.ModelPixelRGB import ModelPixelRGB
-from htc.models.superpixel_classification.ModelSuperpixelClassification import ModelSuperpixelClassification
-from htc.utils.Config import Config
+from htc.models.common.HTCModel import HTCModel as _HTCModel
+from htc.models.image.ModelImage import ModelImage as _ModelImage
+from htc.models.pixel.ModelPixel import ModelPixel as _ModelPixel
+from htc.models.pixel.ModelPixelRGB import ModelPixelRGB as _ModelPixelRGB
+from htc.models.superpixel_classification.ModelSuperpixelClassification import (
+    ModelSuperpixelClassification as _ModelSuperpixelClassification,
+)
+from htc.utils.Config import Config as _Config
 
 
-def inherit_doc(origin: Callable, replacements: dict[str, str]):
-    def wrapper(func: Callable):
+def _inherit_doc(origin: _Callable, replacements: dict[str, str]):
+    def wrapper(func: _Callable):
         func.__doc__ = origin.__doc__
 
         for old_name, new_name in replacements.items():
@@ -25,22 +27,21 @@ def inherit_doc(origin: Callable, replacements: dict[str, str]):
 
 def image(
     run_folder: str, pretrained: bool = True, fold_name: str = None, n_classes: int = None, n_channels: int = None
-) -> ModelImage:
+) -> _ModelImage:
     """
     Pretrained image-based segmentation model. You can directly use this model to train a network on your data. The weights will be initialized with the weights from the pretrained network except the segmentation head which is initialized randomly (and may also be different in terms of number of classes).
 
     Load the pretrained model for the image-based segmentation network:
     >>> import torch
-    >>> from htc.settings import settings
     >>> run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
-    >>> print("some log messages"); model = torch.hub.load(settings.src_dir, "image", run_folder=run_folder, source="local")  # doctest: +ELLIPSIS
+    >>> print("some log messages"); model = torch.hub.load("IMSY-DKFZ/htc", "image", run_folder=run_folder, trust_repo=True)  # doctest: +ELLIPSIS
     some log messages...
     >>> input_data = torch.randn(1, 100, 480, 640)  # NCHW
     >>> model(input_data).shape
     torch.Size([1, 19, 480, 640])
 
     It is also possible to have a different number of classes as output or a different number of channels as input:
-    >>> print("some log messages"); model = torch.hub.load(settings.src_dir, "image", run_folder=run_folder, n_classes=3, n_channels=10, source="local")  # doctest: +ELLIPSIS
+    >>> print("some log messages"); model = torch.hub.load("IMSY-DKFZ/htc", "image", run_folder=run_folder, n_classes=3, n_channels=10, trust_repo=True)  # doctest: +ELLIPSIS
     some log messages...
     >>> input_data = torch.randn(1, 10, 480, 640)  # NCHW
     >>> model(input_data).shape
@@ -56,26 +57,26 @@ def image(
     Returns: Model with pretrained weights.
     """
     if pretrained:
-        return ModelImage.pretrained_model("image", run_folder, fold_name, n_classes, n_channels)
+        return _ModelImage.pretrained_model("image", run_folder, fold_name, n_classes, n_channels)
     else:
-        run_dir = HTCModel.find_pretrained_run("image", run_folder)
-        config = Config(run_dir / "config.json")
-        return ModelImage(config)
+        run_dir = _HTCModel.find_pretrained_run("image", run_folder)
+        config = _Config(run_dir / "config.json")
+        return _ModelImage(config)
 
 
-@inherit_doc(image, {"image": "patch"})
+@_inherit_doc(image, {"image": "patch"})
 def patch(
     run_folder: str, pretrained: bool = True, fold_name: str = None, n_classes: int = None, n_channels: int = None
-) -> ModelImage:
+) -> _ModelImage:
     if pretrained:
-        return ModelImage.pretrained_model("patch", run_folder, fold_name, n_classes, n_channels)
+        return _ModelImage.pretrained_model("patch", run_folder, fold_name, n_classes, n_channels)
     else:
-        run_dir = HTCModel.find_pretrained_run("patch", run_folder)
-        config = Config(run_dir / "config.json")
-        return ModelImage(config)
+        run_dir = _HTCModel.find_pretrained_run("patch", run_folder)
+        config = _Config(run_dir / "config.json")
+        return _ModelImage(config)
 
 
-@inherit_doc(
+@_inherit_doc(
     image,
     {
         "image": "superpixel_classification",
@@ -87,30 +88,30 @@ def patch(
 )
 def superpixel_classification(
     run_folder: str, pretrained: bool = True, fold_name: str = None, n_classes: int = None, n_channels: int = None
-) -> ModelSuperpixelClassification:
+) -> _ModelSuperpixelClassification:
     if pretrained:
-        return ModelSuperpixelClassification.pretrained_model(
+        return _ModelSuperpixelClassification.pretrained_model(
             "superpixel_classification", run_folder, fold_name, n_classes, n_channels
         )
     else:
-        run_dir = HTCModel.find_pretrained_run("superpixel_classification", run_folder)
-        config = Config(run_dir / "config.json")
-        return ModelSuperpixelClassification(config)
+        run_dir = _HTCModel.find_pretrained_run("superpixel_classification", run_folder)
+        config = _Config(run_dir / "config.json")
+        return _ModelSuperpixelClassification(config)
 
 
-@inherit_doc(
+@_inherit_doc(
     image,
     {
         """
     It is also possible to have a different number of classes as output or a different number of channels as input:
-    >>> print("some log messages"); model = torch.hub.load(settings.src_dir, "image", run_folder=run_folder, n_classes=3, n_channels=10, source="local")  # doctest: +ELLIPSIS
+    >>> print("some log messages"); model = torch.hub.load("IMSY-DKFZ/htc", "image", run_folder=run_folder, n_classes=3, n_channels=10, trust_repo=True)  # doctest: +ELLIPSIS
     some log messages...
     >>> input_data = torch.randn(1, 10, 480, 640)  # NCHW
     >>> model(input_data).shape
     torch.Size([1, 3, 480, 640])
 """: """
     For the pixel model, you can specify a different number of classes but you do not need to set the number of input channels because the underlying convolutional operations directly operate along the channel dimension. Hence, you can just supply input data with a different number of channels and it will work as well.
-    >>> print("some log messages"); model = torch.hub.load(settings.src_dir, "pixel", run_folder=run_folder, n_classes=3, source="local")  # doctest: +ELLIPSIS
+    >>> print("some log messages"); model = torch.hub.load("IMSY-DKFZ/htc", "pixel", run_folder=run_folder, n_classes=3, trust_repo=True)  # doctest: +ELLIPSIS
     some log messages...
     >>> input_data = torch.randn(2, 90)  # NC
     >>> model(input_data).shape
@@ -125,11 +126,11 @@ def superpixel_classification(
         "torch.Size([1, 19, 480, 640])": "torch.Size([2, 19])",
     },
 )
-def pixel(run_folder: str, pretrained: bool = True, fold_name: str = None, n_classes: int = None) -> ModelPixel:
-    ModelClass = ModelPixelRGB if "rgb" in run_folder or "parameters" in run_folder else ModelPixel
+def pixel(run_folder: str, pretrained: bool = True, fold_name: str = None, n_classes: int = None) -> _ModelPixel:
+    ModelClass = _ModelPixelRGB if "rgb" in run_folder or "parameters" in run_folder else _ModelPixel
     if pretrained:
         return ModelClass.pretrained_model("pixel", run_folder, fold_name, n_classes)
     else:
-        run_dir = HTCModel.find_pretrained_run("pixel", run_folder)
-        config = Config(run_dir / "config.json")
+        run_dir = _HTCModel.find_pretrained_run("pixel", run_folder)
+        config = _Config(run_dir / "config.json")
         return ModelClass(config)
