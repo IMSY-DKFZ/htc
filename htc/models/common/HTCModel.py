@@ -224,39 +224,92 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
 
     @classmethod
     def pretrained_model(
-        cls, model_name: str, run_folder: str, fold_name: str = None, n_classes: int = None, n_channels: int = None
+        cls,
+        model: str,
+        run_folder: str,
+        fold_name: str = None,
+        n_classes: int = None,
+        n_channels: int = None,
+        pretrained_weights: bool = True,
     ) -> "HTCModel":
         """
-        Creates a model of the calling class and uses weights from the pretrained model.
+        Load a pretrained segmentation model.
 
-        Note: This is very similar to the functions in hubconf.py in the repository root but works with all trained models (not just the published ones).
+        You can directly use this model to train a network on your data. The weights will be initialized with the weights from the pretrained network, except for the segmentation head which is initialized randomly (and may also be different in terms of number of classes, depending on your data). The returned instance corresponds to the calling class (e.g. `ModelImage`) and you can also find it in the third column of the pretrained models table (cf. readme).
 
-        >>> from htc.models.image.ModelImage import ModelImage
+        For example, load the pretrained model for the image-based segmentation network:
+        >>> from htc import ModelImage
         >>> run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
-        >>> print("some log messages"); model = ModelImage.pretrained_model("image", run_folder)  # doctest: +ELLIPSIS
+        >>> print("some log messages"); model = ModelImage.pretrained_model(model="image", run_folder=run_folder)  # doctest: +ELLIPSIS
         some log messages...
         >>> input_data = torch.randn(1, 100, 480, 640)  # NCHW
         >>> model(input_data).shape
         torch.Size([1, 19, 480, 640])
 
+        It is also possible to have a different number of classes as output or a different number of channels as input:
+        >>> print("some log messages"); model = ModelImage.pretrained_model(model="image", run_folder=run_folder, n_classes=3, n_channels=10)  # doctest: +ELLIPSIS
+        some log messages...
+        >>> input_data = torch.randn(1, 10, 480, 640)  # NCHW
+        >>> model(input_data).shape
+        torch.Size([1, 3, 480, 640])
+
+        The patch-based models also use the `ModelImage` class but with a different input (here using the patch_64 model):
+        >>> run_folder = "2022-02-03_22-58-44_generated_default_64_model_comparison"  # HSI model
+        >>> print("some log messages"); model = ModelImage.pretrained_model(model="patch", run_folder=run_folder)  # doctest: +ELLIPSIS
+        some log messages...
+        >>> input_data = torch.randn(1, 100, 64, 64)  # NCHW
+        >>> model(input_data).shape
+        torch.Size([1, 19, 64, 64])
+
+        The procedure is the same for the superpixel-based segmentation network but this time also using a different calling class (`ModelSuperpixelClassification`):
+        >>> from htc import ModelSuperpixelClassification
+        >>> run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
+        >>> print("some log messages"); model = ModelSuperpixelClassification.pretrained_model(model="superpixel_classification", run_folder=run_folder)  # doctest: +ELLIPSIS
+        some log messages...
+        >>> input_data = torch.randn(2, 100, 32, 32)  # NCHW
+        >>> model(input_data).shape
+        torch.Size([2, 19])
+
+        And also the pixel network:
+        >>> from htc import ModelPixel
+        >>> run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
+        >>> print("some log messages"); model = ModelPixel.pretrained_model(model="pixel", run_folder=run_folder)  # doctest: +ELLIPSIS
+        some log messages...
+        >>> input_data = torch.randn(2, 100)  # NC
+        >>> model(input_data)['class'].shape
+        torch.Size([2, 19])
+
+        For the pixel model, you can specify a different number of classes but you do not need to set the number of input channels because the underlying convolutional operations directly operate along the channel dimension. Hence, you can just supply input data with a different number of channels and it will work as well.
+        >>> print("some log messages"); model = ModelPixel.pretrained_model(model="pixel", run_folder=run_folder, n_classes=3)  # doctest: +ELLIPSIS
+        some log messages...
+        >>> input_data = torch.randn(2, 90)  # NC
+        >>> model(input_data)['class'].shape
+        torch.Size([2, 3])
+
         Args:
-            model_name: Basic model type like image or pixel. Folder name in the first hierarchy level of the training directory.
-            run_folder: Name of the training run from which the weights should be loaded (e.g. to select HSI or RGB models). Folder name in the second hierarchy level of the training directory.
+            model: Basic model type like image or pixel (first column in the pretrained models table). This corresponds to the folder name in the first hierarchy level of the training directory.
+            run_folder: Name of the training run from which the weights should be loaded, e.g. to select HSI or RGB models (fourth column in the pretrained models table). This corresponds to the folder name in the second hierarchy level of the training directory.
             fold_name: Name of the validation fold which defines the trained network of the run. If None, the model with the highest metric score will be used.
             n_classes: Number of classes for the network output. If None, uses the same setting as in the trained network (e.g. 18 organ classes + background for the organ segmentation networks).
-            n_channels: Number of channels of the input. If None, uses the same settings as in the trained network (e.g. 100 channels).
+            n_channels: Number of channels of the input. If None, uses the same settings as in the trained network (e.g. 100 channels). This is inspired by the timm library (https://timm.fast.ai/models#How-is-timm-able-to-use-pretrained-weights-and-handle-images-that-are-not-3-channel-RGB-images?), i.e. it repeats the weights according to the desired number of channels. Please not that this does not take any semantic of the input into account, e.g. the wavelength range or the filter functions of the camera.
+            pretrained_weights: If True, overwrite the weights of the model with the weights from the pretrained model, i.e. make use of the pretrained model. If False, will still load (and download) the model but keep the weights randomly initialized. This mainly ensures that the same config is used for the pretrained model.
 
-        Returns: Instance of the calling model class initialized with the pretrained weights.
+        Returns: Instance of the calling model class initialized with the pretrained weights. The model object will be an instance of `torch.nn.Module`.
         """
-        run_dir = HTCModel.find_pretrained_run(model_name, run_folder)
+        run_dir = HTCModel.find_pretrained_run(model, run_folder)
         config = Config(run_dir / "config.json")
-        config["model/pretrained_model/model"] = model_name
-        config["model/pretrained_model/run_folder"] = run_folder
+        if pretrained_weights:
+            config["model/pretrained_model/model"] = model
+            config["model/pretrained_model/run_folder"] = run_folder
         if fold_name is not None:
             config["model/pretrained_model/fold_name"] = fold_name
         if n_classes is not None:
             config["input/n_classes"] = n_classes
         if n_channels is not None:
+            assert model != "pixel", (
+                "The parameter n_channels cannot be used with the pixel model. The number of channels are solely"
+                " determined by the input (see examples)"
+            )
             config["input/n_channels"] = n_channels
 
         return cls(config)
@@ -335,8 +388,13 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         ```
         and replace the resulting table with the one in the README.
         """
+        from htc.models.image.ModelImage import ModelImage
+        from htc.models.pixel.ModelPixel import ModelPixel
+        from htc.models.pixel.ModelPixelRGB import ModelPixelRGB
+        from htc.models.superpixel_classification.ModelSuperpixelClassification import ModelSuperpixelClassification
+
         table_lines = [
-            "| model type | modality | run folder | class |",
+            "| model type | modality | class | run folder |",
             "| ----------- | ----------- | ----------- | ----------- |",
         ]
         model_lines = []
@@ -345,14 +403,26 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
             model_type, run_folder = name.split("@")
             model_info = run_info(settings.training_dir / model_type / run_folder)
 
-            # Load the model to get the class name
-            model = torch.hub.load(settings.src_dir, model_type, run_folder=run_folder, source="local")
-            class_name = model.__class__.__name__
-            class_path = Path(inspect.getfile(model.__class__)).relative_to(settings.src_dir)
+            if model_type == "superpixel_classification":
+                ModelClass = ModelSuperpixelClassification
+            elif model_type == "pixel":
+                if "parameters" in run_folder or "rgb" in run_folder:
+                    ModelClass = ModelPixelRGB
+                else:
+                    ModelClass = ModelPixel
+            else:
+                ModelClass = ModelImage
+
+            # Check that the model can be loaded
+            model = ModelClass.pretrained_model(model_type, run_folder=run_folder)
+            assert isinstance(model, nn.Module)
+
+            class_name = ModelClass.__name__
+            class_path = Path(inspect.getfile(ModelClass)).relative_to(settings.src_dir)
 
             model_lines.append(
-                f"| {model_type} | {model_info['model_type']} | [{run_folder}]({download_info['url']}) |"
-                f" [`{class_name}`](./{class_path}) |"
+                f"| {model_type} | {model_info['model_type']} | [`{class_name}`](./{class_path}) |"
+                f" [{run_folder}]({download_info['url']}) |"
             )
 
         table_lines += reversed(model_lines)

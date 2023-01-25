@@ -9,7 +9,7 @@
 # Hyperspectral Tissue Classification
 This package is a framework for automated tissue classification and segmentation on medical hyperspectral imaging (HSI) data. It contains:
 
-- The implementation of deep learning models to solve supervised classification and segmentation problems for a variety of different input spatial granularities (pixels, superpixels, patches and entire images, cf. figure below) and modalities (RGB data, raw and processed HSI data) from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488).
+- The implementation of deep learning models to solve supervised classification and segmentation problems for a variety of different input spatial granularities (pixels, superpixels, patches and entire images, cf. figure below) and modalities (RGB data, raw and processed HSI data) from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488). It is based on [PyTorch](https://pytorch.org/) and [PyTorch Lightning](https://lightning.ai/).
 - Corresponding pretrained models.
 - A pipeline to efficiently load and process HSI data, to aggregate deep learning results and to validate and visualize findings.
 
@@ -19,7 +19,7 @@ This package is a framework for automated tissue classification and segmentation
 
 This framework is designed to work on HSI data from the [Tivita](https://diaspective-vision.com/en/) cameras but you can adapt it to different HSI datasets as well. Potential applications include:
 
-<!-- TODO: link to public dataset for all occurences of HeiPorSPECTRAL -->
+<!-- TODO: link to public dataset for all occurrences of HeiPorSPECTRAL -->
 - Use our data loading and processing pipeline to easily access image and meta data for any work utilizing Tivita datasets.
 - This repository is tightly coupled to work with the soon-to-be-public HeiPorSPECTRAL dataset. If you already downloaded the data, you only need to perform the setup steps and then you can directly use the `htc` framework to work on the data (cf. [our tutorials](#tutorials)).
 - Train your own networks and benefit from a pipeline offering e.g. efficient data loading, correct hierarchical aggregation of results and a set of helpful visualizations.
@@ -155,38 +155,58 @@ We do not have a separate documentation website for our framework yet. However, 
 This framework gives you access to a variety of pretrained segmentation and classification models. The models will be automatically downloaded, provided you specify the model type (e.g. `image`) and the run folder (e.g. `2022-02-03_22-58-44_generated_default_model_comparison`). It can then be used for example to [create predictions](./tutorials/CreatingPredictions.ipynb) on some data or as a baseline for your own training (see example below).
 
 The following table lists all the models you can get:
-| model type | modality | run folder | class |
+| model type | modality | class | run folder |
 | ----------- | ----------- | ----------- | ----------- |
-| image | hsi | [2022-02-03_22-58-44_generated_default_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_model_comparison.zip) | [`ModelImage`](./htc/models/image/ModelImage.py) |
-| image | param | [2022-02-03_22-58-44_generated_default_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) | [`ModelImage`](./htc/models/image/ModelImage.py) |
-| image | rgb | [2022-02-03_22-58-44_generated_default_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) | [`ModelImage`](./htc/models/image/ModelImage.py) |
-| patch | hsi | [2022-02-03_22-58-44_generated_default_64_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_model_comparison.zip) | [`ModelImage`](./htc/models/image/ModelImage.py) |
-| patch | param | [2022-02-03_22-58-44_generated_default_64_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_parameters_model_comparison.zip) | [`ModelImage`](./htc/models/image/ModelImage.py) |
-| patch | rgb | [2022-02-03_22-58-44_generated_default_64_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_rgb_model_comparison.zip) | [`ModelImage`](./htc/models/image/ModelImage.py) |
-| patch | hsi | [2022-02-03_22-58-44_generated_default_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_model_comparison.zip) | [`ModelImage`](./htc/models/image/ModelImage.py) |
-| patch | param | [2022-02-03_22-58-44_generated_default_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) | [`ModelImage`](./htc/models/image/ModelImage.py) |
-| patch | rgb | [2022-02-03_22-58-44_generated_default_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) | [`ModelImage`](./htc/models/image/ModelImage.py) |
-| superpixel_classification | hsi | [2022-02-03_22-58-44_generated_default_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_model_comparison.zip) | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) |
-| superpixel_classification | param | [2022-02-03_22-58-44_generated_default_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) |
-| superpixel_classification | rgb | [2022-02-03_22-58-44_generated_default_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) |
-| pixel | hsi | [2022-02-03_22-58-44_generated_default_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_model_comparison.zip) | [`ModelPixel`](./htc/models/pixel/ModelPixel.py) |
-| pixel | param | [2022-02-03_22-58-44_generated_default_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) | [`ModelPixelRGB`](./htc/models/pixel/ModelPixelRGB.py) |
-| pixel | rgb | [2022-02-03_22-58-44_generated_default_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) | [`ModelPixelRGB`](./htc/models/pixel/ModelPixelRGB.py) |
+| image | hsi | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_model_comparison.zip) |
+| image | param | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) |
+| image | rgb | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) |
+| patch | hsi | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_64_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_model_comparison.zip) |
+| patch | param | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_64_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_parameters_model_comparison.zip) |
+| patch | rgb | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_64_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_rgb_model_comparison.zip) |
+| patch | hsi | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_model_comparison.zip) |
+| patch | param | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) |
+| patch | rgb | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) |
+| superpixel_classification | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | [2022-02-03_22-58-44_generated_default_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_model_comparison.zip) |
+| superpixel_classification | param | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | [2022-02-03_22-58-44_generated_default_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) |
+| superpixel_classification | rgb | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | [2022-02-03_22-58-44_generated_default_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) |
+| pixel | hsi | [`ModelPixel`](./htc/models/pixel/ModelPixel.py) | [2022-02-03_22-58-44_generated_default_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_model_comparison.zip) |
+| pixel | param | [`ModelPixelRGB`](./htc/models/pixel/ModelPixelRGB.py) | [2022-02-03_22-58-44_generated_default_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) |
+| pixel | rgb | [`ModelPixelRGB`](./htc/models/pixel/ModelPixelRGB.py) | [2022-02-03_22-58-44_generated_default_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) |
 
 > 💡 The modality `param` refers to stacked tissue parameter images (named TPI in our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488)). For the model type `patch`, pretrained models are available for the patch sizes 64 x 64 and 32 x 32 pixels. The modality and patch size is not specified when loading a model as it is already characterized by specifying a certain run folder.
 
-After successful installation of the `htc` package, you can use [`torch.hub.list("IMSY-DKFZ/htc")`](https://pytorch.org/docs/stable/hub.html#torch.hub.list) and [`torch.hub.help("IMSY-DKFZ/htc", "image")`](https://pytorch.org/docs/stable/hub.html#torch.hub.help) to get more information on how to use the models to initialize the weights for your own training. As a teaser, consider the following example which loads the pretrained image HSI network:
+After successful installation of the `htc` package, you can use any of the pretrained models listed in the table. There are several ways to use them but the general principle is that models are always specified via their `model` and `run_folder`.
+
+### Option 1: Use the models in your own training pipeline
+Every model class listed in the table has a static method [`pretrained_model()`](./htc/models/common/HTCModel.py) which you can use to create a model instance and initialize it with the pretrained weights. The model object will be an instance of `torch.nn.Module`. The function has examples for all the different model types but as a teaser consider the following example which loads the pretrained image HSI network:
 ```python
-import torch
+from htc import ModelImage
 
 run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
-model = torch.hub.load("IMSY-DKFZ/htc", "image", run_folder=run_folder, n_channels=100, n_classes=19, trust_repo=True)
+model = ModelImage.pretrained_model(model="image", run_folder=run_folder, n_channels=100, n_classes=19)
 input_data = torch.randn(1, 100, 480, 640)  # NCHW
 model(input_data).shape
 # torch.Size([1, 19, 480, 640])
 ```
 
-> 💡 Please note that when initializing the weights as described above, the segmentation head is initialized randomly. Meaningful predictions on your own data can thus not be expected out of the box, but you will have to train the model on your data first.
+> 💡 Please note that when initializing the weights as in this example, the segmentation head is initialized randomly. Meaningful predictions on your own data can thus not be expected out of the box, but you will have to train the model on your data first.
+
+### Option 2: Use the models to create predictions for your data
+The models can be used to predict segmentation masks for your data. The segmentation models automatically sample from your input image according to the selected model spatial granularity (e.g. by creating patches) and the output is always a segmentation mask for an entire image. The set of output classes is determined by the training configuration, e.g. 18 organ classes + background for our semantic models. The [`CreatingPredictions`](./tutorials/CreatingPredictions.ipynb) notebook shows how to create predictions and how to map the network output to meaningful label names.
+
+### Option 3: Use the models to train a network with the `htc` package
+If you are using the `htc` framework to [train your networks](./tutorials/network_training/NetworkTraining.ipynb), you only need to define the model in your configuration:
+```json
+{
+    "model": {
+        "pretrained_model": {
+            "model": "image",
+            "run_folder": "2022-02-03_22-58-44_generated_default_model_comparison",
+        }
+    }
+}
+```
+This is very similar to option 1 but may be more convenient if you train with the `htc` framework.
 
 ## CLI
 There is a common command line interface for many scripts in this repository. More precisely, every script which is prefixed with `run_NAME.py` can also be run via `htc NAME` from any directory. For more details, just type `htc`.
