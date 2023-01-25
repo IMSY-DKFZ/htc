@@ -180,6 +180,7 @@ After successful installation of the `htc` package, you can use any of the pretr
 ### Option 1: Use the models in your own training pipeline
 Every model class listed in the table has a static method [`pretrained_model()`](./htc/models/common/HTCModel.py) which you can use to create a model instance and initialize it with the pretrained weights. The model object will be an instance of `torch.nn.Module`. The function has examples for all the different model types but as a teaser consider the following example which loads the pretrained image HSI network:
 ```python
+import torch
 from htc import ModelImage
 
 run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model

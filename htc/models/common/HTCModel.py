@@ -153,6 +153,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         pretrained_model = None
         model_path = None
         checkpoint_paths = sorted(pretrained_dir.rglob("*.ckpt"))
+        map_location = None if torch.cuda.is_available() else "cpu"
 
         for checkpoint_path in checkpoint_paths:
             match = re.search(r"dice_metric=(\d+\.\d+)", checkpoint_path.name)
@@ -162,7 +163,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                     highest_metric = current_metric
                     model_path = checkpoint_path
             else:
-                current_model = torch.load(checkpoint_path)
+                current_model = torch.load(checkpoint_path, map_location=map_location)
                 current_metric = [
                     v["best_model_score"].item()
                     for k, v in current_model["callbacks"].items()
@@ -174,7 +175,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
 
         if pretrained_model is None:
             assert model_path is not None, "Could not find the best model"
-            pretrained_model = torch.load(model_path)
+            pretrained_model = torch.load(model_path, map_location=map_location)
 
         # Change state dict keys
         model_dict = self.state_dict()
