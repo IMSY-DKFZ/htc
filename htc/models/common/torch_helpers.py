@@ -112,21 +112,25 @@ def smooth_one_hot(labels: torch.Tensor, n_classes: int, smoothing: float = 0.0)
     return true_dist
 
 
-def move_batch_gpu(batch: dict) -> dict:
+def move_batch_gpu(batch: dict, device: torch.device = None) -> dict:
     """
-    Moves every tensor in the batch to the GPU.
+    Moves every tensor in the batch to the GPU (or any other device).
 
     Args:
         batch: Batch with PyTorch tensors.
+        device: The device to move the batch to. Defaults to the current CUDA device.
 
     Returns: Dictionary with the same keys as in batch but with every tensor on the GPU.
     """
+    if device is None:
+        device = torch.device("cuda")
+
     batch_gpu = {}
     for key, value in batch.items():
         if type(value) == torch.Tensor:
-            batch_gpu[key] = value.cuda()
+            batch_gpu[key] = value.to(device)
         elif type(value) == list and all(type(v) == torch.Tensor for v in value):
-            batch_gpu[key] = [t.cuda() for t in value]
+            batch_gpu[key] = [t.to(device) for t in value]
         else:
             batch_gpu[key] = value
 

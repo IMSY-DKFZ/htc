@@ -1,5 +1,5 @@
 <div align="center">
-<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/htc_logo.svg"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/htc_logo.png" alt="Logo" width="800" /></a>
+<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/htc_logo.svg"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/htc_logo.svg" alt="Logo" width="600" /></a>
 
 [![Python](https://img.shields.io/pypi/pyversions/imsy-htc.svg)](https://pypi.org/project/imsy-htc)
 [![PyPI version](https://badge.fury.io/py/imsy-htc.svg)](https://pypi.org/project/imsy-htc)
@@ -9,21 +9,25 @@
 # Hyperspectral Tissue Classification
 This package is a framework for automated tissue classification and segmentation on medical hyperspectral imaging (HSI) data. It contains:
 
-- The implementation of deep learning models to solve supervised classification and segmentation problems for a variety of different input spatial granularities (pixels, superpixels, patches and entire images) and modalities (RGB data, raw and processed HSI data) from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488).
+- The implementation of deep learning models to solve supervised classification and segmentation problems for a variety of different input spatial granularities (pixels, superpixels, patches and entire images, cf. figure below) and modalities (RGB data, raw and processed HSI data) from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488).
 - Corresponding pretrained models.
 - A pipeline to efficiently load and process HSI data, to aggregate deep learning results and to validate and visualize findings.
+
+<div align="center">
+<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.svg"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.svg" alt="Overview of deep learning models in the htc framework, here shown for HSI input." /></a>
+</div>
 
 This framework is designed to work on HSI data from the [Tivita](https://diaspective-vision.com/en/) cameras but you can adapt it to different HSI datasets as well. Potential applications include:
 
 <!-- TODO: link to public dataset for all occurences of HeiPorSPECTRAL -->
 - Use our data loading and processing pipeline to easily access image and meta data for any work utilizing Tivita datasets.
-- This repository is tightly coupled to work with the soon-to-be public HeiPorSPECTRAL dataset. If you already downloaded the data, you only need to perform the setup steps and then you can directly use the `htc` framework to work on the data (cf. [our tutorials](#tutorials)).
+- This repository is tightly coupled to work with the soon-to-be-public HeiPorSPECTRAL dataset. If you already downloaded the data, you only need to perform the setup steps and then you can directly use the `htc` framework to work on the data (cf. [our tutorials](#tutorials)).
 - Train your own networks and benefit from a pipeline offering e.g. efficient data loading, correct hierarchical aggregation of results and a set of helpful visualizations.
 - Apply deep learning models for different spatial granularities and modalities on your own semantically annotated dataset.
 - Use our pretrained models to initialize the weights for your own training.
 - Use our pretrained models to generate predictions for your own data.
 
-If you use the `htc` framework, please cite our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488):
+If you use the `htc` framework, please cite our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488).
 
 <details closed>
 <summary>Cite via BibTeX</summary>
@@ -53,7 +57,7 @@ This installs all the required dependencies defined in [`requirements.txt`](./re
 
 > &#x26a0;&#xfe0f; This framework was developed and tested using the Ubuntu 20.04+ Linux distribution. Despite we do provide wheels for Windows and macOS as well, they are not tested.
 
-> &#x26a0;&#xfe0f; Network training and inference was conducted using a RTX 3090 GPU with 24 GiB of memory. It should also work with GPUs which have less memory but you may have to adjust some settings (e.g. the batch size).
+> &#x26a0;&#xfe0f; Network training and inference was conducted using an RTX 3090 GPU with 24 GiB of memory. It should also work with GPUs which have less memory but you may have to adjust some settings (e.g. the batch size).
 
 <details close>
 <summary>Optional Dependencies (<code>imsy-htc[extra]</code>)</summary>
@@ -87,7 +91,7 @@ Make sure that your environment variables are available and then bash into the c
 export PATH_Tivita_HeiPorSPECTRAL="/path/to/the/dataset"
 python run_docker.py bash
 ```
-You can now run any commands you like. All datasets you provided via an environment variable that starts with `PATH_Tivita` will be accessible in your container (you can also check the generated `docker-compose.override.yml` file for details). Please note that the Docker container is for small testing only and not for development. This is also reflected by the fact that per default all results are stored inside the container and hence will also be deleted after exiting the container. If you want to keep your results, let the environment variable `PATH_HTC_DOCKER_RESULTS` point to the directory where you want to store the results.
+You can now run any commands you like. All datasets you provided via an environment variable that starts with `PATH_Tivita` will be accessible in your container (you can also check the generated `docker-compose.override.yml` file for details). Please note that the Docker container is meant for small testing only and not for development. This is also reflected by the fact that per default all results are stored inside the container and hence will also be deleted after exiting the container. If you want to keep your results, let the environment variable `PATH_HTC_DOCKER_RESULTS` point to the directory where you want to store the results.
 </details>
 
 <details close>
@@ -97,9 +101,8 @@ If you want to make changes to the package code (which is highly welcome 😉), 
 
 ```bash
 # Set up the conda environment
-# Note: you might want to consider adding conda-forge to your default channels (if not done already)
+# Note: By adding conda-forge to your default channels, you will get the latest patch releases for Python:
 #   conda config --add channels conda-forge
-# so that you also get the latest patch releases for Python
 conda create --yes --name htc python=3.10
 conda activate htc
 
@@ -108,7 +111,7 @@ pip install -r requirements-dev.txt
 pip install --no-use-pep517 -e .
 ```
 
-Before commiting any files, please run the static code checks locally
+Before commiting any files, please run the static code checks locally:
 ```bash
 git add .
 pre-commit run --all-files
@@ -125,26 +128,25 @@ There are several options to set the environment variables. For example:
     ```bash
     PATH_HTC_RESULTS="~/htc/results" htc training --model image --config "models/image/configs/default"
     ```
-    However, this might get cumbersome or does not give you the flexibility you need. 
-- Recommended if you cloned this repository (in contrast to simply installing it via pip): You can create a `.env` file in the repository root and fill it with your variables, for example:
+    However, this might get cumbersome or might not give you the flexibility you need. 
+- Recommended if you cloned this repository (in contrast to simply installing it via pip): You can create a `.env` file in the repository root and add your variables, for example:
     ```bash
     export PATH_Tivita_HeiPorSPECTRAL=/mnt/nvme_4tb/HeiPorSPECTRAL
     export PATH_HTC_RESULTS=~/htc/results
     ```
-- Recommended if you installed the package via pip: You can create user settings for this application. The location is OS-specific. For Linux the location might be at `~/.config/htc/variables.env`. Please run `htc info` upon package installation to retrieve the exact location on your system. The content of the file is the same as the .env above.
+- Recommended if you installed the package via pip: You can create user settings for this application. The location is OS-specific. For Linux the location might be at `~/.config/htc/variables.env`. Please run `htc info` upon package installation to retrieve the exact location on your system. The content of the file is of the same format as of the `.env` above.
 
 After setting your environment variables, it is recommended to run `htc info` to check that your variables are correctly registered in the framework.
 
 ## Tutorials
 A series of [tutorials](./tutorials) can help you get started on the `htc` framework by guiding you through different usage scenarios.
-> 💡 The tutorials make use of our public HSI dataset HeiPorSPECTRAL. If you want to directly run them, please download the dataset first and make it accessible via the environment variable `PATH_Tivita_HeiPorSPECTRAL` as described above.
+> 💡 The tutorials make use of our soon-to-be-public HSI dataset HeiPorSPECTRAL. If you want to directly run them, please download the dataset first and make it accessible via the environment variable `PATH_Tivita_HeiPorSPECTRAL` as described above.
 
 - As a start, we recommend to take a look at this [general notebook](./tutorials/General.ipynb) which showcases the basic functionalities of the `htc` framework. Namely, it demonstrates the usage of the `DataPath` class which is the entry point to load and process HSI data. For example, you will learn how to read HSI cubes, segmentation masks and meta data. Among others, you can use this information to calculate the median spectrum of an organ.
-- If you want to use our framework with your own dataset, it might be necessary to write a custom `DataPath` class so that you can find your images and annotations. We [collected some tips](./tutorials/CustomDataPath.md) on how this can be achieved.
+- If you want to use our framework with your own dataset, it might be necessary to write a custom `DataPath` class so that you can load and process your images and annotations. We [collected some tips](./tutorials/CustomDataPath.md) on how this can be achieved.
 - You have some HSI data at hand and want to use one of our pretrained models to generate predictions? Then our [prediction notebook](./tutorials/CreatingPredictions.ipynb) has got you covered.
-- You want to use our pretrained models to initialize the weights for your own training? You can use the [PyTorch Hub](https://pytorch.org/hub/) for this. See the section about [pretrained models](#pretrained-models) below for details.
-- You want to use our framework to train a network? The [network training notebook](./tutorials/network_training/NetworkTraining.ipynb) will teach you everything you need using the example of a heart and lung segmentation network.
-- There is also a [notebook with low-level details](./tutorials/FileReference.ipynb) on our public HSI dataset. This is useful if you want to know more about the underlying data structure. Or maybe you stumbled upon a file and want to know how to read it.
+- You want to use our pretrained models to initialize the weights for your own training? See the section about [pretrained models](#pretrained-models) below for details.
+- You want to use our framework to train a network? The [network training notebook](./tutorials/network_training/NetworkTraining.ipynb) will show you how to achieve this on the example of a heart and lung segmentation network.
 - If you are interested in our technical validation (e.g. because you want to compare your colorchecker images with ours) and need to create a mask to detect the different colorchecker fields, you might find our automatic [colorchecker mask creation pipeline](./htc/utils/ColorcheckerMaskCreation.ipynb) useful.
 
 We do not have a separate documentation website for our framework yet. However, most of the functions and classes are documented so feel free to explore the source code or use your favorite IDE to display the documentation. If something does not become clear from the documentation, feel free to open an issue!
@@ -195,7 +197,11 @@ This repository contains code to reproduce our publications listed below:
 ### 📝 Robust deep learning-based semantic organ segmentation in hyperspectral images
 [https://doi.org/10.1016/j.media.2022.102488](https://doi.org/10.1016/j.media.2022.102488)
 
-In this paper, we trained several segmentation networks and compared different spatial granularities (e.g. patch vs. image) and modalities (e.g. HSI vs. RGB). Furthermore, we give insights into the required amount of training dta or the generalization capabilities of the models across subjects. The pretrained networks are related to this paper. You can find the notebooks to generate the paper figures in [paper/MIA2021](./paper/MIA2021) (the folder also includes a [reproducibility document](./paper/MIA2021/reproducibility.md)) and the models in [htc/models](./htc/models). For each model, there are three configuration files, namely default, default_rgb and default_parameters, which correspond to the HSI, RGB and TPI modality, respectively.
+<div align="center">
+<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_abstract.svg"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_abstract.png" alt="Logo" width="800" /></a>
+</div>
+
+In this paper, we tackled fully automatic organ segmentation and compared deep learning models on different spatial granularities (e.g. patch vs. image) and modalities (e.g. HSI vs. RGB). Furthermore, we studied the required amount of training data and the generalization capabilities of our models across subjects. The pretrained networks are related to this paper. You can find the notebooks to generate the paper figures in [paper/MIA2021](./paper/MIA2021) (the folder also includes a [reproducibility document](./paper/MIA2021/reproducibility.md)) and the models in [htc/models](./htc/models). For each model, there are three configuration files, namely default, default_rgb and default_parameters, which correspond to the HSI, RGB and TPI modality, respectively.
 
 > 📂 The dataset for this paper is not publicly available.
 
@@ -220,9 +226,9 @@ In this paper, we trained several segmentation networks and compared different s
 ### 📝 Spectral organ fingerprints for machine learning-based intraoperative tissue classification with hyperspectral imaging in a porcine model
 [https://doi.org/10.1038/s41598-022-15040-w](https://doi.org/10.1038/s41598-022-15040-w)
 
-In this paper, we trained a classification model based on median spectra. You can find the model code in [htc/tissue_atlas](./htc/tissue_atlas) and the confusion matrix figure of the paper in [paper/NatureReports2021](./paper/NatureReports2021).
+In this paper, we trained a classification model based on median spectra from HSI data. You can find the model code in [htc/tissue_atlas](./htc/tissue_atlas) and the confusion matrix figure of the paper in [paper/NatureReports2021](./paper/NatureReports2021).
 
-> 📂 The dataset for this paper is not fully publicly available. Part of the data used in this paper overlaps with the open HeiPorSPECTRAL dataset.
+> 📂 The dataset for this paper is not fully publicly available, but a subset of the data is available through the soon-to-be-public HeiPorSPECTRAL dataset.
 
 <details closed>
 <summary>Cite via BibTeX</summary>
@@ -245,19 +251,22 @@ In this paper, we trained a classification model based on median spectra. You ca
 ```
 </details>
 
-<!-- TODO: adjust title once set, change soon-to-be -->
+<!-- TODO: adjust title once set, change soon-to-be & soon -->
+
 ### 📝 HeiPorSPECTRAL - A dataset for hyperspectral imaging data of 20 physiological organs in a porcine model
 
-This paper introduces the HeiPorSPECTRAL dataset containing 5756 hyperspectral images from 11 subjects. We are using these images as examples for our tutorials. You can find the visualization notebook for the paper figures in [paper/NatureData2023](./paper/NatureData2023) (the folder also includes a [reproducibility document](./paper/NatureData2023/reproducibility.md)) and the remaining code in [htc/tissue_atlas_open](./htc/tissue_atlas_open).
+This paper introduces the HeiPorSPECTRAL dataset containing 5756 hyperspectral images from 11 subjects. We are using these images in our tutorials. You can find the visualization notebook for the paper figures in [paper/NatureData2023](./paper/NatureData2023) (the folder also includes a [reproducibility document](./paper/NatureData2023/reproducibility.md)) and the remaining code in [htc/tissue_atlas_open](./htc/tissue_atlas_open).
 
-> 📂 The dataset for this paper is soon-to-be publicly available.
+If you want to learn more about the HeiPorSPECTRAL dataset (e.g. the underlying data structure) or you stumbled upon a file and want to know how to read it, you might find this [notebook with low-level details](./tissue_atlas_open/FileReference.ipynb) helpful.
+
+> 📂 The dataset for this paper will soon be publicly available.
 
 ### 📝 Künstliche Intelligenz und hyperspektrale Bildgebung zur bildgestützten Assistenz in der minimal-invasiven Chirurgie
 [https://doi.org/10.1007/s00104-022-01677-w](https://doi.org/10.1007/s00104-022-01677-w)
 
-You can find the code generating our figure for this paper at [paper/Chirurg2022](./paper/Chirurg2022).
+This paper presents several applications of intraoperative HSI, including our organ [segmentation](https://doi.org/10.1016/j.media.2022.102488) and [classification](https://doi.org/10.1038/s41598-022-15040-w) work. You can find the code generating our figure for this paper at [paper/Chirurg2022](./paper/Chirurg2022).
 
-> 📂 The data used in this paper is the same as for “Robust deep learning-based semantic organ segmentation in hyperspectral images” and hence not publicly available.
+> 📂 The sample image used here is contained in the dataset from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488) and hence not publicly available.
 
 <details closed>
 <summary>Cite via BibTeX</summary>

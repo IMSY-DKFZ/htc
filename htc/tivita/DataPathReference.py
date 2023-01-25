@@ -27,7 +27,12 @@ class DataPathReference(DataPath):
             dataset_name: Name of the dataset where the image comes from.
         """
         self.network_path = network_path
-        super().__init__(settings.data_dirs.network_data / self.network_path, *args, **kwargs)
+        if settings.data_dirs.network_data is None:
+            super().__init__(None, *args, **kwargs)
+            self.timestamp = self.network_path.name
+        else:
+            super().__init__(settings.data_dirs.network_data / self.network_path, *args, **kwargs)
+
         self.dataset_name = dataset_name
 
     def image_name(self) -> str:
@@ -51,17 +56,25 @@ class DataPathReference(DataPath):
         if DataPathReference._references_cache is None:
             DataPathReference._references_cache = {}
 
-            data_dir = settings.data_dirs.unsorted
-            df = pd.read_feather(data_dir / "image_references.feather")
-            dsettings = DatasetSettings(data_dir / "dataset_settings.json")
+            unsorted_dir = settings.data_dirs.unsorted
+            df = pd.read_feather(unsorted_dir / "image_references.feather")
+            dsettings = DatasetSettings(unsorted_dir / "dataset_settings.json")
+
+            # The unsorted dataset has its own intermediates but the data dir always references the original dataset
+            intermediates_dir = settings.data_dirs.find_intermediates_dir(unsorted_dir)
 
             for image_name, network_path, dataset_name in zip(df["image_name"], df["network_path"], df["dataset_name"]):
+                if settings.data_dirs.network_data is None:
+                    data_dir = None
+                else:
+                    data_dir = settings.data_dirs.network_data / dataset_name / "data"
+
                 DataPathReference._references_cache[image_name] = {
-                    "network_path": network_path,
+                    "network_path": Path(network_path),
                     "dataset_name": dataset_name,
                     "dsettings": dsettings,
-                    "data_dir": settings.data_dirs.network_data / dataset_name / "data",
-                    "intermediates_dir": settings.data_dirs.network_data / dataset_name / "intermediates",
+                    "data_dir": data_dir,
+                    "intermediates_dir": intermediates_dir,
                 }
 
         return DataPathReference._references_cache

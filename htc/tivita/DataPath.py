@@ -26,7 +26,7 @@ class DataPath:
 
     def __init__(
         self,
-        image_dir: Union[str, Path],
+        image_dir: Union[str, Path, None],
         data_dir: Union[str, Path] = None,
         intermediates_dir: Union[str, Path] = None,
         dataset_settings: DatasetSettings = None,
@@ -97,12 +97,13 @@ class DataPath:
         self.image_dir = image_dir
         self.data_dir = data_dir
         self.intermediates_dir = intermediates_dir
-        self.timestamp = self.image_dir.name
+        if self.image_dir is not None:
+            self.timestamp = self.image_dir.name
         self.annotation_name_default = annotation_name_default
 
-        if data_dir is None or intermediates_dir is None:
+        if (data_dir is None or intermediates_dir is None) and self.image_dir is not None:
             # Check whether the image directory is from a known location so that we can infer data/intermediates
-            entry = settings.data_dirs.find_entry(image_dir)
+            entry = settings.data_dirs.find_entry(self.image_dir)
             if entry is not None:
                 if data_dir is None:
                     self.data_dir = entry["path_data"]
