@@ -26,63 +26,63 @@ class PostInitCaller(type):
 class HTCModel(nn.Module, metaclass=PostInitCaller):
     known_models = {
         "pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
-            "sha256": "98332bf06ba6da992c191933f0179d6b8bdebf25548613728631df6c64338916",
+            "sha256": "c19c600958fa36f86d8742752bdbab9d067d0ee3f9c0e37cf281ce3b84b139da",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip",
         },
         "pixel@2022-02-03_22-58-44_generated_default_parameters_model_comparison": {
-            "sha256": "95e9ccd79e3c085f57020a11d763e832aadc61b33810b6547647d1f64fc728fc",
+            "sha256": "b38de2a28464aa422b2b8d44861ad9dd1184ceb3053abb5d3d2e811f4ada662c",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip",
         },
         "pixel@2022-02-03_22-58-44_generated_default_model_comparison": {
-            "sha256": "647783ca86f4233ebe29aace90a38d1fb800148882a5ef9b6bcf56d67140efe9",
+            "sha256": "628f2c79ef3ea020bfdda3820670ffb277c0eca6f46d0d72a1692ca53d80a62a",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_model_comparison.zip",
         },
         "superpixel_classification@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
-            "sha256": "78aa094446af744c636322ff544fd4ad0c3185abf21cdb2ed30d150e01e0af8a",
+            "sha256": "c515ff6ae939408b0b866ce9d630cc5cd6c16182b0ea90e0e7e43e15673daa35",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip",
         },
         "superpixel_classification@2022-02-03_22-58-44_generated_default_parameters_model_comparison": {
-            "sha256": "3a0118b93d915e2998a4f32a28e8f07622fb4f0f90f2e1de72d4fe956d659cf5",
+            "sha256": "57c81b3abfcc785ba04c1203192aa2ebb7d4274f295daff9c50d64a62fcadd5f",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip",
         },
         "superpixel_classification@2022-02-03_22-58-44_generated_default_model_comparison": {
-            "sha256": "f88190537240ae15d1125a35c0e358a83020dba07626078ae7537cee9f170469",
+            "sha256": "a39b3fad1e422e6e00563d9193ae751fb54aa3193196878b62be3e3dee8241f2",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
-            "sha256": "c4026909bdae8685b257b0709d495aa10b6d7711013ce21eb49185318483196f",
+            "sha256": "66aa16eb5c0c3969377f30fd927722c48850dba522582565247ed02dbab8db78",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_parameters_model_comparison": {
-            "sha256": "66d3acd52a23b2b973aa4ef42ac37c702516a0c7e8e938ef1efd9d2844fc8f1d",
+            "sha256": "a4fc42c1f49cdb8a63c070a278c790805c72c8b91679eb39b2b7af4aae73827d",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_model_comparison": {
-            "sha256": "48209726e8c5bc01a8af8bcae89300c50f8250ce54c162ed329b8eeae960de9f",
+            "sha256": "05c44ad7122260f391d88436df3402c798b6c866c8c26714802f5cbc2dfa4335",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_64_rgb_model_comparison": {
-            "sha256": "1dd4de497540fb8ce0b24d6c108c83dd223f214715940516b77ddaa5564b7bb3",
+            "sha256": "e158f5138d478f0e186106588b843609d5995dfdf91d82b914e87095af31ba78",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_rgb_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_64_parameters_model_comparison": {
-            "sha256": "f9ca5e9ac6e57c1eeebd7f46cabbc1c654f2e0164f7f29b3e8030cc96b804d92",
+            "sha256": "307e1770dc433dc1ad1418b8ecdfac58efe0fee1d5f6c06b555a3465965838d0",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_parameters_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_64_model_comparison": {
-            "sha256": "8ef6a82f5395e08ff31c6dd01aa9477f12fd4aa45707eeb5d2e72d0e25900f98",
+            "sha256": "09a270aa35923b5053fd558307b6c272815578142dcdbf68cbb695111df51224",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_model_comparison.zip",
         },
         "image@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
-            "sha256": "da7483a4bf494b78518b267d0e8bdaa5d682b3a1913d2a48766ccccdf3564431",
+            "sha256": "98fd75c3d4729e5d8ed34676e9a6a0e3c1203f56738ffe517198c7807d152611",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip",
         },
         "image@2022-02-03_22-58-44_generated_default_parameters_model_comparison": {
-            "sha256": "603637f5be4cbe5d3fbdbddf5f7561b5437b1e408ef560e924c1ee96eaccf8f7",
+            "sha256": "82617ffbf9ebc31c93e130a1af3ac8690c46f9f84c032745e97faddfb9786fce",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip",
         },
         "image@2022-02-03_22-58-44_generated_default_model_comparison": {
-            "sha256": "88590ee95bae09b5a914f3cd2ef17799fbe8d95f07d52a24752be2e9e74945d2",
+            "sha256": "9df57e16a73c700ff3de1d2b0de2bbf3efdc0b954b50a7f222c268e4079c806f",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_model_comparison.zip",
         },
     }
@@ -362,19 +362,22 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
 
         # Check file contents to catch download errors
         hash_cat = ""
-        for f in sorted(run_dir.rglob("*")):
+        for f in sorted(run_dir.rglob("*"), key=lambda x: str(x).lower()):
             if f.is_file():
                 hash_cat += sha256_file(f)
 
         hash_folder = hashlib.sha256(hash_cat.encode()).hexdigest()
-        assert model_info["sha256"] == hash_folder, (
-            "The hash of the folder (hash of the file hashes) does not match the expected hash. The download of the"
-            " model was likely not successful. The downloaded files are not deleted and are still available at"
-            f" {hub_dir}. Please check the files manually. If you want to re-trigger the download process, just delete"
-            " the corresponding run directory"
-        )
+        if model_info["sha256"] != hash_folder:
+            settings.log.error(
+                f"The hash of the folder (hash of the file hashes, {hash_folder}) does not match the expected hash"
+                f" ({model_info['sha256']}). The download of the model was likely not successful. The downloaded files"
+                f" are not deleted and are still available at {hub_dir}. Please check the files manually (e.g. for"
+                " invalid file sizes). If you want to re-trigger the download process, just delete the corresponding"
+                f" run directory {run_dir}"
+            )
+        else:
+            settings.log.info(f"Successfully downloaded the pretrained run to the local hub dir at {run_dir}")
 
-        settings.log.info(f"Successfully downloaded the pretrained run to the local hub dir at {run_dir}")
         return run_dir
 
     @staticmethod

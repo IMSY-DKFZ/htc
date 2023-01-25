@@ -38,7 +38,7 @@ def compress_run(run_dir: Path, output_path: Path) -> str:
             files_to_copy[f] = f.relative_to(str(run_dir))
 
     # Correct sorting for the folder hash (relies on the same sorting)
-    files_to_copy = dict(sorted(files_to_copy.items()))
+    files_to_copy = dict(sorted(files_to_copy.items(), key=lambda i: str(i[0]).lower()))
 
     # Put everything into the archive
     with ZipFile(output_path, mode="w") as archive:
