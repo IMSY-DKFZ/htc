@@ -309,3 +309,7 @@ This paper presents several applications of intraoperative HSI, including our or
 }
 ```
 </details>
+
+## Funding
+
+This project has received funding from the European Research Council (ERC) under the European Unions Horizon 2020 research and innovation programme (NEURAL SPICING, grant agreement No. 101002198) and was supported by the German Cancer Research Center (DKFZ) and the Helmholtz Association under the joint research school HIDSS4Health (Helmholtz Information and Data Science School for Health). It further received funding from the Surgical Oncology Program of the National Center for Tumor Diseases (NCT) Heidelberg.
