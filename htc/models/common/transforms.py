@@ -132,7 +132,7 @@ class HTCTransformation:
         """
         Applies the transformations to the batch and checks whether after the transformation the batch is still valid. That is, at least one valid pixel must remain (per image). Otherwise, the original, non-transformed image will be returned.
 
-        Note: Works only for transformations which do no alter the batch in-place.
+        Note: Works only for transformations which do not alter the batch in-place.
 
         For multi-layer segmentations, at least one valid pixel must remain per layer, otherwise the transformed image is not used.
         For multiple annotations, at least one valid pixel must remain for each annotated image. If one annotation_name has only invalid pixels left, the original, non-transformed image stays in the batch.

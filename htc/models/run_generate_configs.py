@@ -76,7 +76,9 @@ def generate_configs(
         config_dir = config.path_config.parent
         new_config.save_config(config_dir / filename)
 
-        run_name = datetime.now().strftime(f'{timestamp}_{new_config["config_name"]}')
+        # To keep the run folder names short, we remove the "generated_" part from the config
+        config_name_short = new_config["config_name"].removeprefix("generated_")
+        run_name = datetime.now().strftime(f"{timestamp}_{config_name_short}")
         config_rel_path = Path(config_name_or_path).parent / filename
 
         if single_submit:

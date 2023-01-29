@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import argparse
 import io
 
 import matplotlib
@@ -14,25 +13,9 @@ from htc.cpp import map_label_image
 from htc.settings import settings
 from htc.tissue_atlas.settings_atlas import settings_atlas
 from htc.tivita.DataPath import DataPath
-from htc.utils.file_transfer import upload_file_s3
 from htc.utils.LabelMapping import LabelMapping
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Create the gif for the dataset README.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--upload",
-        default=False,
-        action="store_true",
-        help=(
-            "Upload the generated files to our S3 storage (requires that you have access and that the storage is"
-            " configured correctly)."
-        ),
-    )
-    args = parser.parse_args()
-
     # Select the example image
     path = DataPath.from_image_name("P088#2021_04_19_11_48_27")
     label_name = "peritoneum"
@@ -104,11 +87,3 @@ if __name__ == "__main__":
         loop=0,
         optimize=True,
     )
-
-    if args.upload:
-        link_rgb = upload_file_s3(local_path=rgb_file, remote_path="figures/HeiPorSPECTRAL_readme_example.png")
-        link_gif = upload_file_s3(local_path=gif_file, remote_path="figures/HeiPorSPECTRAL_readme_example.gif")
-
-        print("Links which can be used in the README:")
-        print(link_rgb)
-        print(link_gif)

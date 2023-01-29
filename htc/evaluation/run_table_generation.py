@@ -52,13 +52,13 @@ def merge_fold_tables(run_dir: Path, table_filename: str) -> pd.DataFrame:
     return pd.concat(all_dfs)
 
 
-def generate_validation_table(run_dir: Path) -> pd.DataFrame:
+def generate_validation_table(run_dir: Path, table_stem: str = "validation_results") -> pd.DataFrame:
     def validation_table_npz(run_dir: Path) -> pd.DataFrame:
         # First collect all possible metric names
         metric_names = set()
 
         for fold_dir in sorted(run_dir.glob("fold*")):
-            results_path = fold_dir / "validation_results.npz"
+            results_path = fold_dir / f"{table_stem}.npz"
             assert results_path.exists(), f"The run {fold_dir} does not contain any results"
 
             data = np.load(results_path, allow_pickle=True)["data"]
@@ -72,7 +72,7 @@ def generate_validation_table(run_dir: Path) -> pd.DataFrame:
         metric_names = sorted(metric_names)
 
         for fold_dir in sorted(run_dir.glob("fold*")):
-            results_path = fold_dir / "validation_results.npz"
+            results_path = fold_dir / f"{table_stem}.npz"
             config = Config(fold_dir / "config.json")
             _, best_epoch_index = checkpoint_path(fold_dir)
 
@@ -100,12 +100,12 @@ def generate_validation_table(run_dir: Path) -> pd.DataFrame:
             rows, columns=["epoch_index", "best_epoch_index", "dataset_index", "fold_name", "image_name"] + metric_names
         )
 
-    if len(sorted(run_dir.rglob("validation_results.npz"))) > 0:
-        # E.g. segmentation tasks
+    if len(sorted(run_dir.rglob(f"{table_stem}.npz"))) > 0:
+        # E.g. old segmentation tasks
         return validation_table_npz(run_dir)
     else:
         # E.g. camera problem
-        return merge_fold_tables(run_dir, "validation_results.pkl.xz")
+        return merge_fold_tables(run_dir, f"{table_stem}.pkl.xz")
 
 
 def save_validation_table(run_dir: Path) -> None:
@@ -122,6 +122,14 @@ def save_validation_table(run_dir: Path) -> None:
 
     df = generate_validation_table(run_dir)
     df.to_pickle(table_path)
+
+    # Also merge additional validation tables in case they are available
+    additional_results = sorted(run_dir.rglob("*validation_results_*"))
+    if len(additional_results) > 0:
+        for stem in {f.name.split(".")[0] for f in additional_results}:
+            print(stem)
+            df = generate_validation_table(run_dir, table_stem=stem)
+            df.to_pickle(run_dir / f"{stem.replace('results', 'table')}.pkl.xz")
 
 
 def save_test_table(run_dir: Path) -> None:
@@ -149,7 +157,7 @@ def check_run(run_dir: Path) -> None:
         "*ckpt",
         "events.out.tfevents*",
         "system_log*.json",
-        "validation_results*",
+        "validation_results.*",
     ]
     error_occurred = False
 

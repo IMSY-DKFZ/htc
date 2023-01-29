@@ -110,7 +110,7 @@ class MetricAggregation:
             keep_subjects: If True, metrics are only aggregated across images but not across subjects and a subject column will remain in the output table.
             mode: Aggregation mode. Either `class_level` (one metric value per label) or `image_level` (multiple classes in an image are aggregated first to get a metric value for one image). If None, the value from the config (`validation/checkpoint_metric_mode`) is used. Defaults to `class_level`.
             dataset_index: The index of the dataset which is selected in the table (if available). If None, no selection is carried out.
-            best_epoch_only: If True, only results from the best epoch are considered (if available). If False, no selection is carried out.
+            best_epoch_only: If True, only results from the best epoch are considered (if available). If False, no selection is carried out and you will get aggregated results per epoch_index (which will also be a column in the resulting table).
 
         Returns: Table with metric values.
         """
@@ -119,12 +119,16 @@ class MetricAggregation:
         ), "The dataframe misses some of the required columns"
 
         df = self.df
+        domains = self._domain_defaults(domains)
+
         if dataset_index is not None and "dataset_index" in df:
             df = df[df["dataset_index"] == dataset_index]
         if best_epoch_only and "epoch_index" in df and "best_epoch_index" in df:
             df = df[df["epoch_index"] == df["best_epoch_index"]]
 
-        domains = self._domain_defaults(domains)
+        if not best_epoch_only and "epoch_index" not in domains:
+            domains.append("epoch_index")
+
         if mode is None:
             mode = self.config.get("validation/checkpoint_metric_mode", "class_level")
 

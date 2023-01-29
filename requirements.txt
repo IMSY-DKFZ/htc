@@ -10,6 +10,7 @@ seaborn
 plotly
 kaleido
 jupyterlab
+jupyter_client<8  # Currently a dependency conflict (https://github.com/nteract/papermill/issues/711)
 papermill
 tensorboard
 pytorch-lightning

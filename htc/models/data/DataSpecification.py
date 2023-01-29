@@ -27,7 +27,6 @@ class DataSpecification:
         'P044#2020_02_01_09_51_15'
 
         You can also easily construct datasets from the folds:
-
         >>> from htc.models.image.DatasetImage import DatasetImage
         >>> first_fold = specs.folds['fold_P041,P060,P069']
         >>> dataset_train = DatasetImage(first_fold['train_semantic'], train=True)
@@ -36,6 +35,23 @@ class DataSpecification:
         >>> dataset_val_unknown = DatasetImage(first_fold['val_semantic_unknown'], train=False)
         >>> dataset_val_unknown[0]['image_name']
         'P041#2019_12_14_12_00_16'
+
+        Or get the paths from the different splits
+        >>> validation_paths = specs.paths("^val")
+
+        If you want to read the test paths, you have to explicitly enable it:
+        >>> with specs.activated_test_set():
+        ...     test_paths = specs.paths("^test")
+        >>> len(validation_paths)
+        340
+        >>> len(test_paths)
+        166
+        >>> len({p.subject_name for p in validation_paths})
+        15
+        >>> len({p.subject_name for p in test_paths})
+        5
+
+        The main purpose of the data specification is to define your training setup, i.e. which paths should be used for training, which for validation etc. For this, add the name or (relative) path to your data specification in your config (`input/data_spec`) and it will iterate over your folds, use all paths for training which are part of a split starting with the name `train` for training, all with `val` for validation and  `test` for testing. For testing, however, you need to add the `--test` argument to the training script if it should be used and the images validated.
 
         Args:
             path_or_file: Path (or string) to the data specification json file (path can also be relative to the models or data directories) or a file object which implements a read() method.

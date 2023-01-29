@@ -2,39 +2,30 @@
 # SPDX-License-Identifier: MIT
 
 import multiprocessing
+from pathlib import Path
 
 import torch
+import torch.nn as nn
 from rich.progress import Progress, TimeElapsedColumn
+from torch.utils.data import DataLoader
+from typing_extensions import Self
 
 from htc.model_processing.Predictor import Predictor
 from htc.models.common.HTCLightning import HTCLightning
 from htc.models.common.torch_helpers import move_batch_gpu
 from htc.models.data.DataSpecification import DataSpecification
 from htc.tivita.DataPath import DataPath
+from htc.utils.Config import Config
 from htc.utils.helper_functions import checkpoint_path
 
 
-class TestPredictor(Predictor):
-    def __init__(self, *args, paths: list[DataPath] = None, fold_names: list[str] = None, **kwargs):
-        super().__init__(*args, **kwargs)
+class TestEnsemble(nn.Module):
+    def __init__(self, model_paths: list[Path], paths: list[DataPath], config: Config):
+        super().__init__()
+        self.config = config
 
-        if fold_names is None:
-            model_folds = sorted(self.run_dir.glob("fold*"))  # All folds per default
-        else:
-            model_folds = [self.run_dir / f for f in fold_names]
-        assert len(model_folds) > 0, "At least one fold required"
-
-        # Do not need pretrained model during testing
-        self.config["model/pretrained_model"] = None
-
-        if paths is None:
-            specs = DataSpecification(self.run_dir / "data.json")
-            specs.activate_test_set()
-            paths = specs.paths("^test")
-
-        # Load models from all folds (we'll do ensembling later)
-        self.models = {}
-        for fold_dir in model_folds:
+        self.models: dict[Path, HTCLightning] = {}
+        for fold_dir in model_paths:
             ckpt_file, _ = checkpoint_path(fold_dir)
 
             # Load dataset and lightning class based on model name
@@ -43,16 +34,58 @@ class TestPredictor(Predictor):
             model = LightningClass.load_from_checkpoint(
                 ckpt_file, dataset_train=None, datasets_val=[dataset], config=self.config
             )
-            model.eval()
-            model.cuda()
 
             self.models[fold_dir] = model
 
+    def eval(self) -> Self:
+        for model in self.models.values():
+            model.eval()
+        return self
+
+    def cuda(self, *args, **kwargs) -> Self:
+        for model in self.models.values():
+            model.cuda(*args, **kwargs)
+        return self
+
+    def dataloader(self) -> DataLoader:
+        # All models have the same dataset, so we just take the first dataloader and use the data for all models
+        return next(iter(self.models.values())).val_dataloader()[0]
+
+    def predict_step(self, batch: dict[str, torch.Tensor], batch_idx: int = None) -> dict[str, torch.Tensor]:
+        fold_predictions = []
+        for model in self.models.values():
+            fold_predictions.append(model.predict_step(batch)["class"].softmax(dim=1))
+
+        # Ensembling over the softmax values
+        return {"class": torch.stack(fold_predictions).mean(dim=0)}
+
+
+class TestPredictor(Predictor):
+    def __init__(self, *args, paths: list[DataPath] = None, fold_names: list[str] = None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if fold_names is None:
+            model_paths = sorted(self.run_dir.glob("fold*"))  # All folds per default
+        else:
+            model_paths = [self.run_dir / f for f in fold_names]
+        assert len(model_paths) > 0, "At least one fold required"
+
+        # We do not need pretrained model during testing
+        self.config["model/pretrained_model"] = None
+
+        if paths is None:
+            specs = DataSpecification(self.run_dir / "data.json")
+            specs.activate_test_set()
+            paths = specs.paths("^test")
+
+        self.model = TestEnsemble(model_paths, paths, self.config)
+        self.model.eval()
+        self.model.cuda()
+
     @torch.no_grad()
     def start(self, task_queue: multiprocessing.JoinableQueue, hide_progressbar: bool) -> None:
-        dataloader = next(iter(self.models.values())).val_dataloader()[
-            0
-        ]  # All models have the same dataset, so we just take the first dataloader and use the data for all models
+        dataloader = self.model.dataloader()
+
         with Progress(*Progress.get_default_columns(), TimeElapsedColumn(), disable=hide_progressbar) as progress:
             task_loader = progress.add_task("Dataloader", total=len(dataloader))
 
@@ -74,23 +107,32 @@ class TestPredictor(Predictor):
                     if not batch["features"].is_cuda:
                         batch = move_batch_gpu(batch)
 
-                    fold_predictions = []
-                    for model in self.models.values():
-                        fold_predictions.append(model.predict_step(batch)["class"].softmax(dim=1))
-
-                    batch_predictions = (
-                        torch.stack(fold_predictions).mean(dim=0).cpu().numpy()
-                    )  # Ensembling over the softmax values
-                    for b in range(batch_predictions.shape[0]):
-                        image_name = batch["image_name"][b]
-                        if image_name in remaining_image_names:
-                            predictions = batch_predictions[b, ...]
-
-                            task_queue.put(
-                                {
-                                    "image_name": image_name,
-                                    "predictions": predictions,
-                                }
-                            )
+                    self.produce_predictions(
+                        task_queue=task_queue,
+                        model=self.model,
+                        batch=batch,
+                        remaining_image_names=remaining_image_names,
+                    )
 
                 progress.advance(task_loader)
+
+    def produce_predictions(
+        self,
+        task_queue: multiprocessing.JoinableQueue,
+        model: HTCLightning,
+        batch: dict[str, torch.Tensor],
+        remaining_image_names: list[str],
+    ) -> None:
+        batch_predictions = model.predict_step(batch)["class"].cpu().numpy()
+
+        for b in range(batch_predictions.shape[0]):
+            image_name = batch["image_name"][b]
+            if image_name in remaining_image_names:
+                predictions = batch_predictions[b, ...]
+
+                task_queue.put(
+                    {
+                        "image_name": image_name,
+                        "predictions": predictions,
+                    }
+                )

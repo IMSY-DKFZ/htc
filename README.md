@@ -1,5 +1,5 @@
 <div align="center">
-<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/htc_logo.svg"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/htc_logo.svg" alt="Logo" width="600" /></a>
+<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/htc_logo.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/htc_logo.svg" alt="Logo" width="600" /></a>
 
 [![Python](https://img.shields.io/pypi/pyversions/imsy-htc.svg)](https://pypi.org/project/imsy-htc)
 [![PyPI version](https://badge.fury.io/py/imsy-htc.svg)](https://pypi.org/project/imsy-htc)
@@ -14,7 +14,7 @@ This package is a framework for automated tissue classification and segmentation
 - A pipeline to efficiently load and process HSI data, to aggregate deep learning results and to validate and visualize findings.
 
 <div align="center">
-<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.svg"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.svg" alt="Overview of deep learning models in the htc framework, here shown for HSI input." /></a>
+<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.svg" alt="Overview of deep learning models in the htc framework, here shown for HSI input." /></a>
 </div>
 
 This framework is designed to work on HSI data from the [Tivita](https://diaspective-vision.com/en/) cameras but you can adapt it to different HSI datasets as well. Potential applications include:
@@ -219,7 +219,7 @@ This repository contains code to reproduce our publications listed below:
 [https://doi.org/10.1016/j.media.2022.102488](https://doi.org/10.1016/j.media.2022.102488)
 
 <div align="center">
-<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_abstract.svg"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_abstract.png" alt="Logo" width="800" /></a>
+<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_abstract.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_abstract.png" alt="Logo" width="800" /></a>
 </div>
 
 In this paper, we tackled fully automatic organ segmentation and compared deep learning models on different spatial granularities (e.g. patch vs. image) and modalities (e.g. HSI vs. RGB). Furthermore, we studied the required amount of training data and the generalization capabilities of our models across subjects. The pretrained networks are related to this paper. You can find the notebooks to generate the paper figures in [paper/MIA2021](./paper/MIA2021) (the folder also includes a [reproducibility document](./paper/MIA2021/reproducibility.md)) and the models in [htc/models](./htc/models). For each model, there are three configuration files, namely default, default_rgb and default_parameters, which correspond to the HSI, RGB and TPI modality, respectively.

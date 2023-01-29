@@ -27,7 +27,7 @@ class ValidationPredictor(Predictor):
             task_folds = progress.add_task("Folds", total=len(fold_dirs))
 
             for fold_dir in fold_dirs:
-                ckpt_file, _ = checkpoint_path(fold_dir)
+                ckpt_file, best_epoch_index = checkpoint_path(fold_dir)
 
                 # All paths for the respective fold
                 fold_data = specs.folds[fold_dir.name]
@@ -67,6 +67,7 @@ class ValidationPredictor(Predictor):
                                 {
                                     "image_name": image_name,
                                     "fold_name": fold_dir.name,
+                                    "best_epoch_index": best_epoch_index,
                                     "predictions": predictions,
                                 }
                             )
@@ -78,20 +79,39 @@ class ValidationPredictor(Predictor):
                         if not batch["labels"].is_cuda:
                             batch = move_batch_gpu(batch)
 
-                        batch_predictions = model.predict_step(batch)["class"].softmax(dim=1).cpu().numpy()
-
-                        for b in range(batch_predictions.shape[0]):
-                            image_name = batch["image_name"][b]
-                            if image_name in remaining_image_names:
-                                predictions = batch_predictions[b, ...]
-
-                                task_queue.put(
-                                    {
-                                        "image_name": image_name,
-                                        "fold_name": fold_dir.name,
-                                        "predictions": predictions,
-                                    }
-                                )
+                        self.produce_predictions(
+                            task_queue=task_queue,
+                            model=model,
+                            batch=batch,
+                            remaining_image_names=remaining_image_names,
+                            fold_name=fold_dir.name,
+                            best_epoch_index=best_epoch_index,
+                        )
 
                     progress.advance(task_loader)
                 progress.advance(task_folds)
+
+    def produce_predictions(
+        self,
+        task_queue: multiprocessing.JoinableQueue,
+        model: HTCLightning,
+        batch: dict[str, torch.Tensor],
+        remaining_image_names: list[str],
+        fold_name: str,
+        best_epoch_index: int,
+    ) -> None:
+        batch_predictions = model.predict_step(batch)["class"].softmax(dim=1).cpu().numpy()
+
+        for b in range(batch_predictions.shape[0]):
+            image_name = batch["image_name"][b]
+            if image_name in remaining_image_names:
+                predictions = batch_predictions[b, ...]
+
+                task_queue.put(
+                    {
+                        "image_name": image_name,
+                        "fold_name": fold_name,
+                        "best_epoch_index": best_epoch_index,
+                        "predictions": predictions,
+                    }
+                )

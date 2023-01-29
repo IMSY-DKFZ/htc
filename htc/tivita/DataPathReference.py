@@ -5,11 +5,13 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Callable, Union
 
+import numpy as np
 import pandas as pd
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 from htc.tivita.DatasetSettings import DatasetSettings
+from htc.utils.blosc_compression import decompress_file
 
 
 class DataPathReference(DataPath):
@@ -50,6 +52,24 @@ class DataPathReference(DataPath):
 
     def build_path(self, base_folder: Path) -> Path:
         return base_folder / self.network_path
+
+    def rgb_path_reconstructed(self) -> Path:
+        if self.image_dir is None:
+            # image_dir may not be available if no network directory is set (e.g. on the cluster)
+            assert (
+                self.intermediates_dir is not None
+            ), "Either the network drive or the intermediates directory must be set to get the RGB image path"
+            return self.intermediates_dir / "preprocessing" / "rgb_reconstructed" / f"{self.image_name()}.blosc"
+        else:
+            return super().rgb_path_reconstructed()
+
+    def read_rgb_reconstructed(
+        self,
+    ) -> np.ndarray:
+        if self.image_dir is None:
+            return decompress_file(self.rgb_path_reconstructed())
+        else:
+            return super().read_rgb_reconstructed()
 
     @staticmethod
     def _cache() -> dict:

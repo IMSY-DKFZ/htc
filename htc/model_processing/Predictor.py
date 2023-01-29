@@ -16,8 +16,8 @@ class Predictor:
     def __init__(
         self,
         run_dir: Path,
-        use_predictions: bool,
-        store_predictions: bool,
+        use_predictions: bool = False,
+        store_predictions: bool = False,
         config: Config = None,
         mode: str = "predictions",
         **kwargs,
