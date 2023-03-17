@@ -17,8 +17,12 @@ class EvaluationMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.df_validation_results = pd.DataFrame()
+        self.validation_results_epoch = []  # Also used for storing the test results
 
-    def validation_step(self, batch: dict[str, torch.Tensor], batch_idx: int, dataset_idx: int = 0) -> list[dict]:
+    def validation_step(self, batch: dict[str, torch.Tensor], batch_idx: int, dataloader_idx: int = 0) -> None:
+        if batch_idx == 0 and dataloader_idx == 0:
+            assert len(self.validation_results_epoch) == 0, "Validation results are not properly cleared"
+
         batch_clean = {k: v for k, v in batch.items() if not k.startswith("labels")}
 
         logits = self.predict_step(batch_clean)
@@ -42,7 +46,7 @@ class EvaluationMixin:
 
             current_row = {
                 "epoch_index": self.current_epoch,
-                "dataset_index": dataset_idx,
+                "dataset_index": dataloader_idx,
                 "image_name": image_name,
             }
             current_row |= path.image_name_typed()
@@ -60,32 +64,27 @@ class EvaluationMixin:
 
             rows.append(current_row)
 
-        return rows
+        self.validation_results_epoch.append(rows)
 
-    def validation_epoch_end(self, outputs: list[list[list[dict]]]) -> None:
-        # First list: datasets
-        # Second list: batches
-        # Third list: images
-        if len(self.datasets_val) > 1:
-            df_epoch = pd.concat([pd.DataFrame(list(itertools.chain(*output))) for output in outputs])
-        else:
-            df_epoch = pd.DataFrame(list(itertools.chain(*outputs)))
+    def on_validation_epoch_end(self) -> None:
+        # First level (list): batches
+        # Second level (list): images
+        # Third level (dict): results per image
+        df_epoch = pd.DataFrame(list(itertools.chain.from_iterable(self.validation_results_epoch)))
 
         agg = MetricAggregation(df_epoch, config=self.config)
         self.log_checkpoint_metric(agg.checkpoint_metric())
         self.df_validation_results = pd.concat([self.df_validation_results, df_epoch])
-
-    def on_validation_epoch_end(self) -> None:
-        assert self.checkpoint_metric_logged[self.current_epoch], (
-            "log_checkpoint_metric was not called! This is strictly necessary so that Lightning knows which model"
-            " should be saved"
-        )
         self.df_validation_results.to_pickle(Path(self.logger.save_dir) / "validation_results.pkl.xz")
 
-    def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> dict:
-        return self.validation_step(batch, batch_idx)
+        # Start clean for the next validation round
+        self.validation_results_epoch = []
 
-    def test_epoch_end(self, outputs: list[dict]) -> None:
-        df_test = pd.DataFrame(list(itertools.chain(*outputs)))
-        df_test = df_test.drop(columns=["epoch_index"])
+    def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
+        self.validation_step(batch, batch_idx)
+
+    def on_test_epoch_end(self) -> None:
+        df_test = pd.DataFrame(list(itertools.from_iterable(self.validation_results_epoch)))
+        df_test.drop(columns=["epoch_index"], inplace=True)
         df_test.to_pickle(Path(self.logger.save_dir) / "test_results.pkl.xz")
+        self.validation_results_epoch = []

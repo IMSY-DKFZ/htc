@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Callable, Union
@@ -42,12 +43,13 @@ class DataPathTivita(DataPath):
         dataset_settings = DatasetSettings(path_settings)
         intermediates_dir = settings.data_dirs.find_intermediates_dir(data_dir)
 
-        parents = {}
-        for p in sorted(data_dir.rglob("*")):
-            if p.name.endswith("SpecCube.dat") or p.suffix == ".tiv":
-                parents[p.parent] = True
-
-        for p in parents.keys():
-            path = DataPathTivita(p, data_dir, intermediates_dir, dataset_settings, annotation_name)
-            if all([f(path) for f in filters]):
-                yield path
+        # Keep a list of used image folders in case a folder contains both a cube file and a tiv archive
+        used_folders = set()
+        for root, dirs, files in os.walk(data_dir):
+            dirs.sort()  # Recurse in sorted order
+            for f in sorted(files):
+                if f.endswith(("SpecCube.dat", ".tiv")) and root not in used_folders:
+                    path = DataPathTivita(Path(root), data_dir, intermediates_dir, dataset_settings, annotation_name)
+                    if all([f(path) for f in filters]):
+                        yield path
+                    used_folders.add(root)

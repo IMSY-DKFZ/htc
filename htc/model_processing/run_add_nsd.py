@@ -13,7 +13,6 @@ from htc.model_processing.ValidationPredictor import ValidationPredictor
 from htc.models.image.DatasetImage import DatasetImage
 from htc.settings import settings
 from htc.settings_seg import settings_seg
-from htc.tivita.DataPath import DataPath
 from htc.utils.general import apply_recursive
 from htc.utils.helper_functions import get_nsd_thresholds
 from htc.utils.LabelMapping import LabelMapping
@@ -27,7 +26,7 @@ class ImageNSDConsumer(ImageConsumer):
         self.tolerances = get_nsd_thresholds(LabelMapping.from_config(self.config))
 
     def handle_image_data(self, image_data: dict) -> None:
-        path = DataPath.from_image_name(image_data["image_name"])
+        path = self.path_from_image_data(image_data)
         dataset = DatasetImage([path], train=False, config=self.config)
         sample = dataset[0]
 

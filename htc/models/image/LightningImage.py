@@ -188,8 +188,6 @@ class LightningImage(HTCLightning):
         loss /= sum([ce_loss_weight, dice_loss_weight, spx_loss_weight])
 
         res = {"loss": loss}
-        if "image_index" in batch:
-            res["img_indices"] = batch["image_index"]
 
         if return_valid_tensors:
             res["valid_predictions"] = valid_predictions

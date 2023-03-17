@@ -35,7 +35,7 @@ From now on, please run every command on the OpenStack instance and not on your 
 > ```
 
 ## Semantic paper repository
-Start by installing the [repository](https://gitlab-test.dkfz.de/imsy/susi/htc) according to the [README](README.md). Make sure to check out the version of our semantic paper after the `git clone` step:
+Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) according to the [README](../../README.md). Make sure to check out the version of our semantic paper after the `git clone` step:
 ```bash
 git checkout tags/paper_semantic_v3
 ```

@@ -38,6 +38,11 @@ def calc_surface_dice(
     assert mask.dtype == torch.bool, "The mask must be a boolean tensor"
     assert all([t >= 0 for t in tolerances]), "The tolerance values must be non-negative"
 
+    # Unfortunately, the NSD can only be computed on the CPU
+    predictions_labels = predictions_labels.cpu()
+    labels = labels.cpu()
+    mask = mask.cpu()
+
     # Copy the tensors since we need to modify them for the masking
     predictions_labels = predictions_labels.clone()
     labels = labels.clone()
@@ -157,6 +162,11 @@ def calc_surface_distance(predictions_labels: torch.Tensor, labels: torch.Tensor
         predictions_labels.dtype == torch.int64 and labels.dtype == torch.int64
     ), "Predictions and labels must be label index values"
     assert mask.dtype == torch.bool, "The mask must be a boolean tensor"
+
+    # Unfortunately, the ASD can only be computed on the CPU
+    predictions_labels = predictions_labels.cpu()
+    labels = labels.cpu()
+    mask = mask.cpu()
 
     # Copy the tensors since we need to modify them for the masking
     predictions_labels = predictions_labels.clone()

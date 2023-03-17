@@ -317,8 +317,8 @@ class DataPath:
         >>> for l in np.unique(seg):
         ...     print(f"{l} = {mapping.index_to_name(l)}")
         4 = blue_cloth
-        11 = heart
-        15 = lung
+        13 = heart
+        18 = lung
 
         Args:
             annotation_name: Unique name of the annotation(s) for cases where multiple annotations exist (e.g. inter-rater variability). If None, will use the default set to this path or the default set in the dataset settings (in that order and only if available). If annotation_name is a string, it can also be in the form name1&name which will be treated identical to ['name1', 'name2']. If 'all', the original annotation file with all available annotations is returned.
@@ -391,43 +391,69 @@ class DataPath:
             - label_mapping: The label mapping object to interpret the values of the mask array.
         """
         mask_dir = self.image_dir / "annotations"
-        mask_paths = list(mask_dir.glob(f"{self.timestamp}#squares#automask#*.png"))
+        mask_paths = list(mask_dir.glob(f"{self.timestamp}#squares#automask#*.png"))  # searching for automasks
+        if len(mask_paths) == 0:
+            mask_paths = list(mask_dir.glob(f"{self.timestamp}#polygon#*.nrrd"))  # searching for MITK masks
         assert len(mask_paths) <= 1, f"Too many colorchecker masks available for {self.image_dir}"
 
         if len(mask_paths) == 0:
             settings.log.warning(
                 f"Colorchecker mask cannot be found for {self.image_dir}. Please refer to"
-                " ColorcheckerMaskCreation.ipynb to generate the corresponding colorchecker mask!"
+                " ColorcheckerMaskCreation.ipynb or use MITK to generate the corresponding colorchecker mask!"
             )
             return None
 
         else:
             mask_path = mask_paths[0]
-            mask = np.array(Image.open(mask_path))
-
-            cc_board = mask_path.name.split("#")[-1].removesuffix(".png")
-            assert cc_board in ["cc_classic", "cc_passport"], f"Unknown colorchecker board {cc_board} given!"
 
             from htc.utils.ColorcheckerReader import ColorcheckerReader
 
-            label_mapping = (
-                ColorcheckerReader.label_mapping_classic
-                if cc_board == "cc_classic"
-                else ColorcheckerReader.label_mapping_passport
-            )
+            if mask_path.suffix == ".png":
+                mask = np.array(Image.open(mask_path))
+
+                cc_board = mask_path.name.split("#")[-1].removesuffix(".png")
+                assert cc_board in ["cc_classic", "cc_passport"], f"Unknown colorchecker board {cc_board} given!"
+                label_mapping_mask = (
+                    ColorcheckerReader.label_mapping_classic
+                    if cc_board == "cc_classic"
+                    else ColorcheckerReader.label_mapping_passport
+                )
+
+            else:
+                from htc.utils.mitk.mitk_masks import nrrd_mask
+
+                mask_dict = nrrd_mask(mask_path)
+                mask = mask_dict["mask"]
+                label_mapping_mitk = mask_dict["label_mapping"]
+
+                cc_board = mask_path.name.split("#")[-1].removesuffix(".nrrd")
+                assert cc_board in ["cc_classic", "cc_passport"], f"Unknown colorchecker board {cc_board} given!"
+                label_mapping_mask = (
+                    ColorcheckerReader.label_mapping_classic
+                    if cc_board == "cc_classic"
+                    else ColorcheckerReader.label_mapping_passport
+                )
+                # remap the MITK mask to the default format
+                label_dict = label_mapping_mask.mapping_name_index | {"unlabeled": 0}
+                label_mapping_tmp = LabelMapping(
+                    label_dict,
+                    zero_is_invalid=True,
+                    label_colors=label_mapping_mask.label_colors,
+                )
+                label_mapping_tmp.map_tensor(mask, label_mapping_mitk)
 
             cube_norm = self.read_cube(normalization=1)
             cube = self.read_cube()
 
             table_rows = []
-            for i in np.arange(1, np.max(mask) + 1):
+            for i in np.unique(mask[mask != 0]):
                 spectra_norm = cube_norm[mask == i, :]
                 spectra = cube[mask == i, :]
                 table_rows.append(
                     {
                         "label_index": i,
-                        "label_name": label_mapping.index_to_name(i),
-                        "label_color": label_mapping.index_to_color(i),
+                        "label_name": label_mapping_mask.index_to_name(i),
+                        "label_color": label_mapping_mask.index_to_color(i),
                         "row": (i - 1) // 6,
                         "col": (i - 1) % 6,
                         "median_spectrum": np.median(spectra, axis=0),
@@ -438,11 +464,11 @@ class DataPath:
                 )
             table = pd.DataFrame(table_rows)
 
-            res = {"mask": mask, "median_table": table, "label_mapping": label_mapping}
+            res = {"mask": mask, "median_table": table, "label_mapping": label_mapping_mask}
 
             if return_spectra:
                 # Add additional arrays with the raw spectral data for each color chip
-                _, counts = np.unique(mask[label_mapping.is_index_valid(mask)], return_counts=True)
+                _, counts = np.unique(mask[label_mapping_mask.is_index_valid(mask)], return_counts=True)
                 assert len(np.unique(counts)) == 1
                 n_rows = table["row"].max() + 1
                 n_cols = table["col"].max() + 1
@@ -454,8 +480,9 @@ class DataPath:
                     spectra[row["row"], row["col"]] = cube[mask == row["label_index"], :]
 
                 if normalization is not None:
-                    spectra = spectra / np.linalg.norm(spectra, ord=normalization, axis=-1, keepdims=True)
-                    spectra = np.nan_to_num(spectra, copy=False)
+                    with np.errstate(invalid="ignore"):
+                        spectra = spectra / np.linalg.norm(spectra, ord=normalization, axis=-1, keepdims=True)
+                        spectra = np.nan_to_num(spectra, copy=False)
 
                 res["spectra"] = spectra
 
@@ -468,6 +495,14 @@ class DataPath:
         >>> path = DataPath.from_image_name('P070#2020_07_25_00_29_02')
         >>> path.annotated_labels()
         ['anorganic_artifact', 'fat', 'foil', 'heart', 'lung', 'metal', 'muscle', 'organic_artifact', 'skin', 'unsure']
+
+        The annotated labels may be a subset of the image labels, if they exist:
+        >>> path.meta("image_labels")
+        ['anorganic_artifact', 'fat', 'foil', 'heart', 'lung', 'metal', 'muscle', 'organic_artifact', 'skin', 'unsure']
+        >>> set(path.meta("image_labels")).issuperset(path.annotated_labels())
+        True
+
+        The image labels are weak labels and only indicate that a certain label is present in the image but they convey no information about whether the label is also annotated.
 
         Args:
             annotation_name: Name of the annotation(s) passed on to read_segmentation(). If it refers to more than one annotation, the (sorted) unique set of all labels will be returned.

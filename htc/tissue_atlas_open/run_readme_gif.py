@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # We are using the jet colormap to visualize visible range
     # The start index is a rough match to the color for 500 nm
     jet_start_index = 0.45
-    cmap_jet = matplotlib.cm.get_cmap("jet")
+    cmap_jet = matplotlib.colormaps.get_cmap("jet")
 
     for c in track(range(cube.shape[2])):
         # Map wavelengths to colors based on the jet colormap

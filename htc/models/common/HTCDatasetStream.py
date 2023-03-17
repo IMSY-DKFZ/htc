@@ -52,8 +52,8 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
         assert len(self.shared_dict) > 0, "Shared dictionary is not initialized. Did you forget to call init_shared()?"
         assert self.batch_part_size > 0, (
             f"batch_part_size must not be {self.batch_part_size}. Incompatible batch size"
-            f' ({self.config["dataloader_kwargs/batch_size"]}) or number of workers'
-            f' ({self.config["dataloader_kwargs/num_workers"]})'
+            f" ({self.config['dataloader_kwargs/batch_size']}) or number of workers"
+            f" ({self.config['dataloader_kwargs/num_workers']})"
         )
 
         worker_base_index = self._get_worker_index() * self.batch_part_size
@@ -126,8 +126,7 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
 
     @abstractmethod
     def iter_samples(self) -> Iterator[dict[str, torch.Tensor]]:
-        """This method must be implemented by all child classes and yields one sample at a time (e.g. one patch at a time) or complete batch parts (e.g. pixel dataset).
-        """
+        """This method must be implemented by all child classes and yields one sample at a time (e.g. one patch at a time) or complete batch parts (e.g. pixel dataset)."""
         pass
 
     def _iter_paths(self) -> tuple[int, DataPath]:

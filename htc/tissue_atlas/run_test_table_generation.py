@@ -46,7 +46,7 @@ def save_test_table(run_dir: Path) -> None:
         all_logits[i] = logits
 
     # all_logits.shape = [n_folds, n_samples, n_classes]
-    ensemble_mode = stats.mode(np.argmax(all_logits, axis=2), axis=0).mode[0]
+    ensemble_mode = stats.mode(np.argmax(all_logits, axis=2), axis=0, keepdims=False).mode
     ensemble_logits = np.mean(all_logits, axis=0)
     ensemble_softmax = np.mean(softmax(all_logits, axis=2), axis=0)
 

@@ -46,7 +46,7 @@ class DatasetImageStream(DatasetImage, HTCDatasetStream):
             if "valid_pixels" in sample:
                 sample["valid_pixels"] = sample["valid_pixels"].refine_names("H", "W")
             sample["worker_index"] = worker_index
-            sample["image_index"]: self.image_names.index(path.image_name())
+            sample["image_index"] = self.image_names.index(path.image_name())
 
             yield sample
 

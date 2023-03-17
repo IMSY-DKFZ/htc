@@ -25,8 +25,7 @@ class TestLeaveOneOutPredictor(Predictor):
         outputs: list[str] = None,
         **kwargs,
     ):
-        """Compared to the TestPredictor, this class expects a leave-one-out structure of the test set and hence does not use ensembling.
-        """
+        """Compared to the TestPredictor, this class expects a leave-one-out structure of the test set and hence does not use ensembling."""
         super().__init__(*args, **kwargs)
         if outputs is None:
             outputs = ["predictions"]

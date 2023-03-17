@@ -15,7 +15,7 @@ from htc.models.data.DataSpecification import DataSpecification
 from htc.models.image.DatasetImage import DatasetImage
 from htc.settings import settings
 from htc.utils.Config import Config
-from htc.utils.helper_functions import checkpoint_path, get_valid_run_dirs, run_experiment_notebook
+from htc.utils.helper_functions import checkpoint_path, execute_notebook, get_valid_run_dirs
 from htc.utils.parallel import p_map
 
 
@@ -81,7 +81,7 @@ def generate_validation_table(run_dir: Path, table_stem: str = "validation_resul
             if len(data) < config["trainer_kwargs/max_epochs"]:
                 settings.log.warning(
                     f"The number of epochs in the validation data ({len(data)}) is smaller than the epoch length in the"
-                    f' config file {config.path_config} ({config["trainer_kwargs/max_epochs"]}) for the run {run_dir}'
+                    f" config file {config.path_config} ({config['trainer_kwargs/max_epochs']}) for the run {run_dir}"
                 )
 
             for epoch_index, epoch_data in enumerate(data):
@@ -393,9 +393,7 @@ def create_experiment_notebooks(run_dir: Path, base_notebook: str) -> None:
         return None
 
     settings.log.info(f"Using the notebook {input_path}")
-    run_experiment_notebook(
-        notebook_path=input_path, output_path=output_path, parameters={"run_dir": str(run_dir)}, html_only=True
-    )
+    execute_notebook(notebook_path=input_path, output_path=output_path, parameters={"run_dir": str(run_dir)})
 
 
 if __name__ == "__main__":
@@ -414,36 +412,54 @@ if __name__ == "__main__":
             " notebook will be created)."
         ),
     )
+    parser.add_argument(
+        "--input-path",
+        default=None,
+        type=Path,
+        help=(
+            "Explicitly set the path to a run directory or a folder which contains one or more run directories. Files"
+            " will be generated for all found run directories and always re-generated in case tables already exist. A"
+            " run directory is defined as a directory which contains one or more subdirectory with the name fold_. If"
+            " not set, all run directories in the results directory which are missing all required files"
+            " (validation_table.pkl.xz and ExperimentAnalysis.html) are used."
+        ),
+    )
     args = parser.parse_args()
 
-    # Find runs which do not have any of the following files
-    required_files = ["validation_table.pkl.xz", "ExperimentAnalysis.html"]
-    run_dirs = []
-    for r in get_valid_run_dirs():
-        # If a run should be computed again, delete all of the required files
-        if not any([(r / f).exists() for f in required_files]):
-            run_dirs.append(r)
+    if args.input_path is None:
+        # Find runs which do not have any of the following files
+        required_files = ["validation_table.pkl.xz", "ExperimentAnalysis.html"]
+        run_dirs = []
+        for r in get_valid_run_dirs():
+            # If a run should be computed again, delete all of the required files
+            if not any([(r / f).exists() for f in required_files]):
+                run_dirs.append(r)
+    else:
+        run_dirs = set()
+        for r in sorted(args.input_path.rglob("fold_*")):
+            run_dirs.add(r.parent)
+        run_dirs = sorted(run_dirs)
 
     if len(run_dirs) > 0:
         settings.log.info("Will generate results for the following runs:")
         for run_dir in run_dirs:
             settings.log.info(f"{run_dir.parent.name}/{run_dir.name}")
 
-        errors = p_map(check_run, run_dirs)
+        errors = p_map(check_run, run_dirs, task_name="Check for necessary files")
         assert not any(errors), "At least one run folder misses some files. Aborting..."
 
-        p_map(save_validation_table, run_dirs)
-        p_map(save_test_table, run_dirs)
+        p_map(save_validation_table, run_dirs, task_name="Create validation table")
+        p_map(save_test_table, run_dirs, task_name="Create test table")
 
-        errors = p_map(check_tables, run_dirs)
+        errors = p_map(check_tables, run_dirs, task_name="Validate tables")
         assert not any(errors), "Something wrong with the validation and/or test tables"
 
         if args.notebook != "":
             settings.log.info("Creating notebooks...")
             p_map(
-                partial(create_experiment_notebooks, base_notebook=args.notebook), run_dirs, num_cpus=12
-            )  # If you encounter errors, please run the execution sequentially (unfortunately, errors are not shown when run in parallel)
-            # for run in run_dirs:
-            #     create_experiment_notebooks(run, base_notebook=args.notebook)
+                partial(create_experiment_notebooks, base_notebook=args.notebook),
+                run_dirs,
+                task_name="Generate notebooks",
+            )
     else:
         settings.log.info("All runs complete. Nothing to do")

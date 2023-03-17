@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import inspect
 from abc import abstractmethod
 from collections.abc import Iterable
 from typing import Union
 
 import torch
-from torch.utils.data import DataLoader, get_worker_info
+from torch.utils.data import get_worker_info
 from torch.utils.data.sampler import Sampler
 
 from htc.models.common.StreamDataLoader import StreamDataLoader
@@ -29,9 +28,7 @@ class SharedMemoryDatasetMixin:
         self.path_indices_worker = torch.empty(size, dtype=torch.int64).share_memory_()
 
         # Shared memory settings
-        prefetch_factor_default = (
-            inspect.signature(DataLoader).parameters["prefetch_factor"].default
-        )  # Default for prefetch factor is (usually) 2 in PyTorch
+        prefetch_factor_default = 2  # Default for prefetch factor is 2 in PyTorch
         self.prefetch_factor = self.config.get("dataloader_kwargs/prefetch_factor", prefetch_factor_default)
 
         # We always shuffle the paths in the beginning in case this class is used without the StreamDataLoader

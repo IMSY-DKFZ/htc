@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import copy
 import os
 import re
 from collections.abc import Iterator
@@ -204,6 +205,12 @@ class DatasetDir:
         Returns:
             Path: The path to the data directory or None if it was not found.
         """
+        if "#" in item:
+            # E.g. 2021_02_05_Tivita_multiorgan_semantic#context_experiments
+            item, subdata = item.split("#")
+        else:
+            subdata = None
+
         matched_location = self._find_match(item)
 
         if matched_location is not None:
@@ -223,7 +230,15 @@ class DatasetDir:
                 matched_location["path_dataset"] = unify_path(matched_location["path_dataset"])
                 matched_location["has_unified_paths"] = True
 
-            return matched_location if return_entry else matched_location["path_data"]
+            if subdata is not None:
+                if return_entry:
+                    match = copy.deepcopy(matched_location)
+                    match["path_data"] = match["path_data"] / subdata
+                    return match
+                else:
+                    return matched_location["path_data"] / subdata
+            else:
+                return matched_location if return_entry else matched_location["path_data"]
         else:
             return None
 

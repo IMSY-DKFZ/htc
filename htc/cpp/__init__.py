@@ -231,7 +231,7 @@ def hierarchical_bootstrapping(
 
     Note: This function is not deterministic but you can set a seed.
 
-    >>> from pytorch_lightning import seed_everything
+    >>> from lightning import seed_everything
     >>> print('ignore_line'); seed_everything(0)  # doctest: +ELLIPSIS
     ignore_line...
     >>> mapping = {

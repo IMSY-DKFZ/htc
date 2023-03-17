@@ -1,14 +1,18 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import copy
 import functools
+import importlib
 import math
 import platform
 import warnings
 from collections.abc import Callable
+from typing import Any, Union
 
 import psutil
 import torch
+import torch.nn as nn
 
 from htc.settings import settings
 from htc.utils.Config import Config
@@ -40,6 +44,41 @@ def get_n_classes(config: Config) -> int:
         return 0
 
 
+def parse_optimizer(config: Config, model: nn.Module) -> Union[tuple[list, list], Any]:
+    """
+    Creates an optimizer plus optionally an scheduler which can be used in your lightning module (via `configure_optimizers()`).
+
+    Args:
+        config: The training configuration (with an `optimization` key).
+        model: The network model containing the parameters to optimize.
+
+    Returns: Optimizer or optimizer and scheduler as tuple (same format as lightning).
+    """
+    # Dynamically initialize the optimizer based on the config
+    optimizer_param = copy.deepcopy(config["optimization/optimizer"])
+    del optimizer_param["name"]
+
+    name = config["optimization/optimizer/name"]
+    module = importlib.import_module("torch.optim")
+    optimizer_class = getattr(module, name)
+
+    optimizer = optimizer_class(model.parameters(), **optimizer_param)
+
+    if config["optimization/lr_scheduler"]:
+        # Same for the scheduler, if available
+        scheduler_param = copy.deepcopy(config["optimization/lr_scheduler"])
+        del scheduler_param["name"]
+
+        name = config["optimization/lr_scheduler/name"]
+        module = importlib.import_module("torch.optim.lr_scheduler")
+        scheduler_class = getattr(module, name)
+
+        scheduler = scheduler_class(optimizer, **scheduler_param)
+        return [optimizer], [scheduler]
+    else:
+        return optimizer
+
+
 def infer_swa_lr(config: Config) -> float:
     """
     Calculate the learning rate at the time when SWA kicks in. This might not be obvious if a custom learning rate scheduler is used.
@@ -51,18 +90,15 @@ def infer_swa_lr(config: Config) -> float:
 
     Returns: The learning rate which can be used for SWA (`swa_lrs` argument).
     """
-    from htc.models.common.HTCLightning import HTCLightning
-
     if config["swa_kwargs/swa_lrs"]:
         return config["swa_kwargs/swa_lrs"]
     else:
         lr = config["optimization/optimizer/lr"]
 
-        # Dummy lightning class to get the optimizer and scheduler
-        LightningClass = HTCLightning.class_from_config(config)
-        module = LightningClass(dataset_train=None, datasets_val=None, config=config)
+        # Dummy model to get a valid PyTorch optimizer
+        dummy_model = torch.nn.Linear(2, 1)
+        res = parse_optimizer(config, dummy_model)
 
-        res = module.configure_optimizers()
         if type(res) == tuple and len(res) == 2:
             scheduler = res[1][0]
 

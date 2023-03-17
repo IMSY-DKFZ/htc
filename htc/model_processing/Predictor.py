@@ -29,6 +29,9 @@ class Predictor:
         self.config = Config(self.run_dir / "config.json") if config is None else config
         self.config["dataloader_kwargs/num_workers"] = 1  # One worker process is usually enough for inference tasks
 
+        # We usually don't need labels for the prediction
+        self.config["input/no_labels"] = True
+
         if self.mode == "activations" or self.mode == "reconstructions":
             assert self.fold_name is not None, (
                 f"The fold name has to specified when calculating {self.mode}. "

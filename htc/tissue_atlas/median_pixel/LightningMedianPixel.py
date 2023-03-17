@@ -32,6 +32,8 @@ class LightningMedianPixel(HTCLightning):
             weights = torch.ones(get_n_classes(self.config))
 
         self.ce_loss_weighted = nn.CrossEntropyLoss(weight=weights)
+        self.validation_results_epoch = {"labels": [], "predictions": [], "image_names": []}
+        self.test_results_epoch = {"labels": [], "logits": [], "image_names": []}
 
     @staticmethod
     def dataset(**kwargs) -> HTCDataset:
@@ -41,9 +43,9 @@ class LightningMedianPixel(HTCLightning):
         if self.config["input/oversampling"]:
             config = copy.copy(self.config)
             config["model/class_weight_method"] = "1∕m"  # This gives the "true" values needed for oversampling
-            config[
-                "model/background_weight"
-            ] = None  # Disable manual background weight as this could lead to a higher background sampling (since the 1/m values are usually smaller)
+            config["model/background_weight"] = (
+                None  # Disable manual background weight as this could lead to a higher background sampling (since the 1/m values are usually smaller)
+            )
 
             weights = calculate_class_weights(config, *self.dataset_train.label_counts())
             sample_weights = weights[self.dataset_train.labels]
@@ -68,15 +70,22 @@ class LightningMedianPixel(HTCLightning):
 
         return {"loss": ce_loss}
 
-    def validation_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> dict:
+    def validation_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
+        if batch_idx == 0:
+            assert all(
+                len(values) == 0 for values in self.validation_results_epoch.values()
+            ), "Validation results are not properly cleared"
+
         predictions = self(batch["features"]).argmax(dim=1)
 
-        return {"labels": batch["labels"], "predictions": predictions, "image_names": batch["image_name"]}
+        self.validation_results_epoch["labels"].append(batch["labels"])
+        self.validation_results_epoch["predictions"].append(predictions)
+        self.validation_results_epoch["image_names"].append(batch["image_name"])
 
-    def validation_epoch_end(self, outputs: list[dict]) -> None:
-        labels = torch.cat([x["labels"] for x in outputs if x is not None])
-        predictions = torch.cat([x["predictions"] for x in outputs if x is not None])
-        image_names = np.concatenate([x["image_names"] for x in outputs if x is not None]).tolist()
+    def on_validation_epoch_end(self) -> None:
+        labels = torch.cat(self.validation_results_epoch["labels"])
+        predictions = torch.cat(self.validation_results_epoch["predictions"])
+        image_names = np.concatenate(self.validation_results_epoch["image_names"]).tolist()
 
         cm_pigs = confusion_matrix_groups(predictions, labels, image_names, get_n_classes(self.config))
 
@@ -97,20 +106,32 @@ class LightningMedianPixel(HTCLightning):
         df_epoch = pd.DataFrame(rows)
         self.df_validation_results = pd.concat([self.df_validation_results, df_epoch])
         self.log_checkpoint_metric(self.df_validation_results["accuracy"].mean())
+        self.df_validation_results.to_pickle(Path(self.logger.save_dir) / "validation_results.pkl.xz")
 
-    def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> dict:
+        # Start clean for the next validation round
+        self.validation_results_epoch = {"labels": [], "predictions": [], "image_names": []}
+
+    def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
+        if batch_idx == 0:
+            assert all(
+                len(values) == 0 for values in self.test_results_epoch.values()
+            ), "Test results are not properly cleared"
+
         labels = batch["labels"]
         features = batch["features"]
         image_names = batch["image_name"]
 
         logits = self(features)
 
-        return {"image_names": image_names, "labels": labels, "logits": logits}
+        self.test_results_epoch["labels"].append(labels)
+        self.test_results_epoch["logits"].append(logits)
+        self.test_results_epoch["image_names"].append(image_names)
 
-    def test_epoch_end(self, outputs: list[dict]) -> None:
+    def on_test_epoch_end(self) -> None:
         results = {}
-        results["logits"] = torch.cat([x["logits"] for x in outputs if x is not None]).cpu().numpy()
-        results["labels"] = torch.cat([x["labels"] for x in outputs if x is not None]).cpu().numpy()
-        results["image_names"] = np.concatenate([x["image_names"] for x in outputs if x is not None])
+        results["logits"] = torch.cat(self.test_results_epoch["logits"]).cpu().numpy()
+        results["labels"] = torch.cat(self.test_results_epoch["labels"]).cpu().numpy()
+        results["image_names"] = np.concatenate(self.test_results_epoch["image_names"])
 
         np.savez_compressed(Path(self.logger.save_dir) / "test_results.npz", **results)
+        self.test_results_epoch = {"labels": [], "logits": [], "image_names": []}

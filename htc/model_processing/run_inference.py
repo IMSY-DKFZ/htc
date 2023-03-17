@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: MIT
 
 from functools import partial
+from pathlib import Path
 
 import numpy as np
 
 from htc.model_processing.ImageConsumer import ImageConsumer
 from htc.model_processing.Runner import Runner
 from htc.model_processing.TestPredictor import TestPredictor
+from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 from htc.utils.blosc_compression import compress_file
@@ -16,7 +18,7 @@ from htc.utils.visualization import compress_html, prediction_figure_html
 
 
 class InferenceConsumer(ImageConsumer):
-    def __init__(self, *args, paths, **kwargs):
+    def __init__(self, *args, paths: list[DataPath], **kwargs):
         super().__init__(*args, **kwargs)
 
         if hasattr(self, "output_dir") and self.output_dir is not None:
@@ -60,13 +62,50 @@ if __name__ == "__main__":
             " output directory."
         )
     )
-    runner.add_argument("--input-dir", required=True)
+    runner.add_argument("--input-dir")
     runner.add_argument("--output-dir")
     runner.add_argument("--predictions-type", type=str, choices=["softmax", "labels"], default="labels")
+    runner.add_argument(
+        "--annotation-name",
+        type=str,
+        default=None,
+        help="Filter the paths by this annotation name (default is no filtering).",
+    )
+    runner.add_argument(
+        "--specs",
+        type=Path,
+        default=None,
+        help=(
+            "Path or name of a data specification file from which paths are collected. This parameter can be used as"
+            " alternative to the --input-dir argument."
+        ),
+    )
+    runner.add_argument(
+        "--split-name",
+        type=str,
+        default=None,
+        help=(
+            "Optional regex selector for one or more splits in the specification file. Please note that the test set is"
+            " only used if --split-name is given and contains the word `test`"
+        ),
+    )
 
-    input_dir = runner.args.input_dir
-    assert input_dir.exists(), "Directory for which inference should be computed does not exist."
-    paths = list(DataPath.iterate(input_dir))
+    if runner.args.input_dir is not None:
+        assert (
+            runner.args.specs is None and runner.args.split_name is None
+        ), "--specs and --split-name can only be used if --input-dir is not used"
+        input_dir = runner.args.input_dir
+        assert input_dir.exists(), "Directory for which inference should be computed does not exist."
+        paths = list(DataPath.iterate(input_dir, annotation_name=runner.args.annotation_name))
+    else:
+        assert runner.args.specs is not None, "--specs must be provided if --input-dir is not provided"
+        specs = DataSpecification(runner.args.specs)
+        if runner.args.split_name is not None and "test" in runner.args.split_name:
+            specs.activate_test_set()
+            settings.log.info("Activating the test set of the data specification file")
+        paths = specs.paths(runner.args.split_name)
+
+    settings.log.info(f"Compute the prediction for {len(paths)} images")
 
     config = Config(runner.run_dir / "config.json")
 
@@ -75,9 +114,6 @@ if __name__ == "__main__":
     if config["input/preprocessing"] == "L1":
         config["input/preprocessing"] = None
         config["input/normalization"] = "L1"
-
-    # We don't need labels for the inference
-    config["input/no_labels"] = True
 
     runner.start(
         partial(TestPredictor, paths=paths, config=config),

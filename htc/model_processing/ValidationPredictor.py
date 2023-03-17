@@ -60,7 +60,7 @@ class ValidationPredictor(Predictor):
 
                 for batch in dataloader:
                     remaining_image_names = []
-                    for b, image_name in enumerate(batch["image_name"]):
+                    for image_name in batch["image_name"]:
                         predictions = self.load_predictions(image_name)
                         if predictions is not None:
                             task_queue.put(
@@ -76,7 +76,7 @@ class ValidationPredictor(Predictor):
 
                     # It is quite unusual that in one sample some images are already predicted and some not, so we just predict them all and yield only new samples
                     if len(remaining_image_names) > 0:
-                        if not batch["labels"].is_cuda:
+                        if not batch["features"].is_cuda:
                             batch = move_batch_gpu(batch)
 
                         self.produce_predictions(

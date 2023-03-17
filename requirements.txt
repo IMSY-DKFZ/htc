@@ -10,20 +10,18 @@ seaborn
 plotly
 kaleido
 jupyterlab
-jupyter_client<8  # Currently a dependency conflict (https://github.com/nteract/papermill/issues/711)
-papermill
 tensorboard
-pytorch-lightning
+lightning
 python-dotenv
 monai
 GPUtil
 psutil
 segmentation-models-pytorch
-kornia>=0.6.5
+kornia!=0.6.10  # Remove after this PR is merged: https://github.com/kornia/kornia/pull/2259
 rich
 threadpoolctl
 commentjson
 appdirs
 blosc
-torch
+torch<2
 lazy-imports

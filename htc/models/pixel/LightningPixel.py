@@ -90,7 +90,7 @@ class LightningPixel(HTCLightning):
 
         self.log("train/ce_loss", loss, on_epoch=True)
 
-        return {"loss": loss, "img_indices": torch.unique(batch["image_index"])}
+        return {"loss": loss}
 
     def encode_images(self, batch: dict[str, torch.Tensor]) -> list[torch.Tensor]:
         x = batch["features"]

@@ -44,8 +44,7 @@ class DatasetSuperpixelImage(DatasetImage):
 
         # Only include what is absolutely necessary in the sample
         sample = {
-            "labels": sample_img["labels"],
-            "valid_pixels": sample_img["valid_pixels"],
+            "image_size": torch.tensor(sample_img["features"].shape[:2]),
             "image_name": sample_img["image_name"],
             "features": torch.stack(features),
             "spxs_sizes": torch.tensor(spxs_sizes),
@@ -54,5 +53,9 @@ class DatasetSuperpixelImage(DatasetImage):
             ),  # We already concatentate the ids since we make only full image assignments later
             "spxs_indices_cols": torch.cat(spxs_indices_cols),
         }
+
+        if "labels" in sample_img:
+            sample["labels"] = sample_img["labels"]
+            sample["valid_pixels"] = sample_img["valid_pixels"]
 
         return sample

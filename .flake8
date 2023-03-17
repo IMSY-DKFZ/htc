@@ -7,7 +7,7 @@ max_line_length = 120
 # B027: it is totally valid to prepare more methods in an abstract class without forcing them to be abstract
 # B028: currently broken: https://github.com/PyCQA/flake8-bugbear/issues/329
 # D*: pydocstyle has a lot of irrelevant checks by default. We are mainly interested in D417 (checks for missing arguments)
-ignore = B007, B023, B027, B028, C408, E203, E501, E731, E741, W503, F841, D1, D200, D202, D205, D212, D400, D401, D415
+ignore = B007, B023, B027, B028, C408, E203, E501, E731, E741, W503, F841, D1, D200, D202, D205, D212, D400, D401, D402, D415
 extend-select = B902, B904
 per_file_ignores = __init__.py: F401
 docstring-convention=google

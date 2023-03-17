@@ -124,7 +124,7 @@ class DomainMapper:
 
     @staticmethod
     def _species_domains(domains: list, paths: list[DataPath]) -> tuple[list, dict]:
-        return domains, {x.image_name(): (domains[1] if "SPACE_" in x.subject_name else domains[0]) for x in paths}
+        return domains, {x.image_name(): domains[1] if "SPACE_" in x.subject_name else domains[0] for x in paths}
 
     def domain_name(self, image_name: str) -> str:
         """

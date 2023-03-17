@@ -278,7 +278,7 @@ In this paper, we trained a classification model based on median spectra from HS
 
 This paper introduces the HeiPorSPECTRAL dataset containing 5756 hyperspectral images from 11 subjects. We are using these images in our tutorials. You can find the visualization notebook for the paper figures in [paper/NatureData2023](./paper/NatureData2023) (the folder also includes a [reproducibility document](./paper/NatureData2023/reproducibility.md)) and the remaining code in [htc/tissue_atlas_open](./htc/tissue_atlas_open).
 
-If you want to learn more about the HeiPorSPECTRAL dataset (e.g. the underlying data structure) or you stumbled upon a file and want to know how to read it, you might find this [notebook with low-level details](./tissue_atlas_open/FileReference.ipynb) helpful.
+If you want to learn more about the HeiPorSPECTRAL dataset (e.g. the underlying data structure) or you stumbled upon a file and want to know how to read it, you might find this [notebook with low-level details](./htc/tissue_atlas_open/FileReference.ipynb) helpful.
 
 > 📂 The dataset for this paper will soon be publicly available.
 

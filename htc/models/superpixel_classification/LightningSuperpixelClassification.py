@@ -51,9 +51,8 @@ class LightningSuperpixelClassification(HTCLightning):
         return self.model(x)
 
     def _predict_images(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        assert batch["valid_pixels"].shape[0] == 1, "Can only handle one image at a time"
-        img_height = batch["valid_pixels"].shape[1]
-        img_width = batch["valid_pixels"].shape[2]
+        assert batch["features"].shape[0] == 1, "Can only handle one image at a time"
+        img_height, img_width = batch["image_size"][0]
 
         predictions = self(batch["features"].squeeze(dim=0))
         predictions = predictions.repeat_interleave(
@@ -75,4 +74,4 @@ class LightningSuperpixelClassification(HTCLightning):
         loss = self.kl_loss_weighted(predictions, batch["weak_labels"])
         self.log("train/kl_loss", loss, on_epoch=True)
 
-        return {"loss": loss, "img_indices": batch["image_index"]}
+        return {"loss": loss}

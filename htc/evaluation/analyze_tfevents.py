@@ -52,7 +52,7 @@ def read_tfevent_losses(run_dir: Path) -> Union[pd.DataFrame, None]:
         # Map steps to epochs
         steps_to_epoch = {}
         for e in acc.Scalars("epoch"):
-            # There might be more than step for the same epoch in which case we only take the first value (https://github.com/PyTorchLightning/pytorch-lightning/issues/12851)
+            # There might be more than step for the same epoch in which case we only take the first value (https://github.com/Lightning-AI/lightning/issues/12851)
             if e.step not in steps_to_epoch:
                 steps_to_epoch[e.step] = int(e.value)
 

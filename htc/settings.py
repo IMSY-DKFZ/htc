@@ -146,9 +146,9 @@ class Settings:
             show_level=False,
             enable_link_path=False,  # File links don't work in notebooks and cause problems with nbval
             console=Console(
-                width=120
-                if self.is_interactive
-                else None,  # Increase the default width in notebooks (unfortunately, rich cannot detect the browser width automatically: https://github.com/Textualize/rich/issues/504)
+                width=(
+                    120 if self.is_interactive else None
+                ),  # Increase the default width in notebooks (unfortunately, rich cannot detect the browser width automatically: https://github.com/Textualize/rich/issues/504)
                 theme=Theme(
                     {
                         "var": "dim",
@@ -229,6 +229,7 @@ class Settings:
             "bladder": "#67E619",
             "omentum": "#B9D912",
             "fat": "#E1E9AA",
+            "subcutaneous_fat": "#e0536b",
             "lung": "#5267C7",
             "heart": "#0DA07C",
             "cartilage": "#0F92DB",
@@ -275,6 +276,11 @@ class Settings:
             "fat_visceral": "#43c456",
             "meso": "#4363c4",
             "esophagus": "#4743c4",
+            "unclear_organic": "#C49505",
+            "stapler": "#C7DE12",
+            "ligasure": "#1277DE",
+            "monopolar": "#5B3478",
+            "Exterior": "#00000000",  # Unlabeled parts in MITK
         }
 
         self.known_envs = (

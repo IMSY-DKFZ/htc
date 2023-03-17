@@ -39,7 +39,9 @@ class SettingsSeg:
                 "omentum": 10,
                 "peritoneum": 11,
                 "skin": 12,
+                # There is only subcutaneous fat in the pig data but it is sometimes labelled as fat
                 "fat": 13,
+                "subcutaneous_fat": 13,
                 "pancreas": 14,
                 "muscle": 15,
                 "kidney": 16,
@@ -76,6 +78,10 @@ class SettingsSeg:
                 "fat_visceral": settings.label_index_thresh + 25,
                 "meso": settings.label_index_thresh + 26,
                 "esophagus": settings.label_index_thresh + 27,
+                "unclear_organic": settings.label_index_thresh + 28,
+                "stapler": settings.label_index_thresh + 29,
+                "ligasure": settings.label_index_thresh + 30,
+                "monopolar": settings.label_index_thresh + 31,
             }
         )
         self.labels = self.label_mapping.label_names()
@@ -85,6 +91,7 @@ class SettingsSeg:
         self.lr_experiment_timestamp = "2022-02-04_22-05-49"
         self.seed_experiment_timestamp = "2022-02-15_20-00-11"
         self.nsd_aggregation = "surface_dice_metric_image_mean"
+        self.nsd_aggregation_short = self.nsd_aggregation.replace("_image", "")
         self.lr_default = 0.001
         self.lr_higher = 0.01
         self.lr_lower = 0.0001

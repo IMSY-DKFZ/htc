@@ -176,13 +176,11 @@ class Config:
         return config_new
 
     def used_keys(self) -> list[str]:
-        """Returns: List of all keys which have been accessed from this config (either via getter, setter, contains check or deletion). Nested keys are not in the list if only the top-level key has been used (e.g. 'a/b' and 'a/c are not in the list if only 'a' is accessed).
-        """
+        """Returns: List of all keys which have been accessed from this config (either via getter, setter, contains check or deletion). Nested keys are not in the list if only the top-level key has been used (e.g. 'a/b' and 'a/c are not in the list if only 'a' is accessed)."""
         return sorted(self._used_keys.keys())
 
     def unused_keys(self) -> list[str]:
-        """Returns: List of keys from this config which have never been used (either via getter, setter, contains or deletion).
-        """
+        """Returns: List of keys from this config which have never been used (either via getter, setter, contains or deletion)."""
         # First determine all used keys including nested keys
         all_used_keys = set(self._used_keys.keys())
         for used_key in self._used_keys:

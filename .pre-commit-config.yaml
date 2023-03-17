@@ -6,7 +6,7 @@ repos:
       - id: pyupgrade
         args: [--py39-plus]
   - repo: https://github.com/psf/black
-    rev: 22.12.0
+    rev: 23.1.0
     hooks:
       - id: black-jupyter
   - repo: https://github.com/pycqa/isort
@@ -32,7 +32,7 @@ repos:
           - flake8-use-pathlib
           - flake8-docstrings
   - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.6.1
+    rev: 1.6.3
     hooks:
       - id: nbqa-pyupgrade
         args: [--py39-plus]
@@ -48,3 +48,7 @@ repos:
     rev: "44e8fc9"
     hooks:
       - id: validate-cff
+  - repo: https://github.com/tcort/markdown-link-check
+    rev: v3.10.3
+    hooks:
+      - id: markdown-link-check

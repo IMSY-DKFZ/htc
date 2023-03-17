@@ -12,9 +12,9 @@ from datetime import datetime
 
 import numpy as np
 import torch
-from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, RichProgressBar, StochasticWeightAveraging
-from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
+from lightning import Trainer, seed_everything
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, RichProgressBar, StochasticWeightAveraging
+from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 from rich.progress import track
 from threadpoolctl import threadpool_limits
 
@@ -136,14 +136,14 @@ class FoldTrainer:
                 "No value set for validation/checkpoint_metric in the config. This should be the name of the metric"
                 " which will be used to determine the best model. Please note that this does not specify the actual"
                 " calculation of the metric but just the name of the metric (e.g. used in the checkpoint filename)."
-                f' Defaulting to "{self.config["validation/checkpoint_metric"]}"'
+                f" Defaulting to \"{self.config['validation/checkpoint_metric']}\""
             )
         if "validation/dataset_index" not in self.config:
             self.config["validation/dataset_index"] = 0
             settings.log.warning(
                 "No value set for validation/dataset_index in the config. This specifies the main validation dataset,"
                 " e.g. used for checkpointing. Currently, only one validation dataset can be used. Defaulting to"
-                f' "{self.config["validation/dataset_index"]}"'
+                f" \"{self.config['validation/dataset_index']}\""
             )
 
         checkpoint_saving = self.config.get("validation/checkpoint_saving", "best")

@@ -39,8 +39,11 @@ def read_tivita_hsi(path: Path, normalization: int = None) -> np.ndarray:
     """
     assert path.exists() and path.is_file(), f"Data cube {path} does not exist or is not a file"
 
-    cube = np.fromfile(path, dtype=">f")  # Read 1D array in big-endian binary format
-    cube = cube[3:].reshape(640, 480, 100)  # Reshape to data cube and ignore first 3 values which encode the shape
+    shape = np.fromfile(path, dtype=">i", count=3)  # Read shape of HSI cube
+    cube = np.fromfile(
+        path, dtype=">f", offset=12
+    )  # Read 1D array in big-endian binary format and ignore first 12 bytes which encode the shape
+    cube = cube.reshape(*shape)  # Reshape to data cube
     cube = np.flip(cube, axis=1)  # Flip y-axis to match RGB image coordinates
 
     cube = np.swapaxes(cube, 0, 1)  # Consistent image shape (height, width)

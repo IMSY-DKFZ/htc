@@ -30,13 +30,16 @@ class DatasetSettings:
         if type(path_or_data) == dict:
             self._data = path_or_data
             self._data_conversions()
-            self.path = None
+            self._path = None
         else:
             self._data = None
-            self.path = path_or_data
+            self._path = path_or_data
 
     def __repr__(self) -> str:
-        res = f"Settings for the dataset {self.path.parent.name if self.path is not None else '(no path available)'}\n"
+        res = (
+            "Settings for the dataset"
+            f" {self.settings_path.parent.name if self.settings_path is not None else '(no path available)'}\n"
+        )
         res += "The following settings are available:\n"
         res += f"{list(self.data.keys())}"
 
@@ -44,11 +47,12 @@ class DatasetSettings:
 
     def __eq__(self, other: "DatasetSettings") -> bool:
         if self._data is None and other._data is None:
-            return self.path == other.path
+            return self.settings_path == other.settings_path
         else:
             return self.data == other.data
 
     def __getitem__(self, key: str) -> Any:
+        assert key in self.data, f"{self.settings_path = }\n{self.data = }"
         return self.data[key]
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -58,20 +62,32 @@ class DatasetSettings:
         return key in self.data
 
     @property
-    def data(self):
-        if self._data is None:
-            if self.path is None:
-                self._data = {}
-            elif self.path.exists():
-                if self.path.is_dir():
-                    self.path = self.path / "dataset_settings.json"
+    def settings_path(self) -> Union[None, Path]:
+        """
+        Returns: The Path to the dataset_settings.json file if it exists or None if not.
+        """
+        if self._path is None:
+            return None
+        else:
+            if self._path.exists():
+                p = self._path
+                if self._path.is_dir():
+                    p /= "dataset_settings.json"
 
-                with self.path.open(encoding="utf-8") as f:
+                return p if p.exists() else None
+            else:
+                return None
+
+    @property
+    def data(self) -> dict:
+        if self._data is None:
+            if self.settings_path is None:
+                self._data = {}
+            else:
+                with self.settings_path.open(encoding="utf-8") as f:
                     self._data = json.load(f)
 
                 self._data_conversions()
-            else:
-                self._data = {}
 
         return self._data
 
@@ -91,12 +107,12 @@ class DatasetSettings:
             from htc.tivita.DataPathSepsis import DataPathSepsis
 
             DataPathClass = DataPathSepsis
-        elif self.path is not None:
+        elif self._path is not None:
             # Try to infer the data path class from the files in the directory
-            if self.path.is_file() or not self.path.exists():
-                dataset_dir = self.path.parent
+            if self._path.is_file() or not self._path.exists():
+                dataset_dir = self._path.parent
             else:
-                dataset_dir = self.path
+                dataset_dir = self._path
             assert dataset_dir.exists() and dataset_dir.is_dir(), f"The dataset directory {dataset_dir} does not exist"
 
             files = sorted(dataset_dir.iterdir())

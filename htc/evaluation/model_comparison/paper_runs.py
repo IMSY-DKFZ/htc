@@ -49,7 +49,7 @@ def collect_comparison_runs(timestamp: str) -> pd.DataFrame:
         else:
             assert prev_data_spec == config["input/data_spec"], (
                 f"All runs must use the same data specification file (The {run_dir} has the specification"
-                f' {config["input/data_spec"]} instead of {prev_data_spec})'
+                f" {config['input/data_spec']} instead of {prev_data_spec})"
             )
 
         main_loss = "train/dice_loss_epoch"

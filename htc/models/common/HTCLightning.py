@@ -2,28 +2,27 @@
 # SPDX-License-Identifier: MIT
 
 import copy
-import importlib
 from abc import abstractmethod
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytorch_lightning as pl
 import torch
+from lightning import LightningModule
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import RandomSampler
 
 from htc.models.common.EvaluationMixin import EvaluationMixin
 from htc.models.common.HTCDataset import HTCDataset
 from htc.models.common.transforms import HTCTransformation
-from htc.models.common.utils import get_n_classes
+from htc.models.common.utils import get_n_classes, parse_optimizer
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 from htc.utils.Config import Config
 from htc.utils.type_from_string import type_from_string
 
 
-class HTCLightning(EvaluationMixin, pl.LightningModule):
+class HTCLightning(EvaluationMixin, LightningModule):
     def __init__(
         self, dataset_train: HTCDataset, datasets_val: list[HTCDataset], config: Config, dataset_test: HTCDataset = None
     ):
@@ -41,6 +40,7 @@ class HTCLightning(EvaluationMixin, pl.LightningModule):
 
         # Statistics about the training
         self.training_stats = []
+        self.training_stats_epoch = {}
 
         # GPU transformations
         self.transforms = {}
@@ -71,29 +71,7 @@ class HTCLightning(EvaluationMixin, pl.LightningModule):
         return DataLoader(self.dataset_test, **dataloader_kwargs)
 
     def configure_optimizers(self):
-        # Dynamically initialize the optimizer based on the config
-        optimizer_param = copy.deepcopy(self.config["optimization/optimizer"])
-        del optimizer_param["name"]
-
-        name = self.config["optimization/optimizer/name"]
-        module = importlib.import_module("torch.optim")
-        optimizer_class = getattr(module, name)
-
-        optimizer = optimizer_class(self.model.parameters(), **optimizer_param)
-
-        if self.config["optimization/lr_scheduler"]:
-            # Same for the scheduler, if available
-            scheduler_param = copy.deepcopy(self.config["optimization/lr_scheduler"])
-            del scheduler_param["name"]
-
-            name = self.config["optimization/lr_scheduler/name"]
-            module = importlib.import_module("torch.optim.lr_scheduler")
-            scheduler_class = getattr(module, name)
-
-            scheduler = scheduler_class(optimizer, **scheduler_param)
-            return [optimizer], [scheduler]
-        else:
-            return optimizer
+        return parse_optimizer(self.config, self.model)
 
     @staticmethod
     @abstractmethod
@@ -106,6 +84,15 @@ class HTCLightning(EvaluationMixin, pl.LightningModule):
         # with torch.autocast(device_type=self.device.type):
         #     batch = HTCTransformation.apply_valid_transforms(batch, transforms)
         batch = HTCTransformation.apply_valid_transforms(batch, transforms)
+
+        if "image_index" in batch and type(batch["image_index"]) == torch.Tensor:
+            # The image index may not be a tensor in prediction scenarios if a single image is supplied manually
+            # In these cases, however, we don't need training statistics
+            if "img_indices" not in self.training_stats_epoch:
+                self.training_stats_epoch["img_indices"] = []
+
+            indices = batch["image_index"].cpu()
+            self.training_stats_epoch["img_indices"].append(indices)
 
         return batch
 
@@ -191,17 +178,19 @@ class HTCLightning(EvaluationMixin, pl.LightningModule):
         self.checkpoint_metric_logged[self.current_epoch] = True
 
     def on_train_epoch_start(self) -> None:
-        # Workaround to always save the last epoch until the issue is fixed in pl: https://github.com/PyTorchLightning/pytorch-lightning/issues/4539
+        # Workaround to always save the last epoch until the issue is fixed in lightning: https://github.com/Lightning-AI/lightning/issues/4539
         if self.current_epoch == self.trainer.max_epochs - 1:
             settings.log.info("Changed check_val_every_n_epoch to 1")
             self.trainer.check_val_every_n_epoch = 1
 
-    def training_epoch_end(self, training_step_outputs: list[dict]) -> None:
-        if len(training_step_outputs) > 0 and "img_indices" in training_step_outputs[0]:
-            img_indices = torch.cat([x["img_indices"] for x in training_step_outputs]).cpu().numpy()
+    def on_train_epoch_end(self) -> None:
+        if len(self.training_stats_epoch) > 0:
+            for key, values in self.training_stats_epoch.items():
+                self.training_stats_epoch[key] = torch.cat(values).cpu().numpy()
 
-            self.training_stats.append({"img_indices": img_indices})
+            self.training_stats.append(self.training_stats_epoch)
             np.savez_compressed(Path(self.logger.save_dir) / "trainings_stats.npz", data=self.training_stats)
+            self.training_stats_epoch = {}
 
     def parse_transforms_gpu(self, config_key: str = None) -> list[HTCTransformation]:
         if config_key is None:

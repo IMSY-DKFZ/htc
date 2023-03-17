@@ -40,6 +40,7 @@ def p_imap(
     num_cpus: Union[int, float] = None,
     task_name: str = "Working...",
     hide_progressbar: bool = False,
+    use_threads: bool = False,
 ) -> Generator:
     """
     Iterate in parallel over a function with one or more iterables. Items are processed and returned in order as soon as they are finished. A progress bar (using the rich library) will be printed during execution.
@@ -55,9 +56,10 @@ def p_imap(
     Args:
         func: Function to call on each item by the subprocesses.
         iterables: One or more iterables to pass on to the function (multiple iterables map to multiple arguments).
-        num_cpus: Number of processes to use (defaults to the number of installed processes in the system). May also be a factor to denote int(num_cpus * n_cpus).
+        num_cpus: Number of processes to use (defaults to the number of real (not logical) CPU cores in the system). May also be a factor to denote int(num_cpus * n_cpus).
         task_name: Name of the task which will be printed left to the progress bar.
         hide_progressbar: If True, do not show a progress bar.
+        use_threads: If True, use a thread pool instead of a processing pool. Python does not have real multi-threading (due to the GIL) but multiple threads may still result in better CPU utilization if external libraries (like numpy or torch) are used or if the task is I/O-heavy. Threads may be more stable than processes which is useful in Jupyter notebooks (e.g. cells can be executed multiple times without kernel restarts).
 
     Yields: Processed items.
     """
@@ -74,7 +76,7 @@ def p_imap(
     ) as progress:
         task_id = progress.add_task(f"[cyan]{task_name}[/]", total=next(iter(iterable_lengths)))
 
-        pool = mpp.Pool(num_cpus)
+        pool = mpp.ThreadPool(num_cpus) if use_threads else mpp.Pool(num_cpus)
         for item in istarmap(pool, func, zip(*iterables)):
             progress.advance(task_id)
             yield item

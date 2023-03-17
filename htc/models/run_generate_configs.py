@@ -68,7 +68,12 @@ def generate_configs(
         new_config["dataloader_kwargs/num_workers"] = new_config["dataloader_kwargs/num_workers"] * n_gpus
 
         # Store the config in the configs folder
-        new_config["config_name"] = "generated_" + config["config_name"] + "_" + ",".join(filename_parts)
+        parts_str = ",".join(filename_parts)
+        if parts_str == f"seed={settings.default_seed}":
+            # Setting just the default seed can be used to generate a run for the given config (without further changes)
+            new_config["config_name"] = "generated_" + config["config_name"]
+        else:
+            new_config["config_name"] = "generated_" + config["config_name"] + "_" + parts_str
         new_config["config_name"] = new_config["config_name"].replace(
             "<", "LT"
         )  # Avoid special symbols which may break the cluster

@@ -7,6 +7,7 @@ from abc import abstractmethod
 from pathlib import Path
 
 from htc.settings import settings
+from htc.tivita.DataPath import DataPath
 from htc.utils.blosc_compression import compress_file
 from htc.utils.Config import Config
 
@@ -21,6 +22,7 @@ class ImageConsumer(multiprocessing.Process):
         run_dir: Path,
         store_predictions: bool,
         config: Config = None,
+        annotation_name: str = None,
         **kwargs,
     ):
         """
@@ -36,6 +38,7 @@ class ImageConsumer(multiprocessing.Process):
             run_dir: Path to the run directory where the predictions are calculated from.
             store_predictions: Whether to store the predictions for later use (e.g. for faster inference on the next run).
             config: The configuration object to use. If None, the config from the run directory will be used.
+            annotation_name: Name of a specific annotation which should be used in the consumers (via the `path_from_image_data()`). This is useful if the consumer needs to read the labels, e.g. to evaluate an image.
             kwargs: All additional keyword arguments will be stored as attributes in this class.
         """
         multiprocessing.Process.__init__(self)
@@ -45,6 +48,7 @@ class ImageConsumer(multiprocessing.Process):
         self.results_dict = results_dict
         self.run_dir = run_dir
         self.store_predictions = store_predictions
+        self.annotation_name = annotation_name
 
         for name, value in kwargs.items():
             setattr(self, name, value)
@@ -130,3 +134,18 @@ class ImageConsumer(multiprocessing.Process):
         It will only be called for one consumer.
         """
         pass
+
+    def path_from_image_data(self, image_data: dict) -> DataPath:
+        """
+        Create a data path object based on the image data from the producer. Makes sure that the annotation name is used if set.
+
+        Args:
+            image_data: Data from the producer.
+
+        Returns: DataPath for the current image.
+        """
+        name = image_data["image_name"]
+        if self.annotation_name is not None:
+            name += "@" + self.annotation_name
+
+        return DataPath.from_image_name(name)

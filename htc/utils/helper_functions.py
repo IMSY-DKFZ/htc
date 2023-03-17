@@ -2,18 +2,20 @@
 # SPDX-License-Identifier: MIT
 
 import json
-import logging
 import re
-import subprocess
 import warnings
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
+import nbformat
 import numpy as np
 import pandas as pd
-import papermill as pm
 import torch
+from nbconvert import HTMLExporter
+from nbconvert.preprocessors import ExecutePreprocessor
+from traitlets.config import Config as NBConfig
 
+from htc.cpp import automatic_numpy_conversion
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.settings_seg import settings_seg
@@ -22,7 +24,12 @@ from htc.utils.Config import Config
 from htc.utils.LabelMapping import LabelMapping
 
 
-def basic_statistics(dataset_name: str, specs_name: str, label_mapping: LabelMapping = None) -> pd.DataFrame:
+def basic_statistics(
+    dataset_name: str,
+    specs_name: str = None,
+    label_mapping: LabelMapping = None,
+    annotation_name: str | list[str] = None,
+) -> pd.DataFrame:
     """
     Basic statistics about a dataset.
 
@@ -39,18 +46,23 @@ def basic_statistics(dataset_name: str, specs_name: str, label_mapping: LabelMap
         dataset_name: Name of the dataset (folder name on the network drive).
         specs_name: Name or path to a data specification file. A set_type column will be added indicating for each image whether it is part of the train or test set.
         label_mapping: Optional label mapping which is applied to the statistics table. It will rename all labels, remove invalid labels and give the sum of pixels for the new labels (in case multiple labels like blue_cloth or metal map to the same name like background).
+        annotation_name: Optional parameter. If not None, the table will only include the annotations corresponding zu the given annotation_name. Otherwise, all available annotations will be included.
 
     Returns: Statistics in table format.
     """
-    df = median_table(dataset_name=dataset_name)
+    df = median_table(dataset_name=dataset_name, annotation_name=annotation_name)
     df = df[["image_name", "subject_name", "timestamp", "label_name", "n_pixels"]]
 
     # Add a set_type column based on the data specification file
-    specs = DataSpecification(specs_name)
-    specs.activate_test_set()
+    if specs_name is not None:
+        specs = DataSpecification(specs_name)
+        specs.activate_test_set()
 
-    image_names_train = [p.image_name() for p in specs.paths("^train")]
-    image_names_test = [p.image_name() for p in specs.paths("^test")]
+        image_names_train = [p.image_name() for p in specs.paths("^train")]
+        image_names_test = [p.image_name() for p in specs.paths("^test")]
+    else:
+        image_names_train = []
+        image_names_test = []
 
     set_types = []
     for image_name in df["image_name"]:
@@ -94,7 +106,7 @@ def median_table(
         dataset_name: Name of the dataset from which you want to have the median spectra table.
         image_names: List of image ids to search for.
         label_mapping: The target label mapping. There will be a new label_index_mapped column (and a new label_name_mapped column with the new names defined by the mapping) and the old label_index column will be removed (since the label_index is not unique across datasets). If set to None, then mapping is not carried out.
-        annotation_name: Unique name of the annotation(s) for cases where multiple annotations exist (e.g. inter-rater variability). If None, will use the default from the dataset. If the dataset does not have a default (i.e. the annotation_name_default is missing in the dataset_settings.json file), all annotations are returned. If 'all', all available annotations are returned.
+        annotation_name: Unique name of the annotation(s) for cases where multiple annotations exist (e.g. inter-rater variability). If None, will use the default from the dataset. If the dataset does not have a default (i.e. the annotation_name_default is missing in the dataset_settings.json file), all annotations are returned. It is also possible to explicitly retrieve all annotations by setting this parameter to 'all'.
 
     Returns: Median spectra data frame. The table is either sorted by image names (if image_names is not None) or by the sort_labels() function (if dataset_name is used).
     """
@@ -145,6 +157,9 @@ def median_table(
             if len(df_mapping) > 0:
                 df = df_mapping
                 label_indices = torch.from_numpy(df["label_index"].values)
+                assert (
+                    settings.data_dirs[dataset_name] is not None
+                ), f"Cannot find the path to the dataset {dataset_name} but this is required for remapping the labels"
                 original_mapping = LabelMapping.from_data_dir(settings.data_dirs[dataset_name])
                 label_mapping.map_tensor(label_indices, original_mapping)
                 df["label_index_mapped"] = label_indices
@@ -417,7 +432,10 @@ def sort_labels(
     return storage
 
 
-def sort_labels_cm(cm: np.ndarray, cm_order: np.ndarray, target_order: np.ndarray) -> np.ndarray:
+@automatic_numpy_conversion
+def sort_labels_cm(
+    cm: Union[torch.Tensor, np.ndarray], cm_order: list[str], target_order: list[str]
+) -> Union[torch.Tensor, np.ndarray]:
     """
     Sorts the rows/columns in a cm to a target order.
 
@@ -425,9 +443,9 @@ def sort_labels_cm(cm: np.ndarray, cm_order: np.ndarray, target_order: np.ndarra
     >>> cm_order = ['b', 'a', 'c']
     >>> target_order = ['a', 'b', 'c']
     >>> sort_labels_cm(cm, cm_order, target_order)
-    array([[ 2.,  1.,  3.],
-           [10.,  0.,  3.],
-           [ 6.,  8.,  4.]])
+    array([[ 2,  1,  3],
+           [10,  0,  3],
+           [ 6,  8,  4]])
 
     Args:
         cm: Confusion matrix.
@@ -440,56 +458,77 @@ def sort_labels_cm(cm: np.ndarray, cm_order: np.ndarray, target_order: np.ndarra
     assert len(cm_order) == len(target_order) and set(cm_order) == set(
         target_order
     ), "The same names must occur in the cm and the target order"
-    assert np.unique(cm_order).tolist() == sorted(cm_order), "The names must be unique"
+    assert sorted(set(cm_order)) == sorted(cm_order), "The names must be unique"
 
     # Swap rows
-    switched_cm = np.zeros(np.shape(cm))
+    switched_cm = torch.zeros_like(cm)
     ordering_indices = [cm_order.index(l) for l in target_order]
     for i, id in enumerate(ordering_indices):
         switched_cm[i, :] = cm[id, :]
 
     # Swap columns
-    switched_cm_final = np.zeros(np.shape(cm))
+    switched_cm_final = torch.zeros_like(cm)
     for j, id in enumerate(ordering_indices):
         switched_cm_final[:, j] = switched_cm[:, id]
 
     return switched_cm_final
 
 
-def run_experiment_notebook(
-    notebook_path: Path, output_path: Path, html_only: bool = False, **papermill_kwargs
+def execute_notebook(
+    notebook_path: Path, output_path: Path = None, parameters: dict[str, Any] = None, html_only: bool = True
 ) -> None:
     """
-    Runs the experiment notebook and stores it in a new location. Additionally, a compressed HTML version of the notebook is stored at the same location.
+    Runs the given notebook and stores it in a new location. Additionally, a compressed HTML version of the notebook can be stored at the output location.
+
+    Note: This function provides similar functionality to papermill (https://papermill.readthedocs.io/en/latest/).
 
     Args:
-        notebook_path: Path to the base notebook.
-        output_path: Path to the output file. If a directory, the same name as the notebook will be used.
+        notebook_path: Path to the base notebook (e.g. ExperimentAnalysis.ipynb).
+        output_path: Path to the output file. If a directory, the same name as the notebook will be used. If None, the notebook is only executed without saving it.
+        parameters: Dictionary with (key, value) pairs denoting the parameters for the notebook. Please add a cell to your notebook with the tag `parameters` and add your defaults there. A new cell will be inserted after the tagged cell so that the new values instead of the defaults are used. If None, then the notebook is not changed.
         html_only: If True, store only the HTML file and no notebook at the output location. Note that the notebook is stored uncompressed and can hence be much larger than the HTML file so this option is useful to save some space.
-        **papermill_kwargs: Additional keyword arguments passed to papermill.
     """
     from htc.utils.visualization import compress_html
 
-    if output_path.is_dir():
-        output_path = output_path / notebook_path.name
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    nb = nbformat.read(notebook_path, as_version=nbformat.NO_CONVERT)
 
-    # Ignore non-applicable warning
-    logging.getLogger("papermill.translators").addFilter(lambda record: "Black is not installed" not in record.msg)
+    if parameters is not None:
+        # Create a new cell with the parameters
+        src = "# Injected parameters\n"
+        src += "\n".join([f"{k} = {v!r}" for k, v in parameters.items()])
+        parameters_cell = nbformat.v4.new_code_cell(src)
 
-    pm.execute_notebook(
-        input_path=notebook_path,
-        output_path=output_path,
-        **papermill_kwargs,
-    )
+        # We need to insert the parameter cell after the existing parameter cell so that we overwrite existing defaults
+        insertion_index = None
 
-    res = subprocess.run(f"jupyter nbconvert --stdout --to html {output_path}", shell=True, capture_output=True)
-    assert res.returncode == 0, f"Could not convert the notebook {output_path} to html"
-    html = res.stdout.decode()
-    compress_html(output_path.with_suffix(".html"), html)
+        for i, cell in enumerate(nb.cells):
+            if "tags" in cell["metadata"] and "parameters" in cell["metadata"]["tags"]:
+                insertion_index = i
+                break
+        assert insertion_index is not None
+        insertion_index += 1
 
-    if html_only:
-        output_path.unlink()
+        nb.cells = [*nb.cells[:insertion_index], parameters_cell, *nb.cells[insertion_index:]]
+
+    # Notebook execution docs: https://nbclient.readthedocs.io/en/latest/client.html
+    # Exporter docs: https://nbconvert.readthedocs.io/en/latest/nbconvert_library.html
+    c = NBConfig()
+    execution_dir = notebook_path.parent
+    c.HTMLExporter.preprocessors = [ExecutePreprocessor(timeout=600, resources={"metadata": {"path": execution_dir}})]
+    exporter = HTMLExporter(config=c)
+
+    # Run the notebook
+    (html, _) = exporter.from_notebook_node(nb)
+
+    if output_path is not None:
+        if output_path.is_dir():
+            output_path = output_path / notebook_path.name
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Save everything
+        compress_html(output_path.with_suffix(".html"), html)
+        if not html_only:
+            nbformat.write(exporter.preprocessors[0].nb, output_path)
 
 
 def get_valid_run_dirs(training_dir: Path = None) -> list[Path]:

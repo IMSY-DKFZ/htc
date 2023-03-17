@@ -25,7 +25,8 @@ class DatasetPatchImage(DatasetImage):
 
         # Expand image so that the patch blocks fit easily
         features = pad_tensors([sample["features"]], size_multiple=self.patch_size)[0]
-        sample["img_size_expanded"] = torch.tensor(features.shape[:2])
+        sample["image_size"] = torch.tensor(sample["features"].shape[:2])
+        sample["image_size_expanded"] = torch.tensor(features.shape[:2])
 
         # Split the image into patches
         patch_features = features.unfold(0, self.patch_size, self.patch_size).unfold(
@@ -47,16 +48,15 @@ class DatasetPatchImage(DatasetImage):
 
         Returns: Full image based on the patches (n_height, n_width, n_channels) or (n_height, n_width).
         """
-        img_size = (
-            sample["valid_pixels"].shape if len(sample["valid_pixels"].shape) == 2 else sample["valid_pixels"].shape[1:]
-        )
-        img_size_expanded = (
-            sample["img_size_expanded"]
-            if len(sample["img_size_expanded"].shape) == 1
-            else sample["img_size_expanded"][0]
-        )
-        img_size = tuple(img_size)
-        img_size_expanded = tuple(img_size_expanded)
+        if len(sample["image_size_expanded"].shape) == 1:
+            image_size = sample["image_size"]
+            image_size_expanded = sample["image_size_expanded"]
+        else:
+            image_size = sample["image_size"][0]
+            image_size_expanded = sample["image_size_expanded"][0]
+
+        image_size = tuple(image_size)
+        image_size_expanded = tuple(image_size_expanded)
 
         original_type = tensor.dtype
 
@@ -69,7 +69,7 @@ class DatasetPatchImage(DatasetImage):
 
         tensor = tensor.reshape(tensor.shape[0], -1).unsqueeze(dim=0).permute(0, 2, 1)  # [1, 102400, 300]
         tensor = nn.Fold(
-            output_size=img_size_expanded,
+            output_size=image_size_expanded,
             kernel_size=(self.patch_size, self.patch_size),
             stride=(self.patch_size, self.patch_size),
         )(
@@ -80,8 +80,8 @@ class DatasetPatchImage(DatasetImage):
         if len(tensor.shape) == 3:
             tensor = tensor.permute(1, 2, 0)  # [480, 640, 100]
 
-        if img_size != img_size_expanded:
+        if image_size != image_size_expanded:
             # Remove the expanded parts
-            tensor = tensor[: img_size[0], : img_size[1]]
+            tensor = tensor[: image_size[0], : image_size[1]]
 
         return tensor

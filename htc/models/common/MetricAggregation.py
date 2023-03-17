@@ -37,7 +37,7 @@ class MetricAggregation:
         else:
             raise ValueError("Neither a dataframe nor path given")
 
-        assert all(m in self.df for m in self.metrics), "Not all metrics are in the dataframe"
+        assert all(m in self.df for m in self.metrics), f"Not all metrics are in the dataframe ({self.df.columns})"
 
         if ("subject_name" not in self.df or "timestamp" not in self.df) and "image_name" in self.df:
             # Reconstruct missing information

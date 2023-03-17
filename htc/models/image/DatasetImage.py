@@ -73,6 +73,8 @@ class DatasetImage(HTCDataset):
                 # We already have the RGB data so we can directly use it for the superpixels
                 spx_features_name = "features"
 
+        # We need to apply the transformations before we compute the superpixels because the superpixel mask cannot be transformed
+        # The main problem is that the border values get mirrored leading to duplicate superpixel indices or missing indices
         sample = self.apply_transforms(sample)  # e.g. features.shape = [480, 640, 100]
 
         if self.config["input/superpixels"]:

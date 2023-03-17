@@ -16,14 +16,13 @@ from htc.model_processing.ValidationPredictor import ValidationPredictor
 from htc.models.image.DatasetImage import DatasetImage
 from htc.settings import settings
 from htc.settings_seg import settings_seg
-from htc.tivita.DataPath import DataPath
 from htc.utils.general import apply_recursive
 from htc.utils.helper_functions import get_nsd_thresholds
 from htc.utils.LabelMapping import LabelMapping
 
 
 class ImageTableConsumer(ImageConsumer):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, test_table_name: str = "test_table", **kwargs):
         """Adds all post-hoc metrics (e.g. ASD, NSD) to the validation or test table."""
         super().__init__(*args, **kwargs)
 
@@ -34,16 +33,17 @@ class ImageTableConsumer(ImageConsumer):
         else:
             self.tolerances = None
 
+        self.test_table_name = test_table_name
+
     def handle_image_data(self, image_data: dict) -> None:
         config = copy.copy(self.config)
         config["input/preprocessing"] = None
         config["input/no_features"] = True  # As we only need labels from the sample
 
-        path = DataPath.from_image_name(image_data["image_name"])
+        path = self.path_from_image_data(image_data)
         sample = DatasetImage([path], train=False, config=config)[0]
 
         predictions = torch.from_numpy(image_data["predictions"]).unsqueeze(dim=0)
-        predictions_labels = predictions.argmax(dim=1)
         labels = sample["labels"].unsqueeze(dim=0)
         valid_pixels = sample["valid_pixels"].unsqueeze(dim=0)
 
@@ -180,7 +180,7 @@ class ImageTableConsumer(ImageConsumer):
                 columns={"surface_dice_metric": key_nsd, "surface_dice_metric_image": key_nsd_image}, inplace=True
             )
 
-        df_results.to_pickle(self.target_dir / "test_table.pkl.xz")
+        df_results.to_pickle(self.target_dir / f"{self.test_table_name}.pkl.xz")
 
 
 if __name__ == "__main__":

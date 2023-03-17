@@ -79,9 +79,12 @@ class LabelMapping:
             self.mapping_index_name.keys()
         ), "Both mappings must have the same ids (it is only allowed to have more names for the same id)"
 
+    def __repr__(self):
+        labels = ", ".join([f"{l}={self.name_to_index(l)}" for l in self.label_names()])
+        return f"LabelMapping({labels})"
+
     def __len__(self):
-        """Returns: The number of unique valid label indices in this mapping. This is identical to the number of classes used during training. Please note that it is possible to have more names than ids since multiple names can map to the same id.
-        """
+        """Returns: The number of unique valid label indices in this mapping. This is identical to the number of classes used during training. Please note that it is possible to have more names than ids since multiple names can map to the same id."""
         return len(self.label_indices())
 
     def __contains__(self, name_or_index: Union[str, int, torch.Tensor]) -> bool:

@@ -921,7 +921,7 @@ def create_overview_document(
                 selected = 'class="selected" ' if p == path else ""
 
                 label_meta = p.meta(f"label_meta/{l}")
-                if label_meta is not None:
+                if label_meta is not None and "situs" in label_meta:
                     meta = (
                         f"<br>situs={label_meta['situs']}, angle={label_meta['angle']}°,"
                         f" repetition={label_meta['repetition']}"
@@ -1835,9 +1835,9 @@ def add_std_fill(
     lower_border = lower_border[::-1]
 
     if "hovertemplate" not in scatter_kwargs:
-        scatter_kwargs[
-            "hovertemplate"
-        ] = "wavelength: %{x:.1f}<br>normalized reflectance: %{y:.5f}<br>standard deviation: %{text:.5f}"
+        scatter_kwargs["hovertemplate"] = (
+            "wavelength: %{x:.1f}<br>normalized reflectance: %{y:.5f}<br>standard deviation: %{text:.5f}"
+        )
 
     fig.add_trace(
         go.Scatter(
@@ -1876,8 +1876,7 @@ def add_std_fill(
 
 
 def colorchecker_fig_styling(fig: go.Figure) -> go.Figure:
-    """This function takes a figure displaying colorchecker spectra in a grid of 6 rows and 4 columns and adds to each subplot a bar in the color of the corresponding colorchecker chip.
-    """
+    """This function takes a figure displaying colorchecker spectra in a grid of 6 rows and 4 columns and adds to each subplot a bar in the color of the corresponding colorchecker chip."""
     n_subplots = int(fig.data[-1]["xaxis"][1:])
     if n_subplots == 24:
         label_color_map = ColorcheckerReader.label_colors_classic

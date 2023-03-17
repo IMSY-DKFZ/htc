@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.4.3-base-ubuntu20.04
+FROM nvidia/cuda:11.7.1-base-ubuntu22.04
 
 # Avoid Docker build freeze due to region selection
 ENV DEBIAN_FRONTEND=noninteractive
