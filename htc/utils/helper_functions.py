@@ -28,7 +28,7 @@ def basic_statistics(
     dataset_name: str,
     specs_name: str = None,
     label_mapping: LabelMapping = None,
-    annotation_name: str | list[str] = None,
+    annotation_name: Union[str, list[str]] = None,
 ) -> pd.DataFrame:
     """
     Basic statistics about a dataset.
