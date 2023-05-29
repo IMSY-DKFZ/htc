@@ -72,7 +72,11 @@ def p_imap(
         num_cpus = int(round(num_cpus * psutil.cpu_count(logical=False)))
 
     with Progress(
-        *Progress.get_default_columns(), TimeElapsedColumn(), ProcessingSpeedColumn(), disable=hide_progressbar
+        *Progress.get_default_columns(),
+        TimeElapsedColumn(),
+        ProcessingSpeedColumn(),
+        disable=hide_progressbar,
+        refresh_per_second=1,
     ) as progress:
         task_id = progress.add_task(f"[cyan]{task_name}[/]", total=next(iter(iterable_lengths)))
 

@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 import torch
 import torch.nn as nn
+from typing_extensions import Self
 
 
 class ForwardHookPromise:
@@ -59,7 +60,7 @@ class ForwardHookPromise:
         else:
             self._data = self.hook(module, module_in, module_out)
 
-    def __enter__(self) -> "ForwardHookPromise":
+    def __enter__(self) -> Self:
         self._in_context = True
         return self
 

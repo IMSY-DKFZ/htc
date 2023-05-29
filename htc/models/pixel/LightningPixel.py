@@ -77,16 +77,8 @@ class LightningPixel(HTCLightning):
         return {"class": logits}
 
     def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> dict:
-        if self.config["input/specs_threshold"]:
-            # Exclude specular highlight pixels
-            valid_pixels = batch["features"][~batch["specs"]]
-            valid_labels = batch["labels"][~batch["specs"]]
-        else:
-            valid_pixels = batch["features"]
-            valid_labels = batch["labels"]
-
-        prediction = self(valid_pixels)
-        loss = self.ce_loss_weighted(prediction, valid_labels)
+        prediction = self(batch["features"])
+        loss = self.ce_loss_weighted(prediction, batch["labels"])
 
         self.log("train/ce_loss", loss, on_epoch=True)
 

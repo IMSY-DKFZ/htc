@@ -85,8 +85,6 @@ class DatasetImageBatch(SharedMemoryDatasetMixin, DatasetImage):
                 self._add_tensor_shared("labels", torch.int64, *spatial_shape)
                 self._add_tensor_shared("valid_pixels", torch.bool, *spatial_shape)
 
-        if self.config["input/specs_threshold"]:
-            self._add_tensor_shared("specs", torch.int64, *spatial_shape)
         if self.config["input/superpixels"]:
             self._add_tensor_shared("spxs", torch.int64, *spatial_shape)
 

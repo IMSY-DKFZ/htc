@@ -47,6 +47,7 @@ class ValidationPredictor(Predictor):
                     )
 
                 paths = fold_data[split_name]
+                self.name_path_mapping = {p.image_name(): p for p in paths}
                 dataset = LightningClass.dataset(paths=paths, train=False, config=self.config, fold_name=fold_dir.stem)
 
                 # Load dataset and lightning class based on model name
@@ -65,7 +66,7 @@ class ValidationPredictor(Predictor):
                         if predictions is not None:
                             task_queue.put(
                                 {
-                                    "image_name": image_name,
+                                    "path": self.name_path_mapping[image_name],
                                     "fold_name": fold_dir.name,
                                     "best_epoch_index": best_epoch_index,
                                     "predictions": predictions,
@@ -109,7 +110,7 @@ class ValidationPredictor(Predictor):
 
                 task_queue.put(
                     {
-                        "image_name": image_name,
+                        "path": self.name_path_mapping[image_name],
                         "fold_name": fold_name,
                         "best_epoch_index": best_epoch_index,
                         "predictions": predictions,

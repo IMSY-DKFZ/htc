@@ -7,7 +7,6 @@ from typing import Union
 
 import numpy as np
 import torch
-from PIL import Image
 from torch.utils.data import Dataset
 
 from htc.models.common.transforms import HTCTransformation, ToType
@@ -152,10 +151,6 @@ class HTCDataset(ABC, Dataset):
 
         return torch.from_numpy(df["label_index_mapped"].values), torch.from_numpy(df["n_pixels"].values)
 
-    def from_image_name(self, name: str) -> dict[str, torch.Tensor]:
-        index = self.image_names.index(name)
-        return self[index]
-
     def read_labels(self, path: DataPath) -> Union[dict[str, torch.Tensor], None]:
         """
         Read the labels for the data path, compute the valid pixels and apply the label mapping.
@@ -263,20 +258,6 @@ class HTCDataset(ABC, Dataset):
             else:
                 assert "features" not in sample
 
-        if self.config["input/specs_threshold"]:
-            # Read the specular highlight masks
-            spec_path = (
-                settings.intermediates_dir
-                / "specs"
-                / f'specular_highlight_masks_from_rgb2lab_{self.config["input/specs_threshold"]}'
-                / f"{path.image_name()}.png"
-            )
-            assert spec_path.exists(), f"Cannot find specular highlights for {path.image_name()} (path={spec_path})"
-            spec = np.asarray(Image.open(spec_path))
-            spec[spec == 255] = 1
-
-            sample["specs"] = torch.from_numpy(spec)  # True = spec
-
         for name, tensor in sample.items():
             if name.startswith(("labels", "valid_pixels")):
                 # May be CHW
@@ -327,7 +308,7 @@ class HTCDataset(ABC, Dataset):
 
     def _load_preprocessed(self, image_name: str, folder_name: str) -> Union[np.ndarray, None]:
         # Load a preprocessed HSI cube
-        files_dir = settings.intermediates_dir / "preprocessing" / folder_name
+        files_dir = settings.intermediates_dir_all / "preprocessing" / folder_name
 
         extensions = [
             (".blosc", decompress_file),
@@ -344,8 +325,8 @@ class HTCDataset(ABC, Dataset):
         assert data is not None, (
             f"Could not ind the image {image_name}. This probably means that you have not registered the dataset where"
             " this image is from, i.e. you need to set the corresponding environment variable. The following"
-            f" intermediate directories are registered: {settings.intermediates_dir} and the following file extensions"
-            f" were tried: {[e[0] for e in extensions]}"
+            f" intermediate directories are registered: {settings.intermediates_dir_all} and the following file"
+            f" extensions were tried: {[e[0] for e in extensions]}"
         )
 
         precision = self.config["trainer_kwargs/precision"]

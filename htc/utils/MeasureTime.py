@@ -41,4 +41,4 @@ class MeasureTime:
         self.elapsed_seconds = seconds
 
         if not self.silent:
-            print("%sElapsed time: %d m and %.2f s" % (tag, seconds // 60, seconds % 60))
+            print(f"{tag}Elapsed time: {seconds // 60:.0f} m and {seconds % 60:.2f} s")

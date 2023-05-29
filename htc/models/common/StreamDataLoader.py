@@ -154,9 +154,7 @@ class StreamDataLoader:
             except StopIteration:
                 pass
 
-        is_batch_part = (
-            any([r["partly_filled"] for r in results.values()]) or len(results) < self.dataloader.num_workers
-        )
+        is_batch_part = any(r["partly_filled"] for r in results.values()) or len(results) < self.dataloader.num_workers
         if is_batch_part:
             used_indices = []
             for r in results.values():

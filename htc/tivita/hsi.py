@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 
@@ -15,7 +16,7 @@ def tivita_wavelengths() -> np.array:
     return np.linspace(500, 1000, 100)
 
 
-def read_tivita_hsi(path: Path, normalization: int = None) -> np.ndarray:
+def read_tivita_hsi(path: Path, normalization: Union[int, None] = None) -> np.ndarray:
     """
     Load the Tivita data cube as Numpy array.
 

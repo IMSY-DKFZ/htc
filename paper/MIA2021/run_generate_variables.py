@@ -78,7 +78,7 @@ class VariableGeneration:
             self.commands.append("\\definecolor{" + self._model_to_name(model) + "}{HTML}{" + color[1:] + "}")
 
         for config_name, modality in [("default", "HSI"), ("default_parameters", "TPI"), ("default_rgb", "RGB")]:
-            config = Config.load_config(config_name, "pixel")
+            config = Config.from_model_name(config_name, "pixel")
             model = LightningPixel(dataset_train=None, datasets_val=[], config=config)
             self.vars[f"varPixel{modality}TotalWeights"] = (
                 "\\num{" + str(sum(p.numel() for p in model.parameters())) + "}"
@@ -97,43 +97,35 @@ class VariableGeneration:
         labels_size = [settings_seg.labels_paper_renaming.get(l, l) for l in labels_size]
         labels_size = ["\\oname{" + l + "}" for l in labels_size]
 
-        df_organ = sqldf(
-            f"""
+        df_organ = sqldf(f"""
             SELECT label_name, COUNT(DISTINCT subject_name) AS n_pigs, COUNT(DISTINCT timestamp) AS n_images
             FROM df
             WHERE label_valid = 1 AND label_index != {mapping.name_to_index('background')}
             GROUP BY label_name
-        """
-        )
+        """)
 
-        df_background = sqldf(
-            f"""
+        df_background = sqldf(f"""
             SELECT timestamp, CAST(SUM(n_pixels) AS FLOAT) / {dataset_settings.pixels_image()} AS pixel_ratio
             FROM df
             WHERE label_index = {mapping.name_to_index('background')}
             GROUP BY timestamp
-        """
-        )
+        """)
         assert len(df_background) == df["timestamp"].nunique(), "Every image must have background"
 
-        df_invalid = sqldf(
-            f"""
+        df_invalid = sqldf(f"""
             SELECT timestamp, CAST(SUM(n_pixels) AS FLOAT) / {dataset_settings.pixels_image()} AS pixel_ratio
             FROM df
             WHERE label_valid = 0
             GROUP BY timestamp
-        """
-        )
+        """)
 
         # Neighbour information about the gallbladder
-        df_labels = sqldf(
-            f"""
+        df_labels = sqldf(f"""
             SELECT timestamp, GROUP_CONCAT(label_name, ',') AS all_labels
             FROM df
             WHERE label_valid = 1 AND label_index != {mapping.name_to_index('background')}
             GROUP BY timestamp
-        """
-        )
+        """)
         counts = {l: 0 for l in mapping.label_names()}
         for i, row in df_labels.iterrows():
             labels = row["all_labels"].split(",")
@@ -336,13 +328,11 @@ model & \\# pixels & epoch size & batch size \\\\
         from htc.models.data.run_pig_dataset import test_set  # noqa: F401
 
         df = pd.read_pickle(settings.results_dir / "superpixel_gt" / "spxs_predictions.pkl.xz")
-        df_grouped = sqldf(
-            """
+        df_grouped = sqldf("""
             SELECT subject_name, AVG(dice) AS DSC, AVG(asd) AS ASD, AVG(nsd) AS NSD
             FROM df
             GROUP BY subject_name
-        """
-        ).query("subject_name in @test_set")
+        """).query("subject_name in @test_set")
 
         for short in self.metric_mapping.keys():
             self.vars[f"varSpxLimit{short}"] = (
@@ -375,15 +365,13 @@ model & \\# pixels & epoch size & batch size \\\\
         df = pd.DataFrame(rows, columns=["name", "model_type", "subject_name", "timestamp", "dice", "asd", "nsd"])
 
         # Average dice across models
-        df_dice = sqldf(
-            """
+        df_dice = sqldf("""
             SELECT subject_name, timestamp, model_type, AVG(dice) AS dice
             FROM df
             WHERE model_type = 'hsi'
             GROUP BY subject_name, timestamp, model_type
             ORDER BY dice
-        """
-        )
+        """)
 
         # Extract information for pixel model
         img = df_dice.iloc[round(0.95 * len(df_dice))]

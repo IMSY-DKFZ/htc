@@ -4,7 +4,6 @@
 import numpy as np
 import pandas as pd
 import torch
-from functorch import vmap
 
 from htc.cpp import hierarchical_bootstrapping
 from htc.settings import settings
@@ -134,7 +133,7 @@ def distance_correlation_features(df: pd.DataFrame, device: str = "cuda") -> pd.
         # Distance correlation for each bootstrap (chunked to reduce memory consumption)
         dcors = []
         for chunk in bootstraps.tensor_split(10):
-            dcors.append(vmap(lambda indices: distance_correlation(x_all[indices], y_all[indices]))(chunk))
+            dcors.append(torch.vmap(lambda indices: distance_correlation(x_all[indices], y_all[indices]))(chunk))
         dcors = torch.cat(dcors)
 
         rows.append(

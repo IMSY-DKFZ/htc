@@ -38,7 +38,9 @@ def aggregate_results(i: int) -> dict[str, Union[dict, Any]]:
 
 
 if __name__ == "__main__":
-    config = Config.load_config("default", "superpixel_classification")
+    config = Config.from_model_name("default", "superpixel_classification")
+    config["input/no_features"] = True
+
     paths = list(DataPath.iterate(settings.data_dirs.semantic))
     dataset_all = DatasetImage(paths, train=False, config=config)
     tolerances = get_nsd_thresholds(settings_seg.label_mapping)

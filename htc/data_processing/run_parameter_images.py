@@ -19,7 +19,7 @@ class ParameterImages(DatasetIteration):
         self.file_type = file_type
 
         if output_dir is None:
-            self.output_dir = settings.intermediates_dir / "preprocessing" / "parameter_images"
+            self.output_dir = settings.intermediates_dir_all / "preprocessing" / "parameter_images"
         else:
             self.output_dir = output_dir / "parameter_images"
         self.output_dir.mkdir(exist_ok=True, parents=True)

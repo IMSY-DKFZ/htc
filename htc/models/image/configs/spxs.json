@@ -3,9 +3,7 @@
     "input": {
         "superpixels": {
             "n_segments": 1000,
-            "slic_zero": true,
-            "compactness": 10,
-            "sigma": 3
+            "compactness": 10
         }
     },
     "optimization": {

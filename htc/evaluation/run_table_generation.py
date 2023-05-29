@@ -185,20 +185,23 @@ def check_run(run_dir: Path) -> None:
 
     # Check log files
     for fold_dir in fold_dirs:
-        with (fold_dir / "log.txt").open() as f:
-            log_text = f.read()
-
-        if "WARNING" in log_text:
-            settings.log.warning(f"The log of the fold {fold_dir} contains warnings")
-        if "ERROR" in log_text or "CRITICAL" in log_text:
-            settings.log.error(f"The log of the fold {fold_dir} contains errors")
+        log_path = fold_dir / "log.txt"
+        if not log_path.exists():
+            settings.log.error(f"Could not find the log file for the fold {fold_dir}")
             error_occurred = True
+        else:
+            with log_path.open() as f:
+                log_text = f.read()
+
+            if "WARNING" in log_text:
+                settings.log.warning(f"The log of the fold {fold_dir} contains warnings")
+            if "ERROR" in log_text or "CRITICAL" in log_text:
+                settings.log.error(f"The log of the fold {fold_dir} contains errors")
+                error_occurred = True
 
     # Check config files
     try:
-        config = Config.load_config_fold(
-            run_dir
-        )  # This also checks that the config files inside the folds are identical
+        config = Config.from_fold(run_dir)  # This also checks that the config files inside the folds are identical
         config.save_config(run_dir / "config.json")
     except AssertionError:
         settings.log.exception("Error in config loading")
@@ -247,7 +250,7 @@ def check_tables(run_dir: Path) -> None:
     hashable_columns = []
     for c in df_val.columns:
         try:
-            df_val.iloc[:2][c].unique()
+            df_val[c].unique()
             hashable_columns.append(c)
         except TypeError:
             pass
@@ -312,7 +315,13 @@ def check_tables(run_dir: Path) -> None:
             else:
                 table_image_names = set(df["image_name"].unique())
 
-            fold_image_names = {p.image_name() for p in fold_paths}
+            if (df["subject_name"] == df["image_name"]).all() and len(df) == df["subject_name"].nunique():
+                # For some tasks (e.g. tissue atlas), we do not store image-level but only subject-level metrics
+                # In these cases, we only check that the subject names match
+                fold_image_names = {p.subject_name for p in fold_paths}
+            else:
+                fold_image_names = {p.image_name() for p in fold_paths}
+
             if fold_image_names != table_image_names:
                 settings.log.error(
                     f"The [var]{set_name}[/] table for the run {run_dir} misses"
@@ -373,9 +382,9 @@ def check_tables(run_dir: Path) -> None:
 def create_experiment_notebooks(run_dir: Path, base_notebook: str) -> None:
     possible_paths = [
         Path(base_notebook),
-        Path.cwd() / base_notebook,
         Path(__file__).parent / base_notebook,
         settings.htc_package_dir / base_notebook,
+        settings.src_dir / base_notebook,
     ]
     input_path = None
     for path in possible_paths:
@@ -388,11 +397,12 @@ def create_experiment_notebooks(run_dir: Path, base_notebook: str) -> None:
         f" the following locations: {possible_paths}"
     )
 
-    output_path = run_dir / input_path.name
+    # We always use the same output name so that the check for the required files below works
+    output_path = run_dir / "ExperimentAnalysis.html"
     if output_path.exists() and output_path.with_suffix(".html").exists():
         return None
 
-    settings.log.info(f"Using the notebook {input_path}")
+    settings.log_once.info(f"Using the notebook {input_path}")
     execute_notebook(notebook_path=input_path, output_path=output_path, parameters={"run_dir": str(run_dir)})
 
 
@@ -427,12 +437,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.input_path is None:
-        # Find runs which do not have any of the following files
+        # Find runs which do not have all of the following required files
         required_files = ["validation_table.pkl.xz", "ExperimentAnalysis.html"]
         run_dirs = []
         for r in get_valid_run_dirs():
             # If a run should be computed again, delete all of the required files
-            if not any([(r / f).exists() for f in required_files]):
+            if not all((r / f).exists() for f in required_files):
                 run_dirs.append(r)
     else:
         run_dirs = set()

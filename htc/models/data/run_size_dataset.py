@@ -22,15 +22,13 @@ def label_mapping_dataset_size() -> LabelMapping:
     df_stats = basic_statistics("2021_02_05_Tivita_multiorgan_semantic", "pigs_semantic-only_5foldsV2.json")
 
     df_organs = df_stats.query("label_name in @settings_seg.labels")
-    df_organ_counts = sqldf(
-        """
+    df_organ_counts = sqldf("""
         SELECT label_name, COUNT(DISTINCT subject_name) AS n_pigs
         FROM df_organs
         WHERE set_type = 'train'
         GROUP BY label_name
         ORDER BY n_pigs
-    """
-    )
+    """)
 
     # We select all the labels which occur in every pig in the train dataset
     n_pigs_total = df_stats.query('set_type == "train"')["subject_name"].nunique()
@@ -68,7 +66,7 @@ def filter_full_classes(path: DataPath, mapping: LabelMapping) -> bool:
     ]  # These classes are available in every pig
     available_labels = path.annotated_labels()
 
-    return any([l in used_classes for l in available_labels])
+    return any(l in used_classes for l in available_labels)
 
 
 def filter_min_pixels(path: DataPath, mapping: LabelMapping) -> bool:

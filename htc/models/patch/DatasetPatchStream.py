@@ -66,8 +66,8 @@ class DatasetPatchStream(HTCDatasetStream):
         self.label_mapping = LabelMapping.from_config(self.config)
 
     def iter_samples(self, include_position: bool = False) -> Iterator[dict[str, torch.Tensor]]:
-        for worker_index, path in self._iter_paths():
-            # We read the HSI image like DatasetImage
+        for worker_index, path_index in self._iter_paths():
+            path = self.paths[path_index]
             sample_img = self.read_experiment(path)
             sample_img = self.apply_transforms(sample_img)
 
@@ -115,19 +115,13 @@ class DatasetPatchStream(HTCDatasetStream):
                     "features": features.refine_names("H", "W", "C"),
                     "labels": labels.refine_names("H", "W"),
                     "valid_pixels": valid_pixels.refine_names("H", "W"),
-                    "image_index": self.image_names.index(path.image_name()),
+                    "image_index": path_index,
                     "worker_index": worker_index,
                 }
 
                 if include_position:
                     sample["center_row"] = center_row
                     sample["center_col"] = center_col
-
-                if "input/specs_threshold" in self.config:
-                    sample["specs"] = sample_img["specs"][
-                        center_row - self.patch_size_half : center_row + self.patch_size_half,
-                        center_col - self.patch_size_half : center_col + self.patch_size_half,
-                    ].refine_names("H", "W")
 
                 yield sample
 
@@ -226,6 +220,3 @@ class DatasetPatchStream(HTCDatasetStream):
             else:
                 self._add_tensor_shared("labels", torch.int64, *self.config["input/patch_size"])
                 self._add_tensor_shared("valid_pixels", torch.bool, *self.config["input/patch_size"])
-
-        if self.config["input/specs_threshold"]:
-            self._add_tensor_shared("specs", torch.int64, *self.config["input/patch_size"])

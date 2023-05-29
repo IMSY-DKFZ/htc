@@ -13,7 +13,15 @@ from htc.utils.type_from_string import type_from_string
 class DatasetSettings:
     def __init__(self, path_or_data: Union[str, Path, dict]):
         """
-        Settings of the dataset (shapes etc.) which can be accessed by the DataPaths as path.dataset_settings. The data is not loaded when constructing this object but only when the settings data is actually accessed.
+        Settings of the dataset (label_mapping, shape, etc.) defined in the dataset_settings.json file of the data folder. The data is not loaded when constructing this object but only when the settings data is accessed for the first time (lazy loading).
+
+        The dataset settings can be conveniently accessed via data paths:
+        >>> from htc import DataPath
+        >>> path = DataPath.from_image_name("P041#2019_12_14_12_00_16")
+        >>> path.dataset_settings["dataset_name"]
+        '2021_02_05_Tivita_multiorgan_semantic'
+        >>> path.dataset_settings["shape"]
+        (480, 640, 100)
 
         It is also possible to load the settings explicitly based on the path to the data directory:
         >>> from htc.settings import settings
@@ -52,7 +60,7 @@ class DatasetSettings:
             return self.data == other.data
 
     def __getitem__(self, key: str) -> Any:
-        assert key in self.data, f"{self.settings_path = }\n{self.data = }"
+        assert key in self.data, f"Cannot find {key} in the dataset settings\n{self.settings_path = }\n{self.data = }"
         return self.data[key]
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -116,15 +124,19 @@ class DatasetSettings:
             assert dataset_dir.exists() and dataset_dir.is_dir(), f"The dataset directory {dataset_dir} does not exist"
 
             files = sorted(dataset_dir.iterdir())
-            if any([f.name.endswith("subjects") for f in files]):
+            if any(f.name.startswith("Cat") for f in files):
+                from htc.tivita.DataPathTissueAtlas import DataPathTissueAtlas
+
+                DataPathClass = DataPathTissueAtlas
+            elif any(f.name.endswith("subjects") for f in files):
                 from htc.tivita.DataPathMultiorgan import DataPathMultiorgan
 
                 DataPathClass = DataPathMultiorgan
-            elif any([f.name == "sepsis_study" for f in files]):
+            elif any(f.name == "sepsis_study" for f in files):
                 from htc.tivita.DataPathSepsis import DataPathSepsis
 
                 DataPathClass = DataPathSepsis
-            elif any([f.stem == "image_references" for f in files]):
+            elif any(f.stem == "image_references" for f in files):
                 from htc.tivita.DataPathReference import DataPathReference
 
                 DataPathClass = DataPathReference

@@ -104,14 +104,14 @@ class DataPathSepsis(DataPath):
         annotation_name: Union[str, list[str]],
     ) -> Iterator["DataPathSepsis"]:
         dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
-        intermediates_dir = settings.data_dirs.find_intermediates_dir(data_dir)
+        intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
 
         study_dir = data_dir / "hand_posture_study"
         for subject_name_path in sorted((study_dir / "healthy").iterdir()):
             for location_path in sorted(subject_name_path.iterdir()):
                 for image_dir in sorted(location_path.iterdir()):
                     path = DataPathSepsis(image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name)
-                    if all([f(path) for f in filters]):
+                    if all(f(path) for f in filters):
                         yield path
 
         study_dir = data_dir / "sepsis_study"
@@ -126,7 +126,7 @@ class DataPathSepsis(DataPath):
                             path = DataPathSepsis(
                                 image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name
                             )
-                            if all([f(path) for f in filters]):
+                            if all(f(path) for f in filters):
                                 yield path
                 else:
                     for timepoint_path in sorted(subject_name_path.iterdir()):
@@ -135,5 +135,5 @@ class DataPathSepsis(DataPath):
                                 path = DataPathSepsis(
                                     image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name
                                 )
-                                if all([f(path) for f in filters]):
+                                if all(f(path) for f in filters):
                                     yield path

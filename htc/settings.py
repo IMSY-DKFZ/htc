@@ -13,7 +13,7 @@ from rich.highlighter import ReprHighlighter
 from rich.logging import RichHandler
 from rich.theme import Theme
 
-from htc.utils.DatasetDir import DatasetDir
+from htc.utils.Datasets import DatasetAccessor, Datasets
 from htc.utils.DuplicateFilter import DuplicateFilter
 from htc.utils.MultiPath import MultiPath
 
@@ -92,7 +92,7 @@ class Settings:
     >>> [str(f) for f in sorted(settings_atlas.results_dir.rglob("*"))]  # doctest: +ELLIPSIS
     ['.../results_atlas/new_testfile_atlas.txt', '.../results_atlas/testfile_atlas.txt']
 
-    - `PATH_E130_Projekte` or `PATH_HTC_NETWORK`: Path to the network drive of your department. The value will be accessible via `settings.data_dirs.network_dir`. Example: `PATH_E130_Projekte="/mnt/E130-Projekte"`
+    - `PATH_E130_Projekte` or `PATH_HTC_NETWORK`: Path to the network drive of your department. The value will be accessible via `settings.datasets.network_dir`. Example: `PATH_E130_Projekte="/mnt/E130-Projekte"`
     - `HTC_DOCKER_MOUNTS`: Additional mount locations for our Docker container. This is for example useful if part of the data lies on a separate disk and you link to this location in your dataset. With this environment variable, you can make the symbolic link also work in the Docker container. The syntax is `path_local1:path_docker1;path_local2:path_docker2`. Example: `HTC_DOCKER_MOUNTS="/mnt/nvme_4tb/2021_02_05_Tivita_multiorgan_masks/intermediates:/mnt/nvme_4tb/2021_02_05_Tivita_multiorgan_masks/intermediates"`
     - `PATH_HTC_DOCKER_RESULTS`: If you compute something in our Docker container, results will only be stored in the container and deleted as soon as the container exits (since the container is only intended for testing). Let this variable point to a directory of your choice to keep your Docker results. Example: `PATH_HTC_DOCKER_RESULTS="/my/results/folder"`
     - `HTC_ADD_NETWORK_ALTERNATIVES`: If set to the string `true`, will include results and intermediate directories on the network drive (default `false`). This is usually only required for testing. Example: `HTC_ADD_NETWORK_ALTERNATIVES="true"`
@@ -178,7 +178,7 @@ class Settings:
 
         logging.getLogger("challenger-pydocker").setLevel(logging.INFO)
 
-        if self.add_network_alternatives:
+        if self.should_add_network_alternatives:
             # This info message is not relevant for testing
             self.log_once.addFilter(
                 lambda record: "Falling back to the network drive (this may be slow)" not in record.msg
@@ -228,8 +228,6 @@ class Settings:
             "spleen": "#60F07A",
             "bladder": "#67E619",
             "omentum": "#B9D912",
-            "fat": "#E1E9AA",
-            "subcutaneous_fat": "#e0536b",
             "lung": "#5267C7",
             "heart": "#0DA07C",
             "cartilage": "#0F92DB",
@@ -238,7 +236,6 @@ class Settings:
             "muscle": "#CC170F",
             "peritoneum": "#98CC66",
             "aorta": "#F4D352",
-            "major_vein": "#CCCCCC",
             "major_vein": "#CCCCCC",
             "veins": "#4E2A7E",
             "kidney_with_Gerotas_fascia": "#F43E4C",
@@ -276,6 +273,10 @@ class Settings:
             "fat_visceral": "#43c456",
             "meso": "#4363c4",
             "esophagus": "#4743c4",
+            "plastic": "#42e0f5",
+            "unclear_anorganic": "#a86d32",
+            "tumor": "#ff5100",
+            "reflection": "#dbb8d1",
             "unclear_organic": "#C49505",
             "stapler": "#C7DE12",
             "ligasure": "#1277DE",
@@ -301,19 +302,34 @@ class Settings:
             "SHARED_FOLDER",
         )
 
-        self._data_dirs = None
-        self._intermediates_dir = None
+        self._datasets = None
+        self._intermediates_dir_all = None
         self._results_dir = None
 
     @property
-    def add_network_alternatives(self) -> bool:
+    def should_add_network_alternatives(self) -> bool:
         # Some tests (e.g. notebooks) require result or intermediate files and it is notoriously hard to share them between users
         # As a workaround, we store them on the network drives but this can be slow so this is only done during testing
         return os.getenv("HTC_ADD_NETWORK_ALTERNATIVES", "false") == "true"
 
     @property
-    def data_dirs(self) -> DatasetDir:
-        if self._data_dirs is None:
+    def datasets(self) -> Datasets:
+        """
+        Access datasets which are registered via environment variables.
+
+        Some default datasets (e.g. semantic, human) are registered automatically but any other dataset can be registered via environment variables starting with `PATH_TIVITA*`.
+
+        For each dataset, a dictionary with additional information is available (see `Datasets.get()` for more information).
+        >>> list(settings.datasets.semantic.keys())
+        ['path_dataset', 'path_data', 'path_intermediates', 'location', 'has_unified_paths', 'shortcut', 'env_name']
+
+        You can also access the network drive with this variable:
+        >>> str(settings.datasets.network_data)  # DOCTEST: +ELLIPSIS
+        '.../E130-Projekte/Biophotonics/Data'
+
+        Returns: `Datasets` object with accessor helpers. Please also refer to the documentation of the `Datasets` class for more information.
+        """
+        if self._datasets is None:
             if path_env := os.getenv("PATH_E130_Projekte", False):
                 network_dir = Path(path_env)
             elif path_env := os.getenv("PATH_HTC_NETWORK", False):
@@ -321,23 +337,38 @@ class Settings:
             else:
                 network_dir = None
 
-            self._data_dirs = DatasetDir(network_dir=network_dir)
+            self._datasets = Datasets(network_dir=network_dir)
+            self._datasets.add_dir(
+                "PATH_Tivita_multiorgan_human", "2021_07_26_Tivita_multiorgan_human", shortcut="human"
+            )
+            self._datasets.add_dir("PATH_Tivita_studies", "2021_03_30_Tivita_studies", shortcut="studies")
+            self._datasets.add_dir(
+                "PATH_Tivita_multiorgan_semantic", "2021_02_05_Tivita_multiorgan_semantic", shortcut="semantic"
+            )
+            self._datasets.add_dir(
+                "PATH_Tivita_multiorgan_masks", "2021_02_05_Tivita_multiorgan_masks", shortcut="masks"
+            )
+            self._datasets.add_dir("PATH_Tivita_sepsis_study", "2020_11_24_Tivita_sepsis_study", shortcut="sepsis")
+            self._datasets.add_dir("PATH_Tivita_sepsis_ICU", "2022_10_24_Tivita_sepsis_ICU", shortcut="sepsis_ICU")
+            self._datasets.add_dir(
+                "PATH_Tivita_unsorted_images", "2022_08_03_Tivita_unsorted_images", shortcut="unsorted"
+            )
 
             # Automatically add all additional datasets which start with PATH_Tivita
             for env_name in os.environ.keys():
                 if not env_name.upper().startswith("PATH_TIVITA"):
                     continue
-                if env_name in self._data_dirs:
+                if env_name in self._datasets:
                     continue
 
-                _, options = DatasetDir.parse_path_options(os.environ[env_name])
+                _, options = Datasets.parse_path_options(os.environ[env_name])
                 shortcut = options.get("shortcut", None)
 
                 # Per default, the dataset is accessible via three names. For example, for PATH_Tivita_HeiPorSPECTRAL=/my/dataset_folder_name:
                 # - PATH_Tivita_HeiPorSPECTRAL
                 # - dataset_folder_name
                 # - atlas_pigs
-                self._data_dirs.add_dir(
+                self._datasets.add_dir(
                     env_name,
                     shortcut=shortcut,
                     additional_names=[
@@ -346,15 +377,58 @@ class Settings:
                     ],
                 )
 
-        return self._data_dirs
+        return self._datasets
 
     @property
-    def intermediates_dir(self) -> Union[MultiPath, None]:
-        if self._intermediates_dir is None:
+    def data_dirs(self) -> DatasetAccessor:
+        """
+        This property can be used to access files in the data directory of a specific dataset. The usage is similar to `settings.intermediates_dirs.<dataset_name>`.
+
+        >>> str(settings.data_dirs.semantic)  # DOCTEST: +ELLIPSIS
+        '.../2021_02_05_Tivita_multiorgan_semantic/data'
+
+        Returns: `DatasetAccessor` object which can be used to access the data dir by (short) name of the dataset. None if the requested dataset is not available.
+        """
+        return DatasetAccessor(self.datasets, "path_data")
+
+    @property
+    def intermediates_dirs(self) -> DatasetAccessor:
+        """
+        This property can be used to access files in the intermediates directory of a specific dataset. The usage is similar to `settings.data_dirs.<dataset_name>`.
+
+        >>> str(settings.intermediates_dirs.semantic)  # DOCTEST: +ELLIPSIS
+        '.../2021_02_05_Tivita_multiorgan_semantic/intermediates'
+
+        Returns: `DatasetAccessor` object which can be used to access the intermediates dir by (short) name of the dataset. None if the requested dataset is not available.
+        """
+        return DatasetAccessor(self.datasets, "path_intermediates")
+
+    @property
+    def intermediates_dir_all(self) -> Union[MultiPath, None]:
+        """
+        This property can be used to access files in any of the registered intermediate directories (from all datasets which are available).
+
+        This is useful for reading files without knowing from which dataset this file is form (e.g. during training). It is assumed that the files inside the intermediates directories are unique across datasets, e.g. because they have different image names.
+
+        If you use this variable to create new files (not recommended, please use `settings.intermediates_dirs.<dataset_name>` instead), the files will be created in the first dataset which is available.
+
+        File from the semantic dataset:
+        >>> path1 = settings.intermediates_dir_all / "segmentations" / "P041#2019_12_14_12_00_16.blosc"
+        >>> path1.exists()
+        True
+
+        File from the masks dataset:
+        >>> path2 = settings.intermediates_dir_all / "segmentations" / "P001#2018_07_26_13_04_30.blosc"
+        >>> path2.exists()
+        True
+
+        Returns: Multi path object for the intermediates directory of all datasets. None if no dataset is set.
+        """
+        if self._intermediates_dir_all is None:
             # Combine all intermediates from all data dirs into one variable
             dirs = []
-            for name in self.data_dirs.dataset_names:
-                found_entry = self.data_dirs.get(name, local_only=not self.add_network_alternatives, return_entry=True)
+            for name in self.datasets.dataset_names:
+                found_entry = self.datasets.get(name, local_only=not self.should_add_network_alternatives)
                 if found_entry is None:
                     continue
 
@@ -374,19 +448,29 @@ class Settings:
                         pass
 
             if len(dirs) == 0:
-                self._intermediates_dir = False
+                self._intermediates_dir_all = False
                 self.log.warning(
                     "Could not find an intermediates directory, probably because no data directory was found"
                 )
             else:
-                self._intermediates_dir = MultiPath(dirs[0])
+                self._intermediates_dir_all = MultiPath(dirs[0])
                 for d in dirs[1:]:
-                    self._intermediates_dir.add_alternative(d)
+                    self._intermediates_dir_all.add_alternative(d)
 
-        return None if not self._intermediates_dir else self._intermediates_dir
+        return None if not self._intermediates_dir_all else self._intermediates_dir_all
 
     @property
     def results_dir(self) -> Union[MultiPath, None]:
+        """
+        This property can be used to read or write to your results directories (`PATH_HTC_RESULTS` and `PATH_HTC_RESULTS_*` environment variables).
+
+        New files will be written to `PATH_HTC_RESULTS` and you can read files from all registered directories. This way you can organize your results from different projects in different directories while still being able to read files from all without always specifying the full path.
+
+        >>> (settings.results_dir / "specs_figures").exists()
+        True
+
+        Returns: Multi path object for the results directories. None if no results directory is set.
+        """
         if self._results_dir is None:
             if results_dir_path := os.getenv("PATH_HTC_RESULTS", False):
                 self._results_dir = MultiPath(results_dir_path)
@@ -401,9 +485,9 @@ class Settings:
                         if path and path != results_dir_path:  # No duplicate paths
                             self._results_dir.add_alternative(path)
 
-                if self.add_network_alternatives:
+                if self.should_add_network_alternatives:
                     local_location_names = [l.name for l in self._results_dir.possible_locations()]
-                    for d in sorted(self.data_dirs.network_project.glob("results*")):
+                    for d in sorted(self.datasets.network_project.glob("results*")):
                         if d.name not in local_location_names:  # Do not add it if it already exists locally
                             self._results_dir.add_alternative(d)
             else:
@@ -417,6 +501,16 @@ class Settings:
 
     @property
     def training_dir(self) -> Union[MultiPath, None]:
+        """
+        This property can be used to access the training directory of all registered datasets.
+
+        This is basically a subfolder of the results directory and can be used to locate a training run without the need to specify from which results directory it is.
+
+        >>> (settings.training_dir / "image" / "2023-02-08_14-48-02_organ_transplantation_0.8").exists()
+        True
+
+        Returns: Multi path object for the training directories. None if no results directory is set.
+        """
         return self.results_dir / "training" if self.results_dir is not None else None
 
 

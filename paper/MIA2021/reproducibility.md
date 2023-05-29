@@ -1,51 +1,19 @@
 # Reproducibility (DKFZ internal only)
-This document will guide you through the process of reproducing the main results for our [semantic organ segmentation paper](https://arxiv.org/abs/2111.05408). To reduce the number of required training runs, we are only reproducing the results for the spatial-spectral comparison (Fig. 5).
+This document will guide you through the process of reproducing the main results for our [semantic organ segmentation paper](https://doi.org/10.1016/j.media.2022.102488). To reduce the number of required training runs, we are only reproducing the results for the spatial-spectral comparison (Fig. 5).
 
-## (Optional) setup an OpenStack instance
-> NB: You can also use your own computer if you cannot use an OpenStack instance.
+## Setup
+Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) according to the [README](../../README.md).
 
-If yo do not have access to OpenStack yet, you need to [request access](https://info.dkfz-heidelberg.de/itcf/UserPortal/Openstack/Antrag) first.
-- Select `I apply for inclusion in an existing project`
-- Project Name: `E130-GPU`
+> These instructions were tested on the `paper_semantic_v3` tag. However, for reproducing, we recommend to use the latest master instead as there are some general dependencies (e.g. dataset version, cluster access) which are not guaranteed to work on an old tag in the future.
 
-After access being granted, download the files from the `openstack` folder ([https://git.dkfz.de/imsy/issi/htc/-/tree/master/openstack](https://git.dkfz.de/imsy/issi/htc/-/tree/master/openstack)) and then set up the OpenStack instance (this will install some Python packages on your machine). Also make sure that you set up an SSH keypair with Phabricator
-```bash
-cd openstack
-bash openstack.sh
-```
-
-If no errors occurred (you should see the message <span style="color:#327FBA">**Setup complete**</span>), then you have now a running instance with all the necessary tools installed.
-```
-You can now login to your instance (make sure you change the IP if it is different in your case)
-```bash
-ssh -i ~/.ssh/openstack_gpu ubuntu@10.133.25.126
-```
-
-From now on, please run every command on the OpenStack instance and not on your own computer. Please also use a [`screen`](https://linuxize.com/post/how-to-use-linux-screen/) environment for all commands since they may take a while to complete.
-
-> NB: If you want access to the OpenStack files from you workstation, you can mount it via `sshfs`:
-> ```bash
-> mkdir ~/openstack
-> sudo sshfs -o StrictHostKeyChecking=no,follow_symlinks,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,cache_timeout=10,IdentityFile=/home/$USER/.ssh/openstack_gpu ubuntu@10.133.25.126:/ ~/openstack
-> ```
-
-> NB: In case you need to reboot the instance (usually not required), make sure to mount the network drives again:
-> ```bash
-> sudo mount /mnt/E130-Projekte
-> ```
-
-## Semantic paper repository
-Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) according to the [README](../../README.md). Make sure to check out the version of our semantic paper after the `git clone` step:
-```bash
-git checkout tags/paper_semantic_v3
-```
+> Please use a [`screen`](https://linuxize.com/post/how-to-use-linux-screen/) environment for all of the following commands since they may take a while to complete.
 
 ## (Optional) run tests
 If you like, you can run all the tests (some tests may be skipped) [≈ 1 hour]
 ```bash
 htc tests --slow --parallel 4
 ```
-However, the tests depend on files on the network drive and they may change so tests can fail in the future with the `paper_semantic_v3` tag. With the test `test_paper_files` you already reproduced all paper figures based on the trained models. We will now re-train the networks again to see whether we can still reproduce the main results.
+With the test `test_paper_semantic_files` (usually one of the longest running tests) you already reproduced all paper figures based on the trained models. We will now re-train the networks again to see whether we can still reproduce the main results.
 
 ## Start fresh
 We want to train our networks again based on the raw data, so please delete the intermediate files

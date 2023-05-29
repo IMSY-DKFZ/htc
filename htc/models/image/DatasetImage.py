@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: MIT
 
 import torch
-from skimage.segmentation import slic
 
 from htc.models.common.HTCDataset import HTCDataset
 from htc.models.data.DataSpecification import DataSpecification
 from htc.utils.DomainMapper import DomainMapper
+from htc.utils.SLICWrapper import SLICWrapper
 
 
 class DatasetImage(HTCDataset):
@@ -78,9 +78,9 @@ class DatasetImage(HTCDataset):
         sample = self.apply_transforms(sample)  # e.g. features.shape = [480, 640, 100]
 
         if self.config["input/superpixels"]:
-            sample["spxs"] = torch.from_numpy(
-                slic(sample[spx_features_name].float().numpy(), start_label=0, **self.config["input/superpixels"])
-            )
+            fast_slic = SLICWrapper(**self.config["input/superpixels"])
+            sample["spxs"] = fast_slic.apply_slic(sample[spx_features_name])
+
             if spx_features_name == "features_rgb":
                 # We only needed the rgb features to calculate the superpixels
                 del sample["features_rgb"]

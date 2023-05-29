@@ -25,10 +25,10 @@ class MetricAggregation:
             config: The Config class object for configs of current run.
             metrics: List containing the column names of metric columns.
         """
-        if metrics is None:
-            metrics = ["dice_metric"]
-        self.metrics = metrics
         self.config = config if config is not None else Config({})
+        if metrics is None:
+            metrics = [self.config.get("validation/checkpoint_metric", "dice_metric")]
+        self.metrics = metrics
 
         if isinstance(path_or_df, pd.DataFrame):
             self.df = path_or_df
@@ -48,7 +48,7 @@ class MetricAggregation:
             assert len(df_meta) == len(self.df), "The length of the dataframe should not change"
 
         assert all(
-            [c in self.df.columns for c in (["subject_name", "timestamp"])]
+            c in self.df.columns for c in (["subject_name", "timestamp"])
         ), "The dataframe misses some of the required columns"
 
     def checkpoint_metric(self, domains: Union[str, list[str], bool] = None, mode: str = None) -> float:
@@ -65,7 +65,7 @@ class MetricAggregation:
         Returns: Metric values which can be used for checkpointing.
         """
         assert all(
-            [c in self.df.columns for c in ["used_labels"] + self.metrics]
+            c in self.df.columns for c in ["used_labels"] + self.metrics
         ), "The dataframe misses some of the required columns"
 
         domains = self._domain_defaults(domains)
@@ -95,6 +95,7 @@ class MetricAggregation:
         self,
         domains: Union[str, list[str], bool] = None,
         keep_subjects: bool = False,
+        no_aggregation: bool = False,
         mode: str = None,
         dataset_index: Union[int, None] = 0,
         best_epoch_only: bool = True,
@@ -108,15 +109,14 @@ class MetricAggregation:
                 - If None, it uses the 'input/target_domain' value from the config (if the value does not exist in the config, domain columns will be ignored).
                 - If False, domain columns are ignored.
             keep_subjects: If True, metrics are only aggregated across images but not across subjects and a subject column will remain in the output table.
+            no_aggregation: If True, no aggregation is performed and the output table will contain one row per image. This is useful if results should be visualized per organ but you still want to show the distribution across subjects.
             mode: Aggregation mode. Either `class_level` (one metric value per label) or `image_level` (multiple classes in an image are aggregated first to get a metric value for one image). If None, the value from the config (`validation/checkpoint_metric_mode`) is used. Defaults to `class_level`.
             dataset_index: The index of the dataset which is selected in the table (if available). If None, no selection is carried out.
             best_epoch_only: If True, only results from the best epoch are considered (if available). If False, no selection is carried out and you will get aggregated results per epoch_index (which will also be a column in the resulting table).
 
         Returns: Table with metric values.
         """
-        assert all(
-            [c in self.df.columns for c in ["used_labels"] + self.metrics]
-        ), "The dataframe misses some of the required columns"
+        assert all(c in self.df.columns for c in self.metrics), "The dataframe misses some of the required columns"
 
         df = self.df
         domains = self._domain_defaults(domains)
@@ -142,27 +142,34 @@ class MetricAggregation:
             )
         else:
             if mode == "class_level":
+                assert (
+                    "used_labels" in self.df.columns
+                ), "used_labels columns is required for class-level aggregation mode"
                 df_g = df.explode(self.metrics + ["used_labels"])
-                df_g = df_g.groupby(domains + ["subject_name", "used_labels"], as_index=False)[self.metrics].agg(
-                    self._default_aggregator
-                )
 
-                if not keep_subjects:
-                    df_g = df_g.groupby(domains + ["used_labels"], as_index=False)[self.metrics].agg(
+                if not no_aggregation:
+                    df_g = df_g.groupby(domains + ["subject_name", "used_labels"], as_index=False)[self.metrics].agg(
                         self._default_aggregator
                     )
+
+                    if not keep_subjects:
+                        df_g = df_g.groupby(domains + ["used_labels"], as_index=False)[self.metrics].agg(
+                            self._default_aggregator
+                        )
             elif mode == "image_level":
                 if all("image" in m for m in self.metrics):
                     df_g = df
                 else:
-                    df_g = df.explode(self.metrics + ["used_labels"])
+                    additional = ["used_labels"] if "used_labels" in self.df.columns else []
+                    df_g = df.explode(self.metrics + additional)
 
-                df_g = df_g.groupby(domains + ["subject_name", "timestamp"], as_index=False)[self.metrics].agg(
-                    self._default_aggregator
-                )
-                df_g = df_g.groupby(domains + ["subject_name"], as_index=False)[self.metrics].agg(
-                    self._default_aggregator
-                )
+                if not no_aggregation:
+                    df_g = df_g.groupby(domains + ["subject_name", "timestamp"], as_index=False)[self.metrics].agg(
+                        self._default_aggregator
+                    )
+                    df_g = df_g.groupby(domains + ["subject_name"], as_index=False)[self.metrics].agg(
+                        self._default_aggregator
+                    )
             else:
                 raise ValueError(f"Invalid mode {mode}")
 
@@ -240,7 +247,7 @@ class MetricAggregation:
 
         Returns: Table with prediction accuracy for each domain value (e.g. every camera).
         """
-        assert all([c in self.df.columns for c in [f"{domain}_predicted"]]), "The domain predictions are not available"
+        assert all(c in self.df.columns for c in [f"{domain}_predicted"]), "The domain predictions are not available"
 
         df_domain = self.df.explode(["used_labels"])
 

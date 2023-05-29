@@ -10,6 +10,7 @@ from typing import Any, Callable, Union
 import numpy as np
 import pandas as pd
 from PIL import Image
+from typing_extensions import Self
 
 from htc.settings import settings
 from htc.tivita.DatasetSettings import DatasetSettings
@@ -103,7 +104,7 @@ class DataPath:
 
         if (data_dir is None or intermediates_dir is None) and self.image_dir is not None:
             # Check whether the image directory is from a known location so that we can infer data/intermediates
-            entry = settings.data_dirs.find_entry(self.image_dir)
+            entry = settings.datasets.find_entry(self.image_dir)
             if entry is not None:
                 if data_dir is None:
                     self.data_dir = entry["path_data"]
@@ -137,13 +138,13 @@ class DataPath:
         return str(self)
 
     def __hash__(self) -> int:
-        return hash(self.image_name())
+        return hash(self.image_name_annotations())
 
-    def __eq__(self, other: "DataPath") -> bool:
-        return self.image_name() == other.image_name()
+    def __eq__(self, other: Self) -> bool:
+        return self.image_name_annotations() == other.image_name_annotations()
 
-    def __lt__(self, other: "DataPath") -> bool:
-        return self.image_name() < other.image_name()
+    def __lt__(self, other: Self) -> bool:
+        return self.image_name_annotations() < other.image_name_annotations()
 
     def cube_path(self) -> Path:
         """
@@ -494,11 +495,11 @@ class DataPath:
 
         >>> path = DataPath.from_image_name('P070#2020_07_25_00_29_02')
         >>> path.annotated_labels()
-        ['anorganic_artifact', 'fat', 'foil', 'heart', 'lung', 'metal', 'muscle', 'organic_artifact', 'skin', 'unsure']
+        ['anorganic_artifact', 'fat_subcutaneous', 'foil', 'heart', 'lung', 'metal', 'muscle', 'organic_artifact', 'skin', 'unsure']
 
         The annotated labels may be a subset of the image labels, if they exist:
         >>> path.meta("image_labels")
-        ['anorganic_artifact', 'fat', 'foil', 'heart', 'lung', 'metal', 'muscle', 'organic_artifact', 'skin', 'unsure']
+        ['anorganic_artifact', 'fat_subcutaneous', 'foil', 'heart', 'lung', 'metal', 'muscle', 'organic_artifact', 'skin', 'unsure']
         >>> set(path.meta("image_labels")).issuperset(path.annotated_labels())
         True
 
@@ -544,7 +545,7 @@ class DataPath:
         >>> sto2.data.shape
         (480, 640)
 
-        or the background mask separately if necessary
+        or the background mask separately if necessary. In the background mask, True indicates that the corresponding pixel is part of the background.
         >>> sto2.mask.shape
         (480, 640)
         >>> np.unique(sto2.mask)
@@ -944,21 +945,78 @@ class DataPath:
 
         Returns: Dictionary with the image_name parts (values) and its common names (keys).
         """
-        return {t: n for t, n in zip(self.image_name_parts(), self.image_name().split("#"))}
+        return dict(zip(self.image_name_parts(), self.image_name().split("#")))
+
+    def image_name_annotations(self) -> str:
+        """
+        Unique name of the image including the associated or default annotation name(s).
+
+        Note: A data path object may only be unique with its annotation name if more than one annotation type is used. Two data paths can have the same image name but different annotation names. This implication is important when using the image name as a unique identifier (e.g. in dictionaries or tables).
+
+        >>> path = next(DataPath.iterate(settings.data_dirs.semantic))
+        >>> path.image_name_annotations()
+        'P041#2019_12_14_12_00_16@semantic#primary'
+
+        Returns: Image name with annotation information appended.
+        """
+        name = self.image_name()
+
+        annotations = self.annotation_names()
+        if len(annotations) > 0:
+            name += "@" + "&".join(annotations)
+
+        return name
 
     def datetime(self) -> datetime:
         return datetime.strptime(self.timestamp, "%Y_%m_%d_%H_%M_%S")
+
+    def annotation_names(self) -> list[str]:
+        """
+        Returns the names of all associated annotations for this image.
+
+        The annotation name may be explicitly set when constructing the data path from the image name:
+        >>> path = DataPath.from_image_name("P091#2021_04_24_12_02_50@polygon#annotator1&polygon#annotator2")
+        >>> path.annotation_names()
+        ['polygon#annotator1', 'polygon#annotator2']
+
+        If no annotation name is explicitly set, the default annotation name from the dataset settings is used:
+        >>> path = DataPath.from_image_name("P091#2021_04_24_12_02_50")
+        >>> path.annotation_names()
+        ['polygon#annotator1']
+
+        The list of all possible annotation names can be retrieved via the `meta()` method:
+        >>> path.meta("annotation_name")
+        ['polygon#annotator1', 'polygon#annotator2', 'polygon#annotator3']
+
+        Returns: List of annotation names. If no annotation names are associated with this image (neither directly nor via the dataset settings), an empty list is returned.
+        """
+        if self.annotation_name_default is not None:
+            # Explicit default set to this class
+            if type(self.annotation_name_default) == str:
+                assert "&" not in self.annotation_name_default, "Multiple annotations should already be resolved."
+                return [self.annotation_name_default]
+            else:
+                return self.annotation_name_default
+        else:
+            name = self.dataset_settings.get("annotation_name_default")
+            if name is not None:
+                # Default via dataset settings
+                if type(name) == str:
+                    name = name.split("&")
+                return name
+            else:
+                return []
 
     @staticmethod
     def _build_cache(local: bool) -> dict[str, Any]:
         # We use a dict for the cache because it is much faster than a dataframe
         cache = {}
 
-        for env_key in settings.data_dirs.env_keys():
+        for env_key in settings.datasets.env_keys():
             if not env_key.upper().startswith("PATH_TIVITA"):
                 continue
 
-            entry = settings.data_dirs.get(env_key, local_only=local, return_entry=True)
+            entry = settings.datasets.get(env_key, local_only=local)
             if entry is None:
                 continue
 
@@ -1007,17 +1065,22 @@ class DataPath:
         return cache[image_name]
 
     @staticmethod
-    def from_image_name(image_name: str) -> "DataPath":
+    def from_image_name(image_name: str) -> Self:
         """
         Constructs a data path based on its unique identifier.
 
         This function can only be used if the corresponding dataset has a *meta.feather table with an overview of all paths of the dataset. This table can be created via the run_meta_table script.
+
+        Note: Data path objects created via this method are cached and exists globally during program execution. If the same `image_name` is used again, then the reference to the same object as before is returned.
 
         Args:
             image_name: Unique identifier of the path. Usually in the form subject#timestamp but you can also extend it to define the default annotations to read, for example subject#timestamp@name1&name2.
 
         Returns: The data path object.
         """
+        # The same path but with different annotation names should also be separate path objects since each object has its own annotation_name_default
+        cache_name = image_name
+
         if image_name not in DataPath._data_paths_cache:
             if "@" in image_name:
                 image_name, annotation_name = image_name.split("@")
@@ -1030,7 +1093,7 @@ class DataPath:
             if image_name.startswith("ref"):
                 from htc.tivita.DataPathReference import DataPathReference
 
-                DataPath._data_paths_cache[image_name] = DataPathReference.from_image_name(image_name, annotation_name)
+                DataPath._data_paths_cache[cache_name] = DataPathReference.from_image_name(image_name, annotation_name)
             else:
                 match = DataPath._find_image(image_name)
                 assert match is not None, (
@@ -1046,7 +1109,7 @@ class DataPath:
                         " refers to a valid data path class (e.g. htc.tivita.DataPathMultiorgan>DataPathMultiorgan)"
                     )
 
-                DataPath._data_paths_cache[image_name] = DataPathClass(
+                DataPath._data_paths_cache[cache_name] = DataPathClass(
                     match["data_dir"] / match["path"],
                     match["data_dir"],
                     match["intermediates_dir"],
@@ -1054,14 +1117,14 @@ class DataPath:
                     annotation_name,
                 )
 
-        return DataPath._data_paths_cache[image_name]
+        return DataPath._data_paths_cache[cache_name]
 
     @staticmethod
     def iterate(
         data_dir: Path,
-        filters: Union[list[Callable[["DataPath"], bool]], None] = None,
+        filters: Union[list[Callable[[Self], bool]], None] = None,
         annotation_name: Union[str, list[str]] = None,
-    ) -> Iterator["DataPath"]:
+    ) -> Iterator[Self]:
         """
         Helper function to iterate over the folder structure of a dataset (e.g. subjects folder), yielding one image at a time.
 

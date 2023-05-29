@@ -9,6 +9,8 @@ deskew
 paramiko
 opencv-python
 umap-learn
+xmltodict
+scikit-image
 
 --extra-index-url https://read_package:CnzBrgDfKMWS4cxf-r31@git.dkfz.de/api/v4/projects/15/packages/pypi/simple
 challenger-pydocker

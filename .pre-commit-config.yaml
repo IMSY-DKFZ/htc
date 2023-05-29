@@ -1,12 +1,12 @@
 # Order plays a role here: we first need to run pyupgrade because it changes the code and the new code may not be correctly formatted so we need to run black afterwards. flake8 again should be run after black so that it doesn't e.g. complain about whitespace issues.
 repos:
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.3.1
+    rev: v3.4.0
     hooks:
       - id: pyupgrade
         args: [--py39-plus]
   - repo: https://github.com/psf/black
-    rev: 23.1.0
+    rev: 23.3.0
     hooks:
       - id: black-jupyter
   - repo: https://github.com/pycqa/isort
@@ -32,7 +32,7 @@ repos:
           - flake8-use-pathlib
           - flake8-docstrings
   - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.6.3
+    rev: 1.7.0
     hooks:
       - id: nbqa-pyupgrade
         args: [--py39-plus]
@@ -49,6 +49,6 @@ repos:
     hooks:
       - id: validate-cff
   - repo: https://github.com/tcort/markdown-link-check
-    rev: v3.10.3
+    rev: v3.11.2
     hooks:
       - id: markdown-link-check

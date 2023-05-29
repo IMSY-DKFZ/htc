@@ -7,6 +7,7 @@ from typing import Any, Callable, Union
 
 import numpy as np
 import pandas as pd
+from typing_extensions import Self
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -29,11 +30,11 @@ class DataPathReference(DataPath):
             dataset_name: Name of the dataset where the image comes from.
         """
         self.network_path = network_path
-        if settings.data_dirs.network_data is None:
+        if settings.datasets.network_data is None:
             super().__init__(None, *args, **kwargs)
             self.timestamp = self.network_path.name
         else:
-            super().__init__(settings.data_dirs.network_data / self.network_path, *args, **kwargs)
+            super().__init__(settings.datasets.network_data / self.network_path, *args, **kwargs)
 
         self.dataset_name = dataset_name
 
@@ -81,13 +82,13 @@ class DataPathReference(DataPath):
             dsettings = DatasetSettings(unsorted_dir / "dataset_settings.json")
 
             # The unsorted dataset has its own intermediates but the data dir always references the original dataset
-            intermediates_dir = settings.data_dirs.find_intermediates_dir(unsorted_dir)
+            intermediates_dir = settings.datasets.find_intermediates_dir(unsorted_dir)
 
             for image_name, network_path, dataset_name in zip(df["image_name"], df["network_path"], df["dataset_name"]):
-                if settings.data_dirs.network_data is None:
+                if settings.datasets.network_data is None:
                     data_dir = None
                 else:
-                    data_dir = settings.data_dirs.network_data / dataset_name / "data"
+                    data_dir = settings.datasets.network_data / dataset_name / "data"
 
                 DataPathReference._references_cache[image_name] = {
                     "network_path": Path(network_path),
@@ -100,7 +101,7 @@ class DataPathReference(DataPath):
         return DataPathReference._references_cache
 
     @staticmethod
-    def from_image_name(image_name: str, annotation_name: Union[str, list[str]]) -> "DataPathReference":
+    def from_image_name(image_name: str, annotation_name: Union[str, list[str]]) -> Self:
         cache = DataPathReference._cache()
         assert image_name in cache, f"Could not find the image {image_name} in the reference table"
 
@@ -117,16 +118,16 @@ class DataPathReference(DataPath):
     @staticmethod
     def iterate(
         data_dir: Path,
-        filters: list[Callable[["DataPath"], bool]],
+        filters: list[Callable[[Self], bool]],
         annotation_name: Union[str, list[str]],
     ) -> Iterator["DataPathReference"]:
         dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
         df_references = pd.read_feather(data_dir / "image_references.feather")
-        intermediates_dir = settings.data_dirs.find_intermediates_dir(data_dir)
+        intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
 
         for i, row in df_references.iterrows():
             path = DataPathReference(
                 row["network_path"], row["dataset_name"], data_dir, intermediates_dir, dataset_settings, annotation_name
             )
-            if all([f(path) for f in filters]):
+            if all(f(path) for f in filters):
                 yield path

@@ -154,10 +154,10 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
             if self.single_pass:
                 # normalize the weights so the probability sums to 1
                 for path_index in indices:
-                    yield worker_index, self.paths[path_index]
+                    yield worker_index, path_index
             else:
                 for path_index in cycle(indices):
-                    yield worker_index, self.paths[path_index]
+                    yield worker_index, path_index
         else:
             i = 0
             while True:
@@ -170,7 +170,7 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
                     break
 
                 path_index = self.path_indices_worker[sampler_index]
-                yield worker_index, self.paths[path_index]
+                yield worker_index, path_index.item()
                 i += 1
 
     def _sample_pixel_indices(self, labels: torch.Tensor, n_samples: int = None) -> Sampler[int]:

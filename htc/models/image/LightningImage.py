@@ -22,6 +22,7 @@ from htc.models.common.torch_helpers import smooth_one_hot
 from htc.models.common.utils import get_n_classes
 from htc.models.image.DatasetImageStream import DatasetImageStream
 from htc.settings import settings
+from htc.utils.type_from_string import type_from_string
 
 
 class LightningImage(HTCLightning):
@@ -30,8 +31,11 @@ class LightningImage(HTCLightning):
 
         name = self.config["model/model_name"]
         if name is not None:
-            module = importlib.import_module(f"htc.models.image.{name}")
-            ModelClass = getattr(module, name)
+            if ">" in name:
+                ModelClass = type_from_string(name)
+            else:
+                module = importlib.import_module(f"htc.models.image.{name}")
+                ModelClass = getattr(module, name)
 
             self.model = ModelClass(self.config)
 
@@ -91,9 +95,11 @@ class LightningImage(HTCLightning):
     def test_dataloader(self) -> DataLoader:
         return StreamDataLoader(self.dataset_test)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
+        x = batch["features"]
         x = x.permute(0, 3, 1, 2)  # Input dimension for UNet needs to be [N, C, H, W]
 
+        # x.stride() = (30720000, 1, 64000, 100), i.e. channel last format
         return self.model(x)
 
     def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int, return_valid_tensors: bool = False) -> dict:
@@ -109,7 +115,7 @@ class LightningImage(HTCLightning):
             spx_loss_weight = 0
 
         labels = batch["labels"]
-        predictions = self(batch["features"])
+        predictions = self(batch)
         if type(predictions) == dict:
             predictions = predictions["class"]
 

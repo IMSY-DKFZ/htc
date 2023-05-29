@@ -56,7 +56,7 @@ def compress_html(file: Union[Path, None], fig_or_html: Union[go.Figure, str]) -
 
     Original file size in MiB:
     >>> len(html) / 2**20  # doctest: +ELLIPSIS
-    4.70...
+    5.04...
     >>> import tempfile
     >>> with tempfile.NamedTemporaryFile() as tmpfile:
     ...    tmpfile = Path(tmpfile.name)
@@ -69,7 +69,7 @@ def compress_html(file: Union[Path, None], fig_or_html: Union[go.Figure, str]) -
 
     Compression ratio:
     >>> compressed_size / len(html)  # doctest: +ELLIPSIS
-    0.131...
+    0.12...
 
     Args:
         file: Path to the output file. If none, the resulting HTML string will be returned.
@@ -145,6 +145,43 @@ def compress_html(file: Union[Path, None], fig_or_html: Union[go.Figure, str]) -
             f.write(html)
 
 
+def add_figcaption(fig_html: str, title: str, caption: str) -> str:
+    css_figcaption = """
+figure {
+    /* Same font as plotly */
+    font-family: "Open Sans", verdana, arial, sans-serif;
+    width: min-content;
+    margin-bottom: 25px;
+}
+figure > figcaption {
+    margin-left: 15px;
+    margin-right: 15px;
+}
+figcaption {
+    text-align: center;
+    margin-top: 10px;
+}
+"""
+
+    return f"""
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>{title}</title>
+        <meta charset="utf-8">
+        <style>
+        {css_figcaption}
+        </style>
+    </head>
+    <body>
+        <figure>
+            {fig_html}
+            <figcaption>{caption}</figcaption>
+        </figure>
+    </body>
+</html>"""
+
+
 def visualize_dict(data: Union[dict, list]) -> None:
     """
     Interactive visualization of a Python dictionary (to be used in a Jupyter notebook). The interactive visualization also works in exported HTML notebooks.
@@ -161,17 +198,13 @@ def visualize_dict(data: Union[dict, list]) -> None:
 
     # Embed everything into the HTML (this way it also works in the exported HTML notebook)
     div_id = uuid.uuid4()
-    display(
-        HTML(
-            f"""
+    display(HTML(f"""
 <div id="{div_id}" style="height: auto; width:100%;"></div>
 <script>
     {renderjson}
     renderjson.set_show_to_level(1);
     document.getElementById('{div_id}').appendChild(renderjson({json_str}));
-</script>"""
-        )
-    )
+</script>"""))
 
 
 def create_running_metric_plot(df: pd.DataFrame, metric_name: str = "dice_metric") -> go.Figure:
@@ -324,7 +357,7 @@ def show_activation_image(df: pd.DataFrame, hist_config: dict, dataset_index: in
     if epoch is None:
         activations = df[(df["dataset_index"] == dataset_index)]["val/activations"].values
     else:
-        activations = df[(df["epoch_indexx"] == epoch - 1) & (df["dataset_index"] == dataset_index)][
+        activations = df[(df["epoch_index"] == epoch - 1) & (df["dataset_index"] == dataset_index)][
             "val/activations"
         ].values
     layer_counts = {}
@@ -363,7 +396,7 @@ def show_activation_image(df: pd.DataFrame, hist_config: dict, dataset_index: in
 
         fig.add_trace(go.Violin(x=samples, line_color=color, bandwidth=hist_config["step"], name=name), row=1, col=1)
 
-        if all([excluded not in name for excluded in ["pool", "logits", "input", "Model"]]):
+        if all(excluded not in name for excluded in ["pool", "logits", "input", "Model"]):
             samples = F.elu(torch.from_numpy(samples))
             fig.add_trace(go.Violin(x=samples, line_color=color, name=f"elu({name})"), row=1, col=1)
 
@@ -689,7 +722,7 @@ def discrete_colorbar(colors: list[tuple]) -> list[list[int, str]]:
     """
     assert len(colors) >= 1, "At least one color required"
     assert len(colors[0]) == 3 or len(colors[0]) == 4, "Exactly 3 (rgb) or 4 (rgba) color values required"
-    assert all([all([0 <= v <= 1 for v in c]) for c in colors]), "All color values must be in the range [0;1]"
+    assert all(all(0 <= v <= 1 for v in c) for c in colors), "All color values must be in the range [0;1]"
 
     # Create a color mapping according to plotlys documentation (list of normalized values and corresponding colors)
     color_mapping = []
@@ -820,6 +853,7 @@ def create_overview_document(
     include_tpi: bool = False,
     navigation_paths: list[DataPath] = None,
     navigation_link_callback: Callable[[str, str, DataPath], str] = None,
+    nav_width: str = "23em",
 ) -> str:
     """
     Create an overview figure for the given image. It will show the RGB image with all the available annotations plus the tissue parameter images.
@@ -829,6 +863,7 @@ def create_overview_document(
         include_tpi: If True, TPI images are included in the overview document (adds around 10 MiB to the output).
         navigation_paths: If not None, will add a navigation bar with all links sorted by organ. The user can use this navigation bar to easily switch between images.
         navigation_link_callback: Callback which receives the label name, number and data path of the target image and should create a relative link where the corresponding local html file for the target image can be found. If parts of the link contain invalid URL characters (e.g. # in image name), then please wrap it in quote_plus before (e.g. quote_plus(p.image_name())). For example, ('spleen', '08', DataPath) --> '../08_spleen/P086%232021_04_15_09_22_20.html'.
+        nav_width: Width of the navigation bar (in CSS units).
 
     Returns: HTML string which is best saved with the `compress_html()` function.
     """
@@ -888,18 +923,52 @@ def create_overview_document(
             navigation_link_callback is not None
         ), "navigation_link_callback must be provided if a navigation pane should be created"
 
+        # Use the label ordering if available
+        masks_settings = DatasetSettings(settings.data_dirs.masks)
+        if "label_ordering" in path.dataset_settings:
+            label_ordering = path.dataset_settings.get("label_ordering", {})
+        else:
+            label_ordering = masks_settings.get("label_ordering", {})
+
         # All paths per organ (there may be more than one organ per image)
         image_labels = path.annotated_labels(annotation_name="all")
         label_paths = {}
+        used_paths = []
         for p in navigation_paths:
             labels = p.annotated_labels(annotation_name="all")
+
+            # We only create overview files for images which have at least one label
+            if len(labels) > 0:
+                used_paths.append(p)
+
             for l in labels:
                 if l not in label_paths:
                     label_paths[l] = []
                 label_paths[l].append(p)
 
         label_paths = sort_labels(label_paths)
-        masks_settings = DatasetSettings(settings.data_dirs.masks)
+
+        # Previous/Next image according to the sorting of the navigation paths
+        prev_image = None
+        next_image = None
+        for i, p in enumerate(used_paths):
+            if p == path:
+                if i > 0:
+                    prev_path = used_paths[i - 1]
+                    label_name = prev_path.annotated_labels(annotation_name="all")[0]
+                    prev_image = {
+                        "path": prev_path,
+                        "label_name": label_name,
+                        "label_number": label_ordering.get(label_name, None),
+                    }
+                if i < len(used_paths) - 1:
+                    next_path = used_paths[i + 1]
+                    label_name = next_path.annotated_labels(annotation_name="all")[0]
+                    next_image = {
+                        "path": next_path,
+                        "label_name": label_name,
+                        "label_number": label_ordering.get(label_name, None),
+                    }
 
         details_html = ""
         link_index = 0  # Global index for each link in the list (for scrolling)
@@ -907,13 +976,7 @@ def create_overview_document(
             label_paths[l] = sorted(label_paths[l])
 
             # Use the label ordering if available
-            if "label_ordering" in path.dataset_settings:
-                label_number = path.dataset_settings["label_ordering"][l]
-            else:
-                if l in masks_settings["label_ordering"]:
-                    label_number = masks_settings["label_ordering"][l]
-                else:
-                    label_number = None
+            label_number = label_ordering.get(l, None)
 
             # List with links to all paths of the current label
             paths_html = ""
@@ -937,11 +1000,7 @@ def create_overview_document(
             if (path.data_dir / "extra_label_symbols").exists():
                 svg_path = path.data_dir / "extra_label_symbols" / f"Cat_{label_number}_{l}.svg"
             else:
-                svg_path = (
-                    settings.data_dirs.masks
-                    / "extra_label_symbols"
-                    / f"Cat_{masks_settings['label_ordering'].get(l, '')}_{l}.svg"
-                )
+                svg_path = settings.data_dirs.masks / "extra_label_symbols" / f"Cat_{label_ordering.get(l, '')}_{l}.svg"
 
             if svg_path.exists():
                 with svg_path.open("r") as f:
@@ -963,53 +1022,77 @@ def create_overview_document(
                 f" {details_open}><summary{selected}>{summary_name}</summary><ul>{paths_html}</ul></details>"
             )
 
-        nav_html = (
-            """
-<span style="font-size:30px;cursor:pointer" onclick="openNav()">&#9776; Image selection</span>
+        if prev_image is not None:
+            prev_link = navigation_link_callback(
+                prev_image["label_name"], prev_image["label_number"], prev_image["path"]
+            )
+            prev_link = (
+                f'<a class="prev_next" href="{prev_link}" title="Previous image (according to the sorting of the'
+                f' filesystem): {prev_image["path"].image_name()}">« previous</a>'
+            )
+        else:
+            prev_link = (
+                '<span class="prev_next no_link" title="No previous image available (first image of the dataset)">«'
+                " previous</span>"
+            )
+        if next_image is not None:
+            next_link = navigation_link_callback(
+                next_image["label_name"], next_image["label_number"], next_image["path"]
+            )
+            next_link = (
+                f'<a class="prev_next" href="{next_link}" title="Next image (according to the sorting of the'
+                f' filesystem): {next_image["path"].image_name()}">next »</a>'
+            )
+        else:
+            next_link = (
+                '<span class="prev_next no_link" title="No next image available (last image of the dataset)">«'
+                " next</span>"
+            )
+
+        nav_html = """
+<span id="nav_link" onclick="openNav()">&#9776; Image selection</span>{}{}
 
 <nav id="image_navigation">
   <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-  %s
+  {}
 </nav>
 <script>
-function openNav() {
-  document.getElementById("image_navigation").style.width = "23em";
-}
+function openNav() {{
+  document.getElementById("image_navigation").style.width = "{}";
+}}
 
-function closeNav() {
+function closeNav() {{
   document.getElementById("image_navigation").style.width = "0px";
-}
+}}
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {{
   // Set previous navigation state
   const urlParams = new URLSearchParams(location.search);
-  if (urlParams.has("nav") && urlParams.get("nav") == "show") {
+  if (urlParams.has("nav") && urlParams.get("nav") == "show") {{
     openNav();
-  }
+  }}
 
   let isNavOpen = false;
   let initialScroll = false;  // Scroll to the selected link on page load
-  document.getElementById("image_navigation").addEventListener('transitionend', function() {
+  document.getElementById("image_navigation").addEventListener('transitionend', function() {{
     isNavOpen = document.getElementById("image_navigation").style.width != "0px";
 
-    if (!initialScroll && urlParams.has("link_index")) {
+    if (!initialScroll && urlParams.has("link_index")) {{
       let current_link = document.getElementById("link_" + urlParams.get("link_index"));
-      current_link.scrollIntoView({behavior: "smooth", block: "center", inline: "nearest"});
+      current_link.scrollIntoView({{behavior: "smooth", block: "center", inline: "nearest"}});
       initialScroll = true;
-    }
-  });
+    }}
+  }});
 
-  window.addEventListener('click', function(e) {
-    if (isNavOpen && !document.getElementById('image_navigation').contains(e.target)) {
+  window.addEventListener('click', function(e) {{
+    if (isNavOpen && !document.getElementById('image_navigation').contains(e.target)) {{
       // If the user clicks outside the navigation bar, the navigation should close
       closeNav();
-    }
-  });
-});
+    }}
+  }});
+}});
 </script>
-"""
-            % details_html
-        )
+""".format(prev_link, next_link, details_html, nav_width)
 
         nav_css = """
 <style>
@@ -1021,7 +1104,7 @@ nav {
   top: 0;
   left: 0;
   background-color: #f7f7f7;
-  overflow-x: hidden;
+  overflow-x: scroll;
   transition: 0.5s;
   padding-top: 30px;
   box-shadow: 2px 0px 5px #9b9b9b;
@@ -1044,6 +1127,11 @@ nav > details > summary {
   color: #818181;
   transition: 0.3s;
   cursor: pointer;
+}
+
+nav > details:last-child {
+    /* Leave enough space at the bottom so that the user knows when the list ends */
+    padding-bottom: 60px;
 }
 
 nav ul {
@@ -1076,6 +1164,28 @@ nav .closebtn {
   width: 1.5em;
   position: relative;
   top: 0.35em;
+}
+
+a {
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+#nav_link {
+  font-size: 2em;
+  cursor: pointer;
+  padding-right: 10px;
+}
+#nav_link:hover {
+    text-decoration: underline;
+}
+.prev_next {
+    font-size: 1.5em;
+    padding-right: 10px;
+}
+.no_link {
+    color: #aaa;
 }
 
 @media screen and (max-height: 450px) {
@@ -1210,7 +1320,11 @@ def create_segmentation_overlay(
     default_index = (
         0 if default_annotation_name not in layer1.keys() else list(layer1.keys()).index(default_annotation_name)
     )
-    button_states = [] if len(layer1) > 1 else None
+
+    # The buttons hide or unhide individual plots but the number of plots per button state (=annotation_name) could be different due to multi-layer segmentations
+    # Plotly only sees a global list of all plots (heatmaps in this case) and we need to tell Plotly which plots should be hidden or unhidden for each button state
+    plot_index = 0  # Global plot index
+    name_plot_mapping = {name: [] for name in layer1.keys()}  # List of global plot indices for each annotation name
     for i, name in enumerate(layer1.keys()):
         visible = i == default_index
 
@@ -1221,6 +1335,7 @@ def create_segmentation_overlay(
         if name in layer2:
             label_mapping_valid2, label_colors2, remapping_minimal2 = label_remapping(layer2[name])
             colorbar2 = get_colorbar(label_mapping_valid2)
+            colorbar2["x"] = 1.25
 
             def create_text(label: int, label2: int) -> str:
                 text = f"layer1: {label_mapping.index_to_name(label)}<br>"
@@ -1240,6 +1355,8 @@ def create_segmentation_overlay(
                     visible=visible,
                 )
             )
+            name_plot_mapping[name].append(plot_index)
+            plot_index += 1
         else:
             hover_text_ref = np.vectorize(lambda label: label_mapping.index_to_name(label))(layer1[name])
 
@@ -1254,10 +1371,16 @@ def create_segmentation_overlay(
                 visible=visible,
             )
         )
+        name_plot_mapping[name].append(plot_index)
+        plot_index += 1
 
-        if button_states is not None:
-            visible_state = [False] * len(layer1)
-            visible_state[i] = True
+    # We only need buttons if there are multiple annotation names
+    button_states = [] if len(name_plot_mapping) > 1 else None
+    if button_states is not None:
+        for name, indices in name_plot_mapping.items():
+            visible_state = [False] * plot_index  # The global visible state for this annotation name
+            for i in indices:
+                visible_state[i] = True
 
             button_states.append(
                 {
@@ -1271,8 +1394,8 @@ def create_segmentation_overlay(
         source=Image.fromarray(rgb_image),
         xref="x",
         yref="y",
-        x=0,
-        y=img_height,
+        x=-0.5,
+        y=img_height - 0.5,
         sizex=img_width,
         sizey=img_height,
         sizing="stretch",
@@ -1337,8 +1460,8 @@ def create_overlay(overlay: np.ndarray, path: DataPath) -> go.Figure:
         source=rgb_image,
         xref="x",
         yref="y",
-        x=0,
-        y=img_height,
+        x=0.5,
+        y=img_height - 0.5,
         sizex=img_width,
         sizey=img_height,
         sizing="stretch",
@@ -1416,8 +1539,8 @@ def prediction_figure_html(
             source=rgb_image,
             xref="x",
             yref="y",
-            x=0,
-            y=img_height,
+            x=0.5,
+            y=img_height - 0.5,
             sizex=img_width,
             sizey=img_height,
             sizing="stretch",
@@ -1666,9 +1789,9 @@ def create_training_stats_figure(run_dir: Path) -> go.Figure:
     datasets = [{} for i in range(len(fold_dirs))]
     for i, fold_dir in enumerate(fold_dirs):
         train_stats = np.load(fold_dir / "trainings_stats.npz", allow_pickle=True)["data"]
-        image_names = (
-            set()
-        )  # Only used to get the number of training images for this fold, we don't need a mapping from image_index to image_name for this figure
+
+        # Only used to get the number of training images for this fold, we don't need a mapping from image_index to image_name for this figure
+        image_names = set()
         for name, paths in data_specs.folds[fold_dir.name].items():
             if name.startswith("train"):
                 image_names.update([p.image_name() for p in paths])
@@ -1679,9 +1802,9 @@ def create_training_stats_figure(run_dir: Path) -> go.Figure:
         assert len(image_names) > 0
         fold_stats = np.zeros((len(image_names), len(train_stats)), dtype=np.int64)
 
-        for epoch_indexx, stats_epoch in enumerate(train_stats):
+        for epoch_index, stats_epoch in enumerate(train_stats):
             for image_index in stats_epoch["img_indices"]:
-                fold_stats[image_index, epoch_indexx] += 1
+                fold_stats[image_index, epoch_index] += 1
 
         stats.append(fold_stats)
         n_used_images = np.count_nonzero(np.sum(fold_stats, axis=1))
@@ -1839,6 +1962,8 @@ def add_std_fill(
             "wavelength: %{x:.1f}<br>normalized reflectance: %{y:.5f}<br>standard deviation: %{text:.5f}"
         )
 
+    legendgroup = scatter_kwargs.pop("legendgroup", label)
+
     fig.add_trace(
         go.Scatter(
             x=channels,
@@ -1846,7 +1971,7 @@ def add_std_fill(
             text=std_range,
             name=label,
             line_color=linecolor,
-            legendgroup=label,
+            legendgroup=legendgroup,
             **scatter_kwargs,
         ),
         row=row,
@@ -1861,7 +1986,7 @@ def add_std_fill(
             line_color=linecolor,
             opacity=0.15,
             name=label,
-            legendgroup=label,
+            legendgroup=legendgroup,
             showlegend=False,
             hoverinfo="skip",
         ),
@@ -1875,7 +2000,7 @@ def add_std_fill(
     return fig
 
 
-def colorchecker_fig_styling(fig: go.Figure) -> go.Figure:
+def colorchecker_fig_styling(fig: go.Figure, yaxis_title: str = "L1-normalized<br>reflectance [a.u.]") -> go.Figure:
     """This function takes a figure displaying colorchecker spectra in a grid of 6 rows and 4 columns and adds to each subplot a bar in the color of the corresponding colorchecker chip."""
     n_subplots = int(fig.data[-1]["xaxis"][1:])
     if n_subplots == 24:
@@ -1920,8 +2045,8 @@ def colorchecker_fig_styling(fig: go.Figure) -> go.Figure:
     for i in np.arange(n_subplots - 3, n_subplots + 1):
         layout[f"xaxis{i}"] = dict(title="wavelength [nm]")
     for i in np.arange(5, n_subplots, 4):
-        layout[f"yaxis{i}"] = dict(title="L1-normalized<br>reflectance [a.u.]")
-    layout["yaxis"] = dict(title="L1-normalized<br>reflectance [a.u.]")
+        layout[f"yaxis{i}"] = dict(title=yaxis_title)
+    layout["yaxis"] = dict(title=yaxis_title)
     fig.update_layout(**layout)
 
     fig.update_layout(

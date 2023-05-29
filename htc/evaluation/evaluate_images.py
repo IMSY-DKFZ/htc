@@ -36,7 +36,7 @@ def calc_surface_dice(
         predictions_labels.dtype == torch.int64 and labels.dtype == torch.int64
     ), "Predictions and labels must be label index values"
     assert mask.dtype == torch.bool, "The mask must be a boolean tensor"
-    assert all([t >= 0 for t in tolerances]), "The tolerance values must be non-negative"
+    assert all(t >= 0 for t in tolerances), "The tolerance values must be non-negative"
 
     # Unfortunately, the NSD can only be computed on the CPU
     predictions_labels = predictions_labels.cpu()
@@ -319,7 +319,7 @@ def evaluate_images(
     if "DSC" in metrics:
         dice = calc_dice_metric(predictions_labels, labels, mask)
         assert len(used_labels) == len(dice)
-        assert all([torch.all(used_labels[b] == dice[b]["used_labels"]) for b in range(n_batch)])
+        assert all(torch.all(used_labels[b] == dice[b]["used_labels"]) for b in range(n_batch))
 
         result_batch |= {
             "dice_metric": [b["dice_metric"] for b in dice],
@@ -332,7 +332,7 @@ def evaluate_images(
             confusion_matrix(valid_predictions_labels[b], valid_labels[b], task="multiclass", num_classes=n_classes)
             for b in range(n_batch)
         ]
-        assert all([c.shape == (n_classes, n_classes) for c in conf_mat]), "The confusion matrix has the wrong shape"
+        assert all(c.shape == (n_classes, n_classes) for c in conf_mat), "The confusion matrix has the wrong shape"
 
         result_batch |= {
             "confusion_matrix": conf_mat,
@@ -343,7 +343,7 @@ def evaluate_images(
         # The losses can only be calculated if we have the softmaxes
         valid_predictions_softmaxes = [predictions_softmaxes[b, :, mask[b]] for b in range(n_batch)]
         assert all(
-            [len(t.shape) == 2 for t in valid_predictions_softmaxes]
+            len(t.shape) == 2 for t in valid_predictions_softmaxes
         ), "Invalid shape of the valid predicted softmaxes"
 
         ece = []

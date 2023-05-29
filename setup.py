@@ -37,7 +37,7 @@ def parse_requirements(requirements_file: Path) -> list[str]:
     req = []
 
     for line in read_file(requirements_file).splitlines():
-        match = re.search(r"^\w+[^+]*", line)
+        match = re.search(r"^\w+[^+@]*", line)
         if match is not None:
             lib = match.group(0)
 

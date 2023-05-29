@@ -181,11 +181,12 @@ After successful installation of the `htc` package, you can use any of the pretr
 Every model class listed in the table has a static method [`pretrained_model()`](./htc/models/common/HTCModel.py) which you can use to create a model instance and initialize it with the pretrained weights. The model object will be an instance of `torch.nn.Module`. The function has examples for all the different model types but as a teaser consider the following example which loads the pretrained image HSI network:
 ```python
 import torch
-from htc import ModelImage
+from htc import ModelImage, Normalization
 
 run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
 model = ModelImage.pretrained_model(model="image", run_folder=run_folder, n_channels=100, n_classes=19)
 input_data = torch.randn(1, 100, 480, 640)  # NCHW
+input_data = Normalization(channel_dim=1)(input_data)  # Model expects L1 normalized input
 model(input_data).shape
 # torch.Size([1, 19, 480, 640])
 ```
@@ -247,7 +248,7 @@ In this paper, we tackled fully automatic organ segmentation and compared deep l
 ### 📝 Spectral organ fingerprints for machine learning-based intraoperative tissue classification with hyperspectral imaging in a porcine model
 [https://doi.org/10.1038/s41598-022-15040-w](https://doi.org/10.1038/s41598-022-15040-w)
 
-In this paper, we trained a classification model based on median spectra from HSI data. You can find the model code in [htc/tissue_atlas](./htc/tissue_atlas) and the confusion matrix figure of the paper in [paper/NatureReports2021](./paper/NatureReports2021).
+In this paper, we trained a classification model based on median spectra from HSI data. You can find the model code in [htc/tissue_atlas](./htc/tissue_atlas) and the confusion matrix figure of the paper in [paper/NatureReports2021](./paper/NatureReports2021) (including a reproducibility document).
 
 > 📂 The dataset for this paper is not fully publicly available, but a subset of the data is available through the soon-to-be-public HeiPorSPECTRAL dataset.
 

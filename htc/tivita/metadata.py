@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import configparser
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from datetime import datetime
@@ -94,9 +95,9 @@ def read_meta_file(path: Path) -> dict:
     for section in config:
         for key in config[section]:
             value = config[section][key].strip('"')  # Remove quotes from strings: "Reflektanz" --> Reflektanz
-            if key == "Intensity Grenzwert":
+            if re.search(r"\d+,\d+", value) is not None:
                 value = value.replace(",", ".")  # 7,000000 --> 7.000000
-            elif key == "Fremdlicht erkannt?":
+            if key == "Fremdlicht erkannt?":
                 value = config[section].getboolean(key)
 
             # Convert strings to numbers if possible

@@ -4,6 +4,7 @@
 import itertools
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 
@@ -27,7 +28,7 @@ class MedianSpectra(DatasetIteration):
         self.dataset_name = dataset_name
 
         if output_dir is None:
-            self.output_dir = settings.intermediates_dir / "tables"
+            self.output_dir = settings.intermediates_dir_all / "tables"
         else:
             self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True, parents=True)
@@ -51,6 +52,14 @@ class MedianSpectra(DatasetIteration):
 
         features_normalized = sample["features"] / torch.linalg.norm(sample["features"], ord=1, dim=-1, keepdim=True)
         features_normalized.nan_to_num_()
+
+        cube = sample["features"].numpy()
+        sto2_img = path.compute_sto2(cube)
+        nir_img = path.compute_nir(cube)
+        twi_img = path.compute_twi(cube)
+        ohi_img = path.compute_ohi(cube)
+        thi_img = path.compute_thi(cube)
+        tli_img = path.compute_tli(cube)
 
         rows = []
         for label_key in sample.keys():
@@ -77,6 +86,13 @@ class MedianSpectra(DatasetIteration):
                     spectra = sample["features"][selection]
                     spectra_normalized = features_normalized[selection]
 
+                    selected_sto2 = sto2_img[selection]
+                    selected_nir = nir_img[selection]
+                    selected_twi = twi_img[selection]
+                    selected_ohi = ohi_img[selection]
+                    selected_thi = thi_img[selection]
+                    selected_tli = tli_img[selection]
+
                     current_row = {"image_name": path.image_name()}
                     current_row |= path.image_name_typed()
 
@@ -88,6 +104,18 @@ class MedianSpectra(DatasetIteration):
                         "median_normalized_spectrum": spectra_normalized.quantile(q=0.5, dim=0).numpy(),
                         "std_normalized_spectrum": spectra_normalized.std(dim=0).numpy(),
                         "n_pixels": counts.item(),
+                        "median_sto2": np.median(selected_sto2.data),
+                        "std_sto2": np.std(selected_sto2.data),
+                        "median_nir": np.median(selected_nir.data),
+                        "std_nir": np.std(selected_nir.data),
+                        "median_twi": np.median(selected_twi.data),
+                        "std_twi": np.std(selected_twi.data),
+                        "median_ohi": np.median(selected_ohi.data),
+                        "std_ohi": np.std(selected_ohi.data),
+                        "median_thi": np.median(selected_thi.data),
+                        "std_thi": np.std(selected_thi.data),
+                        "median_tli": np.median(selected_tli.data),
+                        "std_tli": np.std(selected_tli.data),
                     }
 
                     if label_key != "labels":
@@ -142,7 +170,7 @@ class MedianSpectra(DatasetIteration):
 if __name__ == "__main__":
     prep = ParserPreprocessing(description="Calculate median spectra per pig, organ and image")
     paths = prep.get_paths()
-    assert prep.args.specs is None, (
+    assert prep.args.spec is None, (
         "Median spectra can only be calculated per dataset and not for a specification file. Otherwise, the label_index"
         " would not be correct (the same label_index can refer to different organs across datasets)."
     )

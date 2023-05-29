@@ -24,7 +24,7 @@ def generate_configs(
     memory: str = "10.7G",
 ) -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    config = Config.load_config(config_name_or_path, model_name)
+    config = Config.from_model_name(config_name_or_path, model_name)
 
     if params is None:
         params = {
@@ -34,11 +34,12 @@ def generate_configs(
             # 'dataloader_kwargs/num_workers': [8],
         }
 
-    bashstring = (
-        '#!/bin/bash\n\nscript_path=$(realpath "$BASH_SOURCE")\nscript_path=$(dirname "$script_path")\n\n# Execute'
-        " everything in the root of the repository\ncd $script_path/../../../.. || exit\n\n# Make environment variables"
-        ' available\nsource .env\n\n# Run jobs\nssh $DKFZ_USERID@bsub01.lsf.dkfz.de <<"BASH"\n'
-    )
+    bashstring = f"""\
+#!/bin/bash
+
+# Run jobs
+ssh {settings.dkfz_userid}@bsub01.lsf.dkfz.de <<"BASH"
+"""
 
     configs = []
     for parameters in itertools.product(*params.values()):
@@ -122,6 +123,8 @@ def generate_configs(
 
 
 if __name__ == "__main__":
+    # Generate a submission script for all folds:
+    # htc generate_configs --model image --config context/models/configs/glove_organ_transplantation_0.8.json
     parser = argparse.ArgumentParser(
         description="Generate configs for a model", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )

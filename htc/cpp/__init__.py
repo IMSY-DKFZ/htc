@@ -131,8 +131,8 @@ def tensor_mapping(tensor: Union[torch.Tensor, np.ndarray], mapping: dict[int, i
     """
     assert len(mapping) > 0, "Empty mapping"
     assert all(
-        [type(k) == type(v) for k, v in mapping.items()]
-    ), "All keys and values of the mapping must have the same time"
+        type(k) == type(v) for k, v in mapping.items()
+    ), "All keys and values of the mapping must have the same type"
     first_value = next(iter(mapping.values()))
 
     if isinstance(first_value, int):
@@ -227,7 +227,7 @@ def hierarchical_bootstrapping(
     mapping: dict[int, dict[int, list[int]]], n_subjects: int, n_images: int, n_bootstraps: int = 1000
 ) -> torch.Tensor:
     """
-    Creates bootstrap samples based on a two-level hierarchy (cam_name, subject_name, image_name) while always selecting all cameras in every bootstrap and the specified number of subjects and images (both with resampling).
+    Creates bootstrap samples based on a three-level hierarchy (domain_name, subject_name, image_name) while always selecting all domains in every bootstrap and the specified number of subjects and images (both with resampling).
 
     Note: This function is not deterministic but you can set a seed.
 
@@ -245,12 +245,12 @@ def hierarchical_bootstrapping(
             [30, 40, 10, 10]])
 
     Args:
-        mapping: Camera to subjects to images mapping.
+        mapping: Domain to subjects to images mapping.
         n_subjects: Number of subjects to draw with replacement.
         n_images: Number of images to draw with replacement.
         n_bootstraps: Total number of bootstraps.
 
-    Returns: Matrix of shape (n_bootstraps, n_cams * n_subjects * n_images) with the bootstraps. It contains the values provided for the images (final lay in the mapping).
+    Returns: Matrix of shape (n_bootstraps, n_domains * n_subjects * n_images) with the bootstraps. It contains the values provided for the images (final layer in the mapping).
     """
     # We are generating a random number which will be used as seed during bootstraping
     # This produces different bootstraps when the user calls this function multiple times while still allowing to set a seed
@@ -259,3 +259,103 @@ def hierarchical_bootstrapping(
     assert bootstraps.shape == (n_bootstraps, len(set(mapping.keys())) * n_subjects * n_images)
 
     return bootstraps
+
+
+def hierarchical_bootstrapping_labels(
+    domain_mapping: dict[int, dict[int, list[int]]],
+    label_mapping: dict[int, dict[int, list[int]]],
+    n_labels: int,
+    n_bootstraps: int = 1000,
+) -> torch.Tensor:
+    """
+    Creates bootstrap samples based on a three-level hierarchy (domain_name, subject_name, image_name) while always selecting all domains equally often in every bootstrap. Compared to `hierarchical_bootstrapping()`, this function takes the labels into account and always selects images with the same label for each domain tuple. For each domain and label, one subject and one image is selected, i.e. selection of different subjects is preferred over selecting many images per subject.
+
+    Using this function, a batch with a size of 4 may look like this:
+    | domain | subject | image | label |
+    |---|---|---|---|
+    | D1 | S1 | I1 | liver |
+    | D2 | S2 | I2 | liver |
+    | D1 | S1 | I3 | colon |
+    | D2 | S3 | I4 | colon |
+
+    Note: This function is not deterministic but you can set a seed.
+
+    >>> from lightning import seed_everything
+    >>> print('ignore_line'); seed_everything(0)  # doctest: +ELLIPSIS
+    ignore_line...
+    >>> domain_mapping = {
+    ...     0: {0: [10, 11]},          # First camera, one subject with two images
+    ...     1: {1: [20, 30], 2: [40]}  # Second camera, two subjects with two and one image each
+    ... }
+    >>> label_mapping = {
+    ...     100: {0: [10, 11], 1: [20]},      # Images 10, 11 and 20 have label 100
+    ...     200: {0: [10], 1: [30], 2: [40]}  # Images 10, 30 and 40 have label 200
+    ... }
+    >>> hierarchical_bootstrapping_labels(domain_mapping, label_mapping, n_labels=2, n_bootstraps=4)
+    tensor([[20, 10, 30, 10],
+            [20, 10, 20, 11],
+            [20, 11, 20, 11],
+            [30, 10, 20, 11]])
+
+    Args:
+        domain_mapping: Domain to subjects to images mapping.
+        label_mapping: Label to subjects to images mapping.
+        n_labels: Number of labels to draw with replacement. For each label, images from n_domains will be selected.
+        n_bootstraps: Total number of bootstraps.
+
+    Returns: Matrix of shape (n_bootstraps, n_domains * n_labels) with the bootstraps. It contains the values provided for the images (final layer in the mappings).
+    """
+    n_domains = len(set(domain_mapping.keys()))
+    subjects2domain = {s: d for d, subjects in domain_mapping.items() for s in subjects}
+    for label, subjects in label_mapping.items():
+        assert (
+            len({subjects2domain[s] for s in subjects}) == n_domains
+        ), f"Label {label} is not present in all domains (only the subjects {subjects} have this label)"
+
+    # We are generating a random number which will be used as seed during bootstraping
+    # This produces different bootstraps when the user calls this function multiple times while still allowing to set a seed
+    seed = torch.randint(0, torch.iinfo(torch.int32).max, (1,), dtype=torch.int32).item()
+    bootstraps = htc._cpp.hierarchical_bootstrapping_labels(domain_mapping, label_mapping, n_labels, n_bootstraps, seed)
+    assert bootstraps.shape == (n_bootstraps, n_domains * n_labels)
+
+    return bootstraps
+
+
+@automatic_numpy_conversion
+def colorchecker_automask(
+    rot_image: torch.Tensor,
+    cc_board: str,
+    square_size: int,
+    safety_margin: int,
+    square_dist_vertical: int,
+    square_dist_horizontal: int,
+) -> dict[str, dict[str, int]]:
+    """
+    Automatically detect colorchecker chips. See the ColorcheckerReader class for usage of this function.
+    """
+    assert rot_image.ndim == 3, "The image must be three-dimensional"
+    assert rot_image.dtype == torch.float32, "The image must be of type torch.float32"
+
+    return htc._cpp.colorchecker_automask(
+        rot_image, cc_board, square_size, safety_margin, square_dist_vertical, square_dist_horizontal
+    )
+
+
+@automatic_numpy_conversion
+def colorchecker_automask_search_area(
+    rot_image: torch.Tensor,
+    cc_board: str,
+    square_size: int,
+    safety_margin: int,
+    square_dist_vertical: int,
+    square_dist_horizontal: int,
+) -> torch.Tensor:
+    """
+    Visualize the search are of the automatic colorchecker detection algorithm. See the ColorcheckerReader class for usage of this function.
+    """
+    assert rot_image.ndim == 3, "The image must be three-dimensional"
+    assert rot_image.dtype == torch.float32, "The image must be of type torch.float32"
+
+    return htc._cpp.colorchecker_automask_search_area(
+        rot_image, cc_board, square_size, safety_margin, square_dist_vertical, square_dist_horizontal
+    )

@@ -14,8 +14,9 @@ from htc.models.image.DatasetImage import DatasetImage
 
 class DatasetSuperpixelStream(HTCDatasetStream):
     def iter_samples(self) -> Iterator[dict[str, torch.Tensor]]:
-        for worker_index, path in self._iter_paths():
-            # We read the image like in DatasetImage
+        for worker_index, path_index in self._iter_paths():
+            # Explicitly load via DatasetImage since we need superpixels
+            path = self.paths[path_index]
             sample_img = DatasetImage([path], train=self.train, config=self.config)[0]
 
             # Calculate the mode value per superpixel, i.e. find the label which occurs most often in the superpixel
@@ -65,7 +66,7 @@ class DatasetSuperpixelStream(HTCDatasetStream):
                 yield {
                     "features": features.refine_names("C", "H", "W"),
                     "weak_labels": spx_weak_label.refine_names("N"),
-                    "image_index": self.image_names.index(path.image_name()),
+                    "image_index": path_index,
                     "worker_index": worker_index,
                 }
 

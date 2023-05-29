@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Union
 
 import numpy as np
 import torch
+from typing_extensions import Self
 
 from htc.cpp import automatic_numpy_conversion, tensor_mapping
 from htc.settings import settings
@@ -25,6 +26,7 @@ class LabelMapping:
         mapping_name_index: dict[str, int],
         last_valid_label_index: int = None,
         zero_is_invalid: bool = False,
+        unknown_invalid: bool = False,
         mapping_index_name: dict[int, str] = None,
         label_colors: dict[str, str] = None,
     ):
@@ -35,12 +37,14 @@ class LabelMapping:
             mapping_name_index: Mapping of label identifiers (name of the organs) to indices (integer values).
             last_valid_label_index: The index of the last valid label in the mapping. This is useful to distinguish between valid and invalid pixels. If None, every label index smaller than settings.label_index_thresh will be considered valid.
             zero_is_invalid: If True, 0 will be treated as invalid label (additional labels may be treated as invalid via last_valid_label_index).
+            unknown_invalid: If True, all labels which are not part of this mapping are considered invalid (except of raising an error).
             mapping_index_name: Mapping of label indices to names (used to construct a mapping based on a saved config).
             label_colors: Mapping of label names to color values (e.g. '#ffffff'). If None, settings.label_colors will be used.
         """
         self.mapping_name_index = mapping_name_index
         self.label_colors = label_colors if label_colors is not None else settings.label_colors
         self.zero_is_invalid = zero_is_invalid
+        self.unknown_invalid = unknown_invalid
 
         if last_valid_label_index is None:
             valid_indices = [
@@ -88,7 +92,7 @@ class LabelMapping:
         return len(self.label_indices())
 
     def __contains__(self, name_or_index: Union[str, int, torch.Tensor]) -> bool:
-        """Returns: True when the given name or index is part of this mapping."""
+        """Returns: True when the given name or index is part of this mapping (valid or invalid)."""
         if type(name_or_index) == torch.Tensor:
             name_or_index = name_or_index.item()
 
@@ -99,17 +103,32 @@ class LabelMapping:
         else:
             raise ValueError(f"Invalid type {type(name_or_index)}")
 
-    def __eq__(self, other: "LabelMapping") -> bool:
+    def __eq__(self, other: Self) -> bool:
         return (
             self.mapping_name_index == other.mapping_name_index
             and self.last_valid_label_index == other.last_valid_label_index
             and self.zero_is_invalid == other.zero_is_invalid
+            and self.unknown_invalid == other.unknown_invalid
             and self.mapping_index_name == other.mapping_index_name
         )
 
     def name_to_index(self, name: str) -> int:
-        assert name in self.mapping_name_index, f"Cannot find the label {name} in the mapping {self.mapping_name_index}"
-        return self.mapping_name_index[name]
+        """
+        Maps a label name to the corresponding label index.
+
+        Args:
+            name: Name of the label.
+
+        Returns: The index associated with the label name.
+        """
+        if name in self.mapping_name_index:
+            return self.mapping_name_index[name]
+        else:
+            if self.unknown_invalid:
+                # One above the last known index
+                return list(self.mapping_index_name.keys())[-1] + 1
+            else:
+                raise ValueError(f"Cannot find the label {name} in the mapping {self.mapping_name_index}")
 
     def index_to_name(self, i: Union[int, torch.Tensor], all_names: bool = False) -> Union[str, list[str]]:
         """
@@ -124,11 +143,16 @@ class LabelMapping:
         if type(i) == torch.Tensor:
             i = i.item()
 
-        assert i in self.mapping_index_name, f"Cannot find the label index {i} in the mapping {self.mapping_index_name}"
-        if all_names:
-            return [name for name, label_index in self.mapping_name_index.items() if label_index == i]
+        if i in self.mapping_index_name:
+            if all_names:
+                return [name for name, label_index in self.mapping_name_index.items() if label_index == i]
+            else:
+                return self.mapping_index_name[i]
         else:
-            return self.mapping_index_name[i]
+            if self.unknown_invalid:
+                return "unknown"
+            else:
+                raise ValueError(f"Cannot find the label index {i} in the mapping {self.mapping_index_name}")
 
     def name_to_color(self, name: str) -> str:
         """
@@ -167,6 +191,10 @@ class LabelMapping:
         else:
             return i <= self.last_valid_label_index
 
+    def is_name_valid(self, name: str) -> bool:
+        """Returns: True when the given label name is valid according to this mapping."""
+        return self.is_index_valid(self.name_to_index(name))
+
     def label_names(self, include_invalid: bool = False, all_names: bool = False) -> list[str]:
         """
         List of all label names as defined by this mapping.
@@ -198,9 +226,7 @@ class LabelMapping:
             return [label_index for label_index in self.mapping_index_name.keys() if self.is_index_valid(label_index)]
 
     @automatic_numpy_conversion
-    def map_tensor(
-        self, tensor: Union[torch.Tensor, np.ndarray], old_mapping: "LabelMapping"
-    ) -> Union[torch.Tensor, np.ndarray]:
+    def map_tensor(self, tensor: Union[torch.Tensor, np.ndarray], old_mapping: Self) -> Union[torch.Tensor, np.ndarray]:
         """
         Remaps all label ids in the tensor to the new label id as defined by the label mapping of this class (self = new_mapping). Mapping happens based on the label name.
 
@@ -242,11 +268,12 @@ class LabelMapping:
             "mapping_name_index": self.mapping_name_index,
             "last_valid_label_index": self.last_valid_label_index,
             "zero_is_invalid": self.zero_is_invalid,
+            "unknown_invalid": self.unknown_invalid,
             "mapping_index_name": self.mapping_index_name,
         }
 
     @classmethod
-    def from_path(cls, path: "DataPath") -> "LabelMapping":
+    def from_path(cls, path: "DataPath") -> Self:
         """
         Constructs a label mapping based on the default labels of the dataset accessed via the path object.
 
@@ -260,7 +287,7 @@ class LabelMapping:
         )
 
     @classmethod
-    def from_data_dir(cls, data_dir: Path) -> "LabelMapping":
+    def from_data_dir(cls, data_dir: Path) -> Self:
         """
         Similar to from_path() but using the dataset_settings.json from the data directory directly.
 
@@ -271,7 +298,7 @@ class LabelMapping:
         return cls(dsettings["label_mapping"], dsettings["last_valid_label_index"])
 
     @classmethod
-    def from_config(cls, config: Config) -> "LabelMapping":
+    def from_config(cls, config: Config) -> Self:
         """
         Constructs a label mapping as defined in the config file. config['label_mapping'] can be defined as:
 
@@ -299,14 +326,19 @@ class LabelMapping:
 
         if isinstance(mapping, LabelMapping):
             mapping_obj = mapping
-        elif all([var in mapping for var in ("mapping_name_index", "last_valid_label_index", "mapping_index_name")]):
+        elif all(var in mapping for var in ("mapping_name_index", "last_valid_label_index", "mapping_index_name")):
             # This is easier because we have all information we need in the config
             mapping_index_name = {
                 int(i): n for i, n in mapping["mapping_index_name"].items()
             }  # JSON only allows strings as keys
             zero_is_invalid = mapping.get("zero_is_invalid", False)
+            unknown_invalid = mapping.get("unknown_invalid", False)
             mapping_obj = cls(
-                mapping["mapping_name_index"], mapping["last_valid_label_index"], zero_is_invalid, mapping_index_name
+                mapping["mapping_name_index"],
+                mapping["last_valid_label_index"],
+                zero_is_invalid,
+                unknown_invalid,
+                mapping_index_name,
             )
         else:
             if "label_mapping/background" in config and config["label_mapping/background"] == 0:

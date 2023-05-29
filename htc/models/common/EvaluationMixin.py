@@ -3,6 +3,7 @@
 
 import itertools
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import torch
@@ -23,6 +24,32 @@ class EvaluationMixin:
         if batch_idx == 0 and dataloader_idx == 0:
             assert len(self.validation_results_epoch) == 0, "Validation results are not properly cleared"
 
+        self.validation_results_epoch.append(self._validate_batch(batch, dataloader_idx))
+
+    def on_validation_epoch_end(self) -> None:
+        # First level (list): batches
+        # Second level (list): images
+        # Third level (dict): results per image
+        df_epoch = pd.DataFrame(list(itertools.chain.from_iterable(self.validation_results_epoch)))
+
+        agg = MetricAggregation(df_epoch, config=self.config)
+        self.log_checkpoint_metric(agg.checkpoint_metric())
+        self.df_validation_results = pd.concat([self.df_validation_results, df_epoch])
+        self.df_validation_results.to_pickle(Path(self.logger.save_dir) / "validation_results.pkl.xz")
+
+        # Start clean for the next validation round
+        self.validation_results_epoch = []
+
+    def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
+        self.validation_step(batch, batch_idx)
+
+    def on_test_epoch_end(self) -> None:
+        df_test = pd.DataFrame(list(itertools.chain.from_iterable(self.validation_results_epoch)))
+        df_test.drop(columns=["epoch_index"], inplace=True)
+        df_test.to_pickle(Path(self.logger.save_dir) / "test_results.pkl.xz")
+        self.validation_results_epoch = []
+
+    def _validate_batch(self, batch: dict[str, torch.Tensor], dataloader_idx: int) -> list[dict[str, Any]]:
         batch_clean = {k: v for k, v in batch.items() if not k.startswith("labels")}
 
         logits = self.predict_step(batch_clean)
@@ -44,11 +71,11 @@ class EvaluationMixin:
             image_name = batch["image_name"][b]
             path = DataPath.from_image_name(image_name)
 
-            current_row = {
-                "epoch_index": self.current_epoch,
-                "dataset_index": dataloader_idx,
-                "image_name": image_name,
-            }
+            current_row = {}
+            if hasattr(self, "current_epoch"):
+                current_row["epoch_index"] = self.current_epoch
+            current_row["dataset_index"] = dataloader_idx
+            current_row["image_name"] = image_name
             current_row |= path.image_name_typed()
 
             for key, value in batch_results_class[b].items():
@@ -64,27 +91,4 @@ class EvaluationMixin:
 
             rows.append(current_row)
 
-        self.validation_results_epoch.append(rows)
-
-    def on_validation_epoch_end(self) -> None:
-        # First level (list): batches
-        # Second level (list): images
-        # Third level (dict): results per image
-        df_epoch = pd.DataFrame(list(itertools.chain.from_iterable(self.validation_results_epoch)))
-
-        agg = MetricAggregation(df_epoch, config=self.config)
-        self.log_checkpoint_metric(agg.checkpoint_metric())
-        self.df_validation_results = pd.concat([self.df_validation_results, df_epoch])
-        self.df_validation_results.to_pickle(Path(self.logger.save_dir) / "validation_results.pkl.xz")
-
-        # Start clean for the next validation round
-        self.validation_results_epoch = []
-
-    def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
-        self.validation_step(batch, batch_idx)
-
-    def on_test_epoch_end(self) -> None:
-        df_test = pd.DataFrame(list(itertools.from_iterable(self.validation_results_epoch)))
-        df_test.drop(columns=["epoch_index"], inplace=True)
-        df_test.to_pickle(Path(self.logger.save_dir) / "test_results.pkl.xz")
-        self.validation_results_epoch = []
+        return rows

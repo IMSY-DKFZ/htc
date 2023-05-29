@@ -24,7 +24,7 @@ class DataPathCustom(DataPath):
         dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
 
         # Optional, only if needed/available
-        intermediates_dir = settings.data_dirs.find_intermediates_dir(data_dir)
+        intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
 
         # Adjust looping according to your dataset structure
         for image_dir in sorted(data_dir.iterdir()):

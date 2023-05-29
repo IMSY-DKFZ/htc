@@ -6,9 +6,7 @@
         "n_channels": 100,
         "superpixels": {
             "n_segments": 1000,
-            "slic_zero": true,
-            "compactness": 10,
-            "sigma": 3
+            "compactness": 10
         },
         "resize_shape": [32, 32],
         "epoch_size": "500 images",

@@ -24,16 +24,23 @@ from htc.utils.type_from_string import type_from_string
 
 class HTCLightning(EvaluationMixin, LightningModule):
     def __init__(
-        self, dataset_train: HTCDataset, datasets_val: list[HTCDataset], config: Config, dataset_test: HTCDataset = None
+        self,
+        dataset_train: HTCDataset,
+        datasets_val: list[HTCDataset],
+        config: Config,
+        dataset_test: HTCDataset = None,
+        fold_name: str = None,
     ):
         super().__init__()
 
         self.dataset_train = dataset_train
         self.datasets_val = datasets_val
         self.dataset_test = dataset_test
+        self.fold_name = fold_name
 
         self.config = config
-        self.n_classes = get_n_classes(self.config)
+        if not self.config["input/no_labels"]:
+            self.n_classes = get_n_classes(self.config)
 
         self.checkpoint_metric_logged = {}
         self.df_validation_results = pd.DataFrame()
@@ -80,12 +87,10 @@ class HTCLightning(EvaluationMixin, LightningModule):
 
     def on_after_batch_transfer(self, batch: dict[str, torch.Tensor], dataloader_idx: int):
         transforms = self.parse_transforms_gpu()
-        # TODO: add autocasting after this is fixed in kornia
-        # with torch.autocast(device_type=self.device.type):
-        #     batch = HTCTransformation.apply_valid_transforms(batch, transforms)
-        batch = HTCTransformation.apply_valid_transforms(batch, transforms)
+        with torch.autocast(device_type=self.device.type), torch.no_grad():
+            batch = HTCTransformation.apply_valid_transforms(batch, transforms)
 
-        if "image_index" in batch and type(batch["image_index"]) == torch.Tensor:
+        if self.training and "image_index" in batch and type(batch["image_index"]) == torch.Tensor:
             # The image index may not be a tensor in prediction scenarios if a single image is supplied manually
             # In these cases, however, we don't need training statistics
             if "img_indices" not in self.training_stats_epoch:
@@ -105,7 +110,7 @@ class HTCLightning(EvaluationMixin, LightningModule):
 
         Returns: Dictionary with predictions of the model (e.g. `result['class']` has a shape of [N, C, H, W]).
         """
-        return {"class": self(batch["features"])}
+        return {"class": self(batch)}
 
     def predict_step(self, batch: dict[str, torch.Tensor], batch_idx: int = None) -> dict[str, torch.Tensor]:
         """
@@ -178,10 +183,14 @@ class HTCLightning(EvaluationMixin, LightningModule):
         self.checkpoint_metric_logged[self.current_epoch] = True
 
     def on_train_epoch_start(self) -> None:
-        # Workaround to always save the last epoch until the issue is fixed in lightning: https://github.com/Lightning-AI/lightning/issues/4539
         if self.current_epoch == self.trainer.max_epochs - 1:
-            settings.log.info("Changed check_val_every_n_epoch to 1")
+            settings.log.info("Changed check_val_every_n_epoch to 1 and switched to manual optimization")
+
+            # Workaround to always save the last epoch until the bug is fixed in lightning (https://github.com/Lightning-AI/lightning/issues/4539)
             self.trainer.check_val_every_n_epoch = 1
+
+            # Disable backward pass for SWA until the bug is fixed in lightning (https://github.com/Lightning-AI/lightning/issues/17245)
+            self.automatic_optimization = False
 
     def on_train_epoch_end(self) -> None:
         if len(self.training_stats_epoch) > 0:

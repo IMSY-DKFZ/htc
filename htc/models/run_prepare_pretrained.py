@@ -5,8 +5,6 @@ import hashlib
 from pathlib import Path
 from zipfile import ZipFile
 
-from rich.progress import track
-
 from htc.evaluation.model_comparison.paper_runs import collect_comparison_runs
 from htc.settings import settings
 from htc.settings_seg import settings_seg
@@ -63,13 +61,15 @@ def compress_model_comparison_runs() -> None:
             run_dirs.append(run_dir)
 
     known_models = {}
-    for run_dir in track(run_dirs):
+    for run_dir in run_dirs:
+        print(run_dir)
         name = f"{run_dir.parent.name}@{run_dir.name}"
         known_models[name] = {
             "sha256": compress_run(run_dir, output_path=target_dir / f"{name}.zip"),
             "url": upload_file_s3(local_path=target_dir / f"{name}.zip", remote_path=f"models/{name}.zip"),
         }
 
+    # Update known_models of HTCModel with the output of this script
     print(known_models)
 
 

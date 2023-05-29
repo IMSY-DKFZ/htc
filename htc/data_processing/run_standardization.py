@@ -83,20 +83,20 @@ def calc_standardization_folds(specs: DataSpecification) -> dict[str, dict[str, 
     fold_datasets = [specs.folds[f] for f in specs.fold_names()]
     results = p_map(calc_standardization, fold_datasets)
 
-    return {fold_name: data for fold_name, data in zip(specs.fold_names(), results)}
+    return dict(zip(specs.fold_names(), results))
 
 
 if __name__ == "__main__":
     prep = ParserPreprocessing(description="Precomputes a filter for all images")
     paths = prep.get_paths()  # Must always be called
     assert (
-        prep.args.specs is not None
-    ), "The --specs argument must be supplied so that the standardization parameters can be calculated per fold"
+        prep.args.spec is not None
+    ), "The --spec argument must be supplied so that the standardization parameters can be calculated per fold"
 
-    specs = DataSpecification(prep.args.specs)
+    specs = DataSpecification(prep.args.spec)
     assert paths == specs.paths()
     results = calc_standardization_folds(specs)
 
-    target_dir = settings.intermediates_dir / "data_stats"
+    target_dir = settings.intermediates_dir_all / "data_stats"
     target_dir.mkdir(parents=True, exist_ok=True)
     pickle.dump(results, open(target_dir / f"{specs.name()}#standardization.pkl", "wb"))

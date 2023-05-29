@@ -31,7 +31,7 @@ def pad_tensors(
         tensors: List of tensors to stack.
         dim: Dimensions which should be padded.
         pad_value: Padding value appended to the tensors.
-        size_multiple: If not None, makes sure that the respective size dimensions are divisible by this number(s), e.g. to have a size divisible by 32.
+        size_multiple: If not None, makes sure that the size of the tensors is divisible by this size, e.g. to have a size divisible by 32. Either provide a tuple with values per dimension (e.g. (height, width)) or an int which is then used for all dimensions.
 
     Returns: Batch tensor (first dimension is the batch dimension).
     """

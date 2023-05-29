@@ -39,9 +39,7 @@ class SettingsSeg:
                 "omentum": 10,
                 "peritoneum": 11,
                 "skin": 12,
-                # There is only subcutaneous fat in the pig data but it is sometimes labelled as fat
-                "fat": 13,
-                "subcutaneous_fat": 13,
+                "fat_subcutaneous": 13,
                 "pancreas": 14,
                 "muscle": 15,
                 "kidney": 16,
@@ -74,7 +72,6 @@ class SettingsSeg:
                 # Ignored because they occur only the humans dataset
                 "cauterization": settings.label_index_thresh + 22,
                 "lig_teres_hep": settings.label_index_thresh + 23,
-                "fat_subcutaneous": settings.label_index_thresh + 24,
                 "fat_visceral": settings.label_index_thresh + 25,
                 "meso": settings.label_index_thresh + 26,
                 "esophagus": settings.label_index_thresh + 27,
@@ -112,7 +109,7 @@ class SettingsSeg:
             "kidney": "#dbdb8d",
             "kidney_with_Gerotas_fascia": "#9edae5",
             "bladder": "#9467bd",
-            "fat": "#e377c2",
+            "fat_subcutaneous": "#e377c2",
             "skin": "#c49c94",
             "muscle": "#bcbd22",
             "omentum": "#c5b0d5",
@@ -123,7 +120,7 @@ class SettingsSeg:
             "invalid": "ignore",
             "major_vein": "major vein",
             "kidney_with_Gerotas_fascia": "kidney with<br>Gerota's fascia",
-            "fat": "subcutaneous fat",
+            "fat_subcutaneous": "subcutaneous fat",
             "small_bowel": "small intestine",
         }
         self.modality_names = {

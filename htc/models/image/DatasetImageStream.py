@@ -34,9 +34,8 @@ class DatasetImageStream(DatasetImage, HTCDatasetStream):
     """
 
     def iter_samples(self) -> Iterator[dict[str, torch.Tensor]]:
-        for worker_index, path in self._iter_paths():
-            image_name = path.image_name()
-            sample = self.from_image_name(image_name)
+        for worker_index, path_index in self._iter_paths():
+            sample = self[path_index]
             del sample["image_name"]
 
             if "features" in sample:
@@ -46,7 +45,7 @@ class DatasetImageStream(DatasetImage, HTCDatasetStream):
             if "valid_pixels" in sample:
                 sample["valid_pixels"] = sample["valid_pixels"].refine_names("H", "W")
             sample["worker_index"] = worker_index
-            sample["image_index"] = self.image_names.index(path.image_name())
+            sample["image_index"] = path_index
 
             yield sample
 
@@ -65,8 +64,6 @@ class DatasetImageStream(DatasetImage, HTCDatasetStream):
                 self._add_tensor_shared("labels", torch.int64, *spatial_shape)
                 self._add_tensor_shared("valid_pixels", torch.bool, *spatial_shape)
 
-        if self.config["input/specs_threshold"]:
-            self._add_tensor_shared("specs", torch.int64, *spatial_shape)
         if self.config["input/superpixels"]:
             self._add_tensor_shared("spxs", torch.int64, *spatial_shape)
 

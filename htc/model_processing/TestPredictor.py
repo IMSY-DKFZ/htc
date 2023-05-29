@@ -47,6 +47,11 @@ class TestEnsemble(nn.Module):
             model.cuda(*args, **kwargs)
         return self
 
+    def to(self, *args, **kwargs) -> Self:
+        for model in self.models.values():
+            model.to(*args, **kwargs)
+        return self
+
     def dataloader(self) -> DataLoader:
         # All models have the same dataset, so we just take the first dataloader and use the data for all models
         return next(iter(self.models.values())).val_dataloader()[0]
@@ -78,6 +83,7 @@ class TestPredictor(Predictor):
             specs.activate_test_set()
             paths = specs.paths("^test")
 
+        self.name_path_mapping = {p.image_name(): p for p in paths}
         self.model = TestEnsemble(model_paths, paths, self.config)
         self.model.eval()
         self.model.cuda()
@@ -96,7 +102,7 @@ class TestPredictor(Predictor):
                     if predictions is not None:
                         task_queue.put(
                             {
-                                "image_name": image_name,
+                                "path": self.name_path_mapping[image_name],
                                 "predictions": predictions,
                             }
                         )
@@ -132,7 +138,7 @@ class TestPredictor(Predictor):
 
                 task_queue.put(
                     {
-                        "image_name": image_name,
+                        "path": self.name_path_mapping[image_name],
                         "predictions": predictions,
                     }
                 )

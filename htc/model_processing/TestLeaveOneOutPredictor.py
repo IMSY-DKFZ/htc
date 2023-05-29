@@ -73,6 +73,7 @@ class TestLeaveOneOutPredictor(Predictor):
             model.cuda()
 
             self.models[fold_dir] = model
+            self.name_path_mapping |= {p.image_name(): p for p in fold_paths}
 
     @torch.no_grad()
     def start(self, task_queue: multiprocessing.JoinableQueue, hide_progressbar: bool) -> None:
@@ -90,7 +91,7 @@ class TestLeaveOneOutPredictor(Predictor):
                         if predictions is not None:
                             task_queue.put(
                                 {
-                                    "image_name": image_name,
+                                    "path": self.name_path_mapping[image_name],
                                     "fold_name": fold_dir.name,
                                     "predictions": predictions,
                                 }
@@ -123,7 +124,7 @@ class TestLeaveOneOutPredictor(Predictor):
                             image_name = batch["image_name"][b]
                             if image_name in remaining_image_names:
                                 data = {
-                                    "image_name": image_name,
+                                    "path": self.name_path_mapping[image_name],
                                     "fold_name": fold_dir.name,
                                 }
                                 for name in self.outputs:

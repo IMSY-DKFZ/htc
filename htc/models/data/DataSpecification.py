@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import IO, Union
 
 import pandas as pd
+from typing_extensions import Self
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -127,7 +128,7 @@ class DataSpecification:
         for fold_data in self.folds.values():
             assert split_names == list(fold_data.keys()), "Every fold must use the same splits"
 
-    def __eq__(self, other: "DataSpecification") -> bool:
+    def __eq__(self, other: Self) -> bool:
         return self.folds == other.folds and self.__folds_test == other.__folds_test
 
     def __len__(self) -> int:
@@ -278,7 +279,7 @@ class DataSpecification:
             return str(self.path)
 
     @classmethod
-    def from_config(cls, config: Config) -> "DataSpecification":
+    def from_config(cls, config: Config) -> Self:
         assert "input/data_spec" in config, "There is no data specification defined in the config"
 
         if isinstance(config["input/data_spec"], DataSpecification):

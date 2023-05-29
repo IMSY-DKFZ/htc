@@ -8,7 +8,7 @@ from typing import Union
 import kornia.augmentation as K
 import numpy as np
 import torch
-from kornia.constants import DataKey, Resample
+from typing_extensions import Self
 
 from htc.models.common.torch_helpers import str_to_dtype
 from htc.models.data.DataSpecification import DataSpecification
@@ -134,7 +134,7 @@ class HTCTransformation:
 
         Note: Works only for transformations which do not alter the batch in-place.
 
-        For multi-layer segmentations, at least one valid pixel must remain per layer, otherwise the transformed image is not used.
+        For multi-layer segmentations, at least one valid pixel must remain in the first layer (the first layer is supposed to contain the main annotations of the image), otherwise the transformed image is not used.
         For multiple annotations, at least one valid pixel must remain for each annotated image. If one annotation_name has only invalid pixels left, the original, non-transformed image stays in the batch.
 
         Args:
@@ -159,25 +159,20 @@ class HTCTransformation:
             batch |= batch_tmp
         else:
             # It is possible that an augmentation creates an invalid image, e.g. if only a small part was annotated and then this small part of the image gets rotated outside the field of view. In this case, we just use the original non-augmented image
+            # We need to make this decision for each image in the batch
             if len(valid_keys) > 0:
                 valid_pixels = [batch_tmp[k] for k in valid_keys]
             else:
                 valid_pixels = [batch_tmp[k] < settings.label_index_thresh for k in label_keys]
 
-            # We need to define per image in the batch which one to keep
             if all(t.ndim == 4 for t in valid_pixels):
-                # Multi-layer segmentations (we only keep a transformed image if in every layer at least one valid pixel remains)
-                # BHWC -> BCHW -> BCX -> BC -> B
-                valid_samples = [
-                    t.permute(0, 3, 1, 2).reshape(t.size(0), t.size(-1), -1).any(dim=-1).all(dim=-1)
-                    for t in valid_pixels
-                ]
-            elif all(t.ndim == 3 for t in valid_pixels):
-                # Do we have for each image at least one valid pixel?
-                # BHW -> BX -> B
-                valid_samples = [t.reshape(t.size(0), -1).any(dim=-1) for t in valid_pixels]
-            else:
-                raise ValueError("Invalid batch shape (either BHWC or BHW)")
+                # For multi-layer segmentations only the first layer is relevant
+                # The first layer contains the main annotations (e.g. semantic segmentations) whereas the other layers usually contain more fine-grained information (e.g. tags). The annotated region in the second layer may also be much smaller than the first layer, so we do not want to discard the image if the second layer is nearly empty
+                valid_pixels = [t[..., 0] for t in valid_pixels]
+
+            # Do we have for each image at least one valid pixel?
+            # BHW -> BX -> B
+            valid_samples = [t.reshape(t.size(0), -1).any(dim=-1) for t in valid_pixels]
 
             assert all(t.ndim == 1 for t in valid_samples), "Only the batch dimension should remain"
 
@@ -190,7 +185,8 @@ class HTCTransformation:
             else:
                 # Decision for each image in the batch separately
                 for key in batch_tmp.keys():
-                    if type(batch[key]) == torch.Tensor:
+                    # index keys (e.g. image_index) never get transformed so we can just keep the original values
+                    if type(batch[key]) == torch.Tensor and not key.endswith("index"):
                         batch[key][valid_samples] = batch_tmp[key][valid_samples]
 
         batch["transforms_applied"] = True
@@ -198,19 +194,48 @@ class HTCTransformation:
 
 
 class Normalization(HTCTransformation):
-    def __init__(self, order: int = 1, **kwargs):
-        self.order = order
+    def __init__(self, order: int = 1, channel_dim: int = -1, **kwargs):
+        """
+        Simple normalization operation across the spectral channel independent for each pixel. Usually, all our networks expect L1 normalized data to account for multiplicative illumination changes.
 
-    def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        batch["features"] = batch["features"] / torch.linalg.norm(
-            batch["features"], ord=self.order, dim=-1, keepdim=True
-        )
-        batch["features"].nan_to_num_()
+        This transformation accepts either a tensor object as input
+        >>> normalization = Normalization()
+        >>> features = torch.ones(1, 2, 2, 100)
+        >>> normalization(features)[0, 0, 0, :2]
+        tensor([0.0100, 0.0100])
+
+        or a dictionary with the features of the batch. In this case, only the `features` key of the batch is altered in-place:
+        >>> batch = normalization({"features": features})
+        >>> batch["features"][0, 0, 0, :2]
+        tensor([0.0100, 0.0100])
+
+        Args:
+            order: Order of the norm. 1 = L1 norm, 2 = L2 norm, etc.
+            channel_dim: Dimension of the channel axis.
+        """
+        self.order = order
+        self.channel_dim = channel_dim
+
+    def __call__(
+        self, batch: Union[torch.Tensor, dict[str, torch.Tensor]]
+    ) -> Union[torch.Tensor, dict[str, torch.Tensor]]:
+        if type(batch) == dict:
+            features = batch["features"]
+        else:
+            features = batch
+
+        features = features / torch.linalg.norm(features, ord=self.order, dim=self.channel_dim, keepdim=True)
+        features.nan_to_num_()
+
+        if type(batch) == dict:
+            batch["features"] = features
+        else:
+            batch = features
 
         return batch
 
     def __repr__(self) -> str:
-        return f"Normalization(order={self.order})"
+        return f"Normalization(order={self.order}, channel_dim={self.channel_dim})"
 
 
 class StandardizeHSI(HTCTransformation):
@@ -227,7 +252,7 @@ class StandardizeHSI(HTCTransformation):
         """
         # Standardization parameters are precomputed
         specs_name = DataSpecification.from_config(config).name()
-        params_path = settings.intermediates_dir / "data_stats" / f"{specs_name}#standardization.pkl"
+        params_path = settings.intermediates_dir_all / "data_stats" / f"{specs_name}#standardization.pkl"
         assert params_path.exists(), f"could not find the precomputed standardization parameter at {params_path}"
 
         params = pickle.load(params_path.open("rb"))
@@ -288,7 +313,7 @@ class ToType(HTCTransformation):
         return f"ToType(dtype={self.dtype})"
 
     @staticmethod
-    def from_config(config: Config = None) -> "ToType":
+    def from_config(config: Config = None) -> Self:
         if config is not None and "trainer_kwargs/precision" in config:
             if config["trainer_kwargs/precision"] == 16:
                 return ToType(dtype=torch.float16)
@@ -309,12 +334,15 @@ class KorniaTransform(HTCTransformation):
         transforms = []
         for name, t_kwargs in zip(transformation_names, transformation_kwargs):
             TransformationClass = getattr(K, name)
+
+            # Kornia expects tuples instead of lists for augmentation parameters
+            for k, v in t_kwargs.items():
+                if type(v) == list:
+                    t_kwargs[k] = tuple(v)
+
             transforms.append(TransformationClass(**t_kwargs))
 
-        # We need to extend the default arguments to make elastic transform work (https://github.com/kornia/kornia/issues/2002)
-        self.compose = K.AugmentationSequential(
-            *transforms, extra_args={DataKey.MASK: dict(resample=Resample.NEAREST, align_corners=True, mode="nearest")}
-        )
+        self.compose = K.AugmentationSequential(*transforms)
 
         self.keys_to_type = {
             "features": "input",
@@ -323,8 +351,8 @@ class KorniaTransform(HTCTransformation):
             "data_parameter_images": "input",
             "labels": "mask",
             "valid_pixels": "mask",
-            "specs": "mask",
             "spxs": "mask",
+            "regions": "mask",
         }
 
     def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -380,15 +408,20 @@ class KorniaTransform(HTCTransformation):
         augmented = self.compose(*arguments.values(), data_keys=list(trans_types.values()))
         if type(augmented) == torch.Tensor:
             augmented = [augmented]
+        augmented = dict(zip(arguments.keys(), augmented))
 
         batch_transformed = {}
-        for key, transformed_tensor in zip(arguments.keys(), augmented):
-            if self.keys_to_type[key] == "input":
-                # From BCHW to BHWC
-                batch_transformed[key] = transformed_tensor.permute(0, 2, 3, 1).type(dtypes[key])
+        for key in batch.keys():
+            if key in augmented:
+                if self.keys_to_type[key] == "input":
+                    # From BCHW to BHWC
+                    batch_transformed[key] = augmented[key].permute(0, 2, 3, 1).type(dtypes[key])
+                else:
+                    # Back to the original type and remove channel dim if 1
+                    batch_transformed[key] = augmented[key].type(dtypes[key]).squeeze(dim=1)
             else:
-                # Back to the original type and remove channel dim if 1
-                batch_transformed[key] = transformed_tensor.type(dtypes[key]).squeeze(dim=1)
+                # Make sure that the stuff we don't change is still available (e.g. image name)
+                batch_transformed[key] = batch[key]
 
         return batch_transformed
 

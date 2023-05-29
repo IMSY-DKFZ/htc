@@ -40,7 +40,7 @@ class ImageTableConsumer(ImageConsumer):
         config["input/preprocessing"] = None
         config["input/no_features"] = True  # As we only need labels from the sample
 
-        path = self.path_from_image_data(image_data)
+        path = image_data["path"]
         sample = DatasetImage([path], train=False, config=config)[0]
 
         predictions = torch.from_numpy(image_data["predictions"]).unsqueeze(dim=0)
@@ -48,7 +48,7 @@ class ImageTableConsumer(ImageConsumer):
         valid_pixels = sample["valid_pixels"].unsqueeze(dim=0)
 
         if valid_pixels.sum() == 0:
-            settings.log.info(f'The image {image_data["image_name"]} is skipped because it contains no valid pixels')
+            settings.log.info(f"The image {path.image_name()} is skipped because it contains no valid pixels")
             return
 
         metric_data = {}
@@ -65,7 +65,7 @@ class ImageTableConsumer(ImageConsumer):
                 metrics=self.metrics + ["ECE", "CM"],
             )[0]
 
-        metric_data["image_name"] = image_data["image_name"]
+        metric_data["image_name"] = path.image_name()
         metric_data |= path.image_name_typed()
 
         if "fold_name" in image_data:
@@ -146,8 +146,8 @@ class ImageTableConsumer(ImageConsumer):
                 df_val_new[c] = df_val_new[f"{c}_new"].fillna(df_val_new[f"{c}_old"])
 
         df_val_new.drop(columns=df_val_new.filter(regex="_(?:old|new)$").columns.tolist(), inplace=True)
-        assert not any([c.endswith(("_old", "_new")) for c in df_val_new.columns]), "Merge columns are still present"
-        assert all([c in df_val_new for c in df_results.columns]), "Some columns are missing"
+        assert not any(c.endswith(("_old", "_new")) for c in df_val_new.columns), "Merge columns are still present"
+        assert all(c in df_val_new for c in df_results.columns), "Some columns are missing"
 
         # Some checks that the merge actually worked
         df_changed = df_val_new.query("epoch_index == best_epoch_index and dataset_index == 0")

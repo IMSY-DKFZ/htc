@@ -3,33 +3,9 @@
 
 import re
 from pathlib import Path
+from typing import Union
 
 import numpy as np
-
-
-def custom_normalization(spec: np.array) -> tuple[np.array, np.array, np.array]:
-    """
-    Compute median and std of an array of spectrometer measurements, normalized such that it can easily be plotted together with Tivita measurements.
-
-    Args:
-        spec: Array of spectrometer measurements of shape a x b x 2 with a: number of samples, b: dimensionality of spectrum
-
-    Returns: Tuple of wavelengths, median of spectra across samples a, std of spectra across samples a.
-    """
-    assert spec.ndim == 3, (
-        "Array of spectra with shape a x b x 2 with a: number of samples, b: dimensionality of spectrum should be"
-        f" given, instead shape is {spec.shape}"
-    )
-    x = spec[0, :, 0]
-    mask = (x <= 1000) & (x >= 500)
-    x = x[mask]
-    spec_mask = spec[:, mask, 1]
-    assert not np.any(np.linalg.norm(spec_mask, axis=-1, ord=1) == 0), "Normalization failure due to zero division"
-    spec_mask = spec_mask / np.linalg.norm(spec_mask, ord=1, axis=-1, keepdims=True) * len(x) / 100
-    y_median = np.median(spec_mask, axis=0)
-    y_std = np.std(spec_mask, axis=0)
-
-    return x, y_median, y_std
 
 
 class SpectrometerReader:
@@ -45,36 +21,38 @@ class SpectrometerReader:
         >>> reader = SpectrometerReader(spectra_dir)
         >>> reader.label_names()  # doctest: +ELLIPSIS
         ['black', 'blue', 'blue_flower', ...]
-        >>> blue_sky = reader.read_spectrum("blue_sky", calibration=True, normalization=1, median=True)
-        >>> blue_sky.shape
-        (2048, 2)
-        >>> blue_sky[:3, 0]  # First three wavelengths (in nm)
+        >>> blue_sky = reader.read_spectrum("blue_sky", calibration=True, normalization=1)
+        >>> list(blue_sky.keys())
+        ['wavelengths', 'spectra', 'median_spectrum', 'std_spectrum']
+        >>> blue_sky["wavelengths"][:3]  # First three wavelengths (in nm)
         array([187.255, 187.731, 188.206])
-        >>> blue_sky[:3, 1]  # First three reflectance values from the median spectrum (calibrated, L1-normalized)
+        >>> blue_sky["median_spectrum"][:3]  # First three reflectance values from the median spectrum (calibrated, L1-normalized)
         array([0.00010494, 0.00010494, 0.00010494])
 
         Args:
             data_dir: Path to the directory which contains the spectrometer files (*.txt files).
         """
         self.data_dir = data_dir
-        self.white = self.read_spectrum("white_calibration", calibration=False, normalization=None, median=True)
-        self.dark = self.read_spectrum("dark_calibration", calibration=False, normalization=None, median=True)
+        self.white = self.read_spectrum("white_calibration", calibration=False, normalization=None)
+        self.dark = self.read_spectrum("dark_calibration", calibration=False, normalization=None)
 
     def read_spectrum(
-        self, label_name: str, calibration: bool = False, normalization: int = None, median: bool = False
-    ) -> np.ndarray:
+        self, label_name: str, calibration: bool = False, normalization: int = None, adapt_to_tivita: bool = False
+    ) -> Union[dict[str, np.ndarray], None]:
         """
         Reads the spectrometer measurements for a specific label.
 
         Args:
             label_name: If label_name is a prefix, function will iterate over all files with that prefix in the data directory. To read a single spectrometer file, the path name should be passed.
-            calibration: Whether white and dark balancement should be performed. Only possible if dark and white measurements exist in the data directory.
+            calibration: Whether white and dark correction should be performed. Only possible if dark and white measurements exist in the data directory.
             normalization: Which normalization to perform. None: no normalization, 1: L1, 2: L2, ...
-            median: If False, an array of shape a x b x 2 containing all available spectra is returned, otherwise, the median reflectance per wavelength across all measurements for this label is computed and an array of shape b x 2 is returned (see below).
+            adapt_to_tivita: If True, limit the spectral range to the range of the Tivita camera (from 500 to 1000 nm). If normalization is applied, the resulting spectra is rescaled so that the reflectance values are in the same range as the Tivita reflectance values.
 
-        Returns:
-            if median == False: Array of spectra with shape a x b x 2 with a: number of files, b: dimensionality of spectrum. spectra[:, :, 0] denotes the measurement wavelengths, spectra[:, :, 1] the corresponding intensity measurement.
-            if median == True: Array of median spectrum with shape b x 2 with b: dimensionality of spectrum. spectra[:, 0] denotes the measurement wavelengths, spectra[:, 1] the corresponding intensity measurement.
+        Returns: Dictionary with the following keys (a = number of files, b = dimensionality of the spectrum) or None if no files could be found:
+        - `wavelengths`: Array of wavelengths (shape b).
+        - `spectra`: Array with the measured reflectance values for each wavelength (shape a x b).
+        - `median_spectrum`: Median spectrum across all measurements (shape b).
+        - `std_spectrum`: Standard deviation of the spectra across all measurements (shape b).
         """
         if label_name.endswith(".txt"):
             paths = [self.data_dir / label_name]
@@ -118,7 +96,15 @@ class SpectrometerReader:
                 assert (
                     self.dark is not None and self.white is not None
                 ), "white and/or dark calibration measurements are missing!"
-                spectra[:, :, 1] = (spectra[:, :, 1] - self.dark[:, 1]) / (self.white[:, 1] - self.dark[:, 1])
+                spectra[:, :, 1] = (spectra[:, :, 1] - self.dark["median_spectrum"]) / (
+                    self.white["median_spectrum"] - self.dark["median_spectrum"]
+                )
+
+            if adapt_to_tivita:
+                x = spectra[0, :, 0]
+                mask = (x <= 1000) & (x >= 500)
+                x = x[mask]
+                spectra = spectra[:, mask, :]
 
             if normalization is not None:
                 assert not np.any(
@@ -128,10 +114,16 @@ class SpectrometerReader:
                     spectra[:, :, 1], axis=-1, keepdims=True, ord=normalization
                 )
 
-            if median:
-                spectra = np.median(spectra, axis=0)
+                if adapt_to_tivita:
+                    # Scale the spectrometer measurements to the same range as the TIVITA measurements
+                    spectra[:, :, 1] = spectra[:, :, 1] * spectra.shape[1] / 100
 
-            return spectra
+            return {
+                "wavelengths": spectra[0, :, 0],
+                "spectra": spectra[:, :, 1],
+                "median_spectrum": np.median(spectra[:, :, 1], axis=0),
+                "std_spectrum": np.std(spectra[:, :, 1], axis=0),
+            }
 
     def label_names(self) -> list[str]:
         """Returns a sorted list of label names in the data directory"""

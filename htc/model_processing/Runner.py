@@ -6,7 +6,9 @@ import copy
 import multiprocessing
 import queue
 import sys
+from functools import cached_property
 from pathlib import Path
+from typing import Union
 
 import psutil
 import torch
@@ -14,7 +16,9 @@ import torch
 from htc.model_processing.ImageConsumer import ImageConsumer
 from htc.model_processing.Predictor import Predictor
 from htc.models.common.HTCModel import HTCModel
+from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
+from htc.tivita.DataPath import DataPath
 
 
 class Runner:
@@ -102,19 +106,45 @@ class Runner:
             help="If set, no progress bar is shown for the predictor.",
         )
 
-        self._args = None
         self._used_args = []
 
-    @property
+    @cached_property
     def args(self) -> argparse.Namespace:
-        if self._args is None:
-            self._args = self.parser.parse_args()
-
-        return self._args
+        return self.parser.parse_args()
 
     @property
     def run_dir(self) -> Path:
         return HTCModel.find_pretrained_run(self.args.model, self.args.run_folder)
+
+    @cached_property
+    def paths(self) -> Union[list[DataPath], None]:
+        """
+        Returns: List of paths either collected based on the --input-dir or the --spec argument. None if no path could be found.
+        """
+        dargs = vars(self.args)
+
+        if dargs.get("input_dir") is not None:
+            assert (
+                dargs.get("spec") is None and dargs.get("spec_split") is None and dargs.get("spec_fold") is None
+            ), "--spec, --spec-split and --spec-fold can only be used if --input-dir is not used"
+
+            input_dir = dargs.get("input_dir")
+            assert input_dir.exists(), "Directory for which inference should be computed does not exist."
+
+            return list(DataPath.iterate(input_dir, annotation_name=dargs.get("annotation_name")))
+        elif dargs.get("spec") is not None:
+            assert dargs.get("input_dir") is None, "--input-dir cannot be used together with the --spec argument"
+            spec = DataSpecification(dargs.get("spec"))
+            if dargs.get("spec_split") is not None and "test" in dargs.get("spec_split"):
+                spec.activate_test_set()
+                settings.log.info("Activating the test set of the data specification file")
+
+            if dargs.get("spec_fold") is not None:
+                return spec.fold_paths(dargs.get("spec_fold"), dargs.get("spec_split"))
+            else:
+                return spec.paths(dargs.get("spec_split"))
+        else:
+            return None
 
     def add_argument(self, name: str, **kwargs) -> None:
         """
@@ -171,6 +201,45 @@ class Runner:
                     " target_domain from the config files is overridden."
                 ),
             )
+        elif name == "--spec":
+            kwargs.setdefault("type", str)
+            kwargs.setdefault("default", None)
+            kwargs.setdefault(
+                "help",
+                (
+                    "If the inference needs to be carried out on a specific data spec file. This argument results in"
+                    " all unique paths from that data spec file to be used for inference. This argument override the"
+                    " --input-dir argument."
+                ),
+            )
+        elif name == "--spec-fold":
+            kwargs.setdefault("type", str)
+            kwargs.setdefault("default", None)
+            kwargs.setdefault(
+                "help",
+                (
+                    "If the inference-spec argument has been set, then use this argument to specify a particular fold"
+                    " within the data spec file. All unique paths in that fold inside that data spec file will be used"
+                    " for inference. This argument can only be used if inference-spec argument has been set."
+                    " This argument overrides the --input-dir argument."
+                ),
+            )
+        elif name == "--spec-split":
+            kwargs.setdefault("type", str)
+            kwargs.setdefault("default", None)
+            kwargs.setdefault(
+                "help",
+                (
+                    "If the inference-spec has been set, then use this argument to specify a split name inside"
+                    " the data spec file. All unique paths in that split from that data spec files will"
+                    " be used for inference. This argument can only be used if inference-spec has been set."
+                    " This argument overrides the --input-dir argument."
+                ),
+            )
+        elif name == "--annotation-name":
+            kwargs.setdefault("type", str)
+            kwargs.setdefault("default", None)
+            kwargs.setdefault("help", "Filter the paths by this annotation name (default is no filtering).")
 
         self.parser.add_argument(name, **kwargs)
         self._used_args.append(name.removeprefix("--").replace("-", "_"))
@@ -225,10 +294,10 @@ class Runner:
                 with torch.autocast(device_type="cuda"):
                     predictor.start(task_queue, self.args.hide_progressbar)
 
-                task_queue.join()  # Wait until all consumers are finished with this run
-                task_queue.put(
-                    self.run_dir
-                )  # Let one consumer do the final work (the run_dir serves as a dummy to indicate that all predictions are done)
+                # Wait until all consumers are finished with this run
+                task_queue.join()
+                # Let one consumer do the final work (the run_dir serves as a dummy to indicate that all predictions are done)
+                task_queue.put(self.run_dir)
             except Exception:
                 settings.log.exception("Error occurred in the producer")
                 exit_code = 1

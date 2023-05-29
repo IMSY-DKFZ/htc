@@ -6,6 +6,7 @@ from typing import Any, Union
 
 import numpy as np
 import pandas as pd
+from typing_extensions import Self
 
 from htc.models.data.DataSpecification import DataSpecification
 from htc.tivita.DataPath import DataPath
@@ -94,7 +95,7 @@ class DomainMapper:
         if self.shuffle_domains:
             mappings = list(domain_mapping.values())
             random.Random(0).shuffle(mappings)  # Does not affect global seed
-            domain_mapping = {key: mapping for key, mapping in zip(list(domain_mapping.keys()), mappings)}
+            domain_mapping = dict(zip(list(domain_mapping.keys()), mappings))
 
         return domains, domain_mapping, domain_colors
 
@@ -154,7 +155,7 @@ class DomainMapper:
         return {"target_domain": self.target_domain, "domains": self.domains}
 
     @classmethod
-    def from_config(cls, config: Config, target_domains: list[str] = None) -> dict[str, "DomainMapper"]:
+    def from_config(cls, config: Config, target_domains: list[str] = None) -> dict[str, Self]:
         if target_domains is None:
             target_domains = config.get("input/target_domain", ["camera_index"])
         else:

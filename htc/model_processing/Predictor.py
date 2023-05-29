@@ -28,6 +28,7 @@ class Predictor:
         self.mode = mode
         self.config = Config(self.run_dir / "config.json") if config is None else config
         self.config["dataloader_kwargs/num_workers"] = 1  # One worker process is usually enough for inference tasks
+        self.name_path_mapping = {}
 
         # We usually don't need labels for the prediction
         self.config["input/no_labels"] = True

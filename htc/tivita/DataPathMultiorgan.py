@@ -58,7 +58,7 @@ class DataPathMultiorgan(DataPath):
 
         # For some files we have additional masks (e.g. overlap)
         self.parent_folder = self.image_dir.parents[2].name
-        self.is_overlap = any([self.parent_folder.startswith(x) for x in ["overlap"]])
+        self.is_overlap = any(self.parent_folder.startswith(x) for x in ["overlap"])
 
     def build_path(self, base_folder: Path) -> Path:
         return base_folder / self.subject_name / self.timestamp
@@ -96,11 +96,11 @@ class DataPathMultiorgan(DataPath):
         annotation_name: Union[str, list[str]],
     ) -> Iterator["DataPathMultiorgan"]:
         dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
-        intermediates_dir = settings.data_dirs.find_intermediates_dir(data_dir)
+        intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
 
         # Multi-organ data
         for subject_name_path in sorted(data_dir.glob("subjects/*")):
             for image_dir in sorted(subject_name_path.iterdir()):
                 path = DataPathMultiorgan(image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name)
-                if all([f(path) for f in filters]):
+                if all(f(path) for f in filters):
                     yield path

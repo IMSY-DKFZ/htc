@@ -21,7 +21,7 @@ class L1Normalization(DatasetIteration):
         self.file_type = file_type
 
         if output_dir is None:
-            self.output_dir = settings.intermediates_dir / "preprocessing" / "L1"
+            self.output_dir = settings.intermediates_dir_all / "preprocessing" / "L1"
         else:
             self.output_dir = output_dir / "L1"
         self.output_dir.mkdir(exist_ok=True, parents=True)

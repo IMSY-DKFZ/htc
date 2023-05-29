@@ -13,7 +13,7 @@ from htc.tivita.DataPath import DataPath
 
 def filter_semantic_labels_only(path: "DataPath") -> bool:
     labels = path.annotated_labels()
-    if any([l in settings_seg.labels[1:] for l in labels]):
+    if any(l in settings_seg.labels[1:] for l in labels):
         # We are only interested in images with one of the organs which we use for training (without background)
         return True
     else:
@@ -41,7 +41,7 @@ class ParserPreprocessing:
             description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
         self.parser.add_argument(
-            "--specs",
+            "--spec",
             required=False,
             type=Path,
             default=None,
@@ -69,7 +69,7 @@ class ParserPreprocessing:
             help=(
                 "Name of the dataset (e.g. name of the corresponding folder on the network drive). This will also be"
                 " used to set the default intermediates directory, i.e. the generated files will be stored in the"
-                " intermediates directory corresponding to the given dataset name. If both --specs and --dataset-path"
+                " intermediates directory corresponding to the given dataset name. If both --spec and --dataset-path"
                 " are None, then the paths will be collected from the dataset."
             ),
         )
@@ -102,13 +102,13 @@ class ParserPreprocessing:
 
     def get_paths(self, filters: Union[list[Callable[["DataPath"], bool]], None] = None) -> list[DataPath]:
         self.args = self.parser.parse_args()
-        if self.args.specs is not None:
-            assert self.args.dataset_path is None, "--dataset-path is not used if --specs is given"
-            specs = DataSpecification(self.args.specs)
+        if self.args.spec is not None:
+            assert self.args.dataset_path is None, "--dataset-path is not used if --spec is given"
+            specs = DataSpecification(self.args.spec)
             specs.activate_test_set()
             paths = specs.paths()
         elif self.args.dataset_path is not None:
-            assert self.args.specs is None, "--specs is not used if --dataset-path is given"
+            assert self.args.spec is None, "--spec is not used if --dataset-path is given"
             paths = list(DataPath.iterate(self.args.dataset_path))
         else:
             if self.args.dataset_name == "2021_02_05_Tivita_multiorgan_masks":
@@ -119,6 +119,6 @@ class ParserPreprocessing:
 
         if self.args.dataset_name is not None:
             # From now on, we write to the intermediates directory of the selected dataset
-            settings.intermediates_dir.set_default_location(self.args.dataset_name)
+            settings.intermediates_dir_all.set_default_location(self.args.dataset_name)
 
         return paths

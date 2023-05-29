@@ -9,7 +9,6 @@ from htc.model_processing.Runner import Runner
 from htc.model_processing.TestLeaveOneOutPredictor import TestLeaveOneOutPredictor
 from htc.model_processing.TestPredictor import TestPredictor
 from htc.model_processing.ValidationPredictor import ValidationPredictor
-from htc.tivita.DataPath import DataPath
 from htc.utils.LabelMapping import LabelMapping
 from htc.utils.visualization import (
     compress_html,
@@ -23,7 +22,7 @@ class ImageFigureConsumer(ImageConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.target_dir = self.run_dir / "prediction_figures"
+        self.target_dir = self.target_dir / "prediction_figures"
         self.target_dir.mkdir(parents=True, exist_ok=True)
 
     def handle_image_data(self, image_data: dict) -> None:
@@ -31,18 +30,17 @@ class ImageFigureConsumer(ImageConsumer):
         confidence = np.max(predictions, axis=0)
         predictions = np.argmax(predictions, axis=0)
 
-        image_name = image_data["image_name"]
-        path = DataPath.from_image_name(image_name)
+        path = image_data["path"]
 
         # Find the appropriate table where the evaluation results are stored for this image
         df_val = pd.read_pickle(self.run_dir / "validation_table.pkl.xz").query("dataset_index == 0")
         if self.test:
             df = pd.read_pickle(self.run_dir / "test_table.pkl.xz")
-            df = df.query("image_name == @image_name")
+            df = df.query("image_name == @path.image_name()")
             assert len(df) == 1, "There is more than one result for the image"
             df = df.iloc[0]
         else:
-            df = df_val.query(f'epoch_index == best_epoch_index and image_name == "{image_name}"')
+            df = df_val.query(f'epoch_index == best_epoch_index and image_name == "{path.image_name()}"')
             assert len(df) == 1, "There is more than one result for the image"
             df = df.iloc[0]
 
@@ -72,7 +70,7 @@ class ImageFigureConsumer(ImageConsumer):
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>Results for image {image_data["image_name"]}</title>
+        <title>Results for image {path.image_name()}</title>
     </head>
     <body>
         {html_prediction}
@@ -81,7 +79,7 @@ class ImageFigureConsumer(ImageConsumer):
     </body>
 </html>"""
 
-        target_file = self.target_dir / f'{image_data["image_name"]}_dice={dice:.02f}.html'
+        target_file = self.target_dir / f"{path.image_name()}_dice={dice:.02f}.html"
         compress_html(target_file, html)
 
 
@@ -91,6 +89,7 @@ if __name__ == "__main__":
     )
     runner.add_argument("--test")
     runner.add_argument("--test-looc")
+    runner.add_argument("--output-dir")
 
     if runner.args.test:
         TestClass = TestLeaveOneOutPredictor if runner.args.test_looc else TestPredictor

@@ -2,8 +2,7 @@ numpy
 scipy
 scikit-learn
 Pillow
-scikit-image>=0.19
-pandas
+pandas<2  # May work again when 2.0.1 is released
 pyarrow
 matplotlib
 seaborn
@@ -17,11 +16,11 @@ monai
 GPUtil
 psutil
 segmentation-models-pytorch
-kornia!=0.6.10  # Remove after this PR is merged: https://github.com/kornia/kornia/pull/2259
+kornia>=0.6.12
 rich
 threadpoolctl
 commentjson
 appdirs
 blosc
-torch<2
+torch
 lazy-imports

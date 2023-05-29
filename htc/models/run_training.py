@@ -15,7 +15,6 @@ import torch
 from lightning import Trainer, seed_everything
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, RichProgressBar, StochasticWeightAveraging
 from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
-from rich.progress import track
 from threadpoolctl import threadpool_limits
 
 from htc.models.common.HTCLightning import HTCLightning
@@ -31,12 +30,12 @@ from htc.utils.MeasureTime import MeasureTime
 class FoldTrainer:
     def __init__(self, model_name: str, config_name: str):
         self.model_name = model_name
-        self.config = Config.load_config(config_name, model_name, use_shared_dict=True)
+        self.config = Config.from_model_name(config_name, model_name, use_shared_dict=True)
 
         adjust_num_workers(self.config)
 
         # There must be a label mapping defined (class names to label ids)
-        if "label_mapping" not in self.config:
+        if not self.config["input/no_labels"] and "label_mapping" not in self.config:
             settings.log.warning(
                 "No label mapping specified in the config file. The default mapping from the images will be used which"
                 " may not be what you want (e.g. it is different across datasets). Best practice is to explicitly"
@@ -167,7 +166,7 @@ class FoldTrainer:
             save_top_k=save_top_k,
             save_last=save_last,
             monitor=self.config["validation/checkpoint_metric"],
-            mode="max",
+            mode=self.config.get("validation/checkpoint_mode", "max"),
         )
         lr_monitor = LearningRateMonitor(logging_interval="epoch")
 
@@ -178,7 +177,7 @@ class FoldTrainer:
             )
             lightning_kwargs["dataset_test"] = dataset_test
 
-        module = self.LightningClass(dataset_train, datasets_val, self.config, **lightning_kwargs)
+        module = self.LightningClass(dataset_train, datasets_val, self.config, fold_name=fold_name, **lightning_kwargs)
         callbacks = [checkpoint_callback, lr_monitor]
 
         if self.config["trainer_kwargs/enable_progress_bar"] is not False:
@@ -189,6 +188,9 @@ class FoldTrainer:
             self.config["swa_kwargs/swa_lrs"] = infer_swa_lr(self.config)
             swa = StochasticWeightAveraging(**self.config["swa_kwargs"])
             callbacks.append(swa)
+
+        # May be faster on a 3090 and should not hurt (https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision)
+        torch.set_float32_matmul_precision("high")
 
         # Sanity check is disabled since it only leads to problems (duplicate epoch number, incomplete dataset)
         trainer = Trainer(logger=logger, callbacks=callbacks, num_sanity_val_steps=0, **self.config["trainer_kwargs"])
@@ -229,7 +231,7 @@ def train_all_folds(
     model_name: str, config_name: str, run_folder: str, test: bool, file_log_handler: DelayedFileHandler
 ) -> None:
     with MeasureTime("training_all", silent=True) as mt:
-        config = Config.load_config(config_name, model_name)
+        config = Config.from_model_name(config_name, model_name)
 
         # Unique folder name per run
         if run_folder is None:
@@ -246,7 +248,7 @@ def train_all_folds(
         # Start the training script for each fold
         data_specs = DataSpecification.from_config(config)
         error_occurred = False
-        for fold_name in track(data_specs.fold_names(), description="folds"):
+        for i, fold_name in enumerate(data_specs.fold_names()):
             # We start the training of a fold in a new process so that we can start fresh, i.e. this makes sure that all resources like RAM are freed
             command = (
                 f"{sys.executable} {__file__} --model {model_name} --config {config_name} --fold-name"
@@ -255,7 +257,7 @@ def train_all_folds(
             if test:
                 command += " --test"
 
-            settings.log.info(f"Starting training of the fold {fold_name}")
+            settings.log.info(f"Starting training of the fold {fold_name} [{i + 1}/{len(data_specs.fold_names())}]")
             ret = subprocess.run(command, shell=True)
             if ret.returncode != 0:
                 settings.log.error(f"Training of the fold {fold_name} was not successful (returncode={ret.returncode}")

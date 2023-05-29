@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     print("\n[b]Other directories:[/]")
     print(repr(settings.results_dir))
-    print(repr(settings.intermediates_dir))
+    print(repr(settings.intermediates_dir_all))
     print(f"src_dir={settings.src_dir}")
     print(f"htc_package_dir={settings.htc_package_dir}")
 
