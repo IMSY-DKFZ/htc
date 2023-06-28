@@ -19,9 +19,8 @@ This package is a framework for automated tissue classification and segmentation
 
 This framework is designed to work on HSI data from the [Tivita](https://diaspective-vision.com/en/) cameras but you can adapt it to different HSI datasets as well. Potential applications include:
 
-<!-- TODO: link to public dataset for all occurrences of HeiPorSPECTRAL -->
 - Use our data loading and processing pipeline to easily access image and meta data for any work utilizing Tivita datasets.
-- This repository is tightly coupled to work with the soon-to-be-public HeiPorSPECTRAL dataset. If you already downloaded the data, you only need to perform the setup steps and then you can directly use the `htc` framework to work on the data (cf. [our tutorials](#tutorials)).
+- This repository is tightly coupled to work with the public [HeiPorSPECTRAL](https://heiporspectral.org/) dataset. If you already downloaded the data, you only need to perform the setup steps and then you can directly use the `htc` framework to work on the data (cf. [our tutorials](#tutorials)).
 - Train your own networks and benefit from a pipeline offering e.g. efficient data loading, correct hierarchical aggregation of results and a set of helpful visualizations.
 - Apply deep learning models for different spatial granularities and modalities on your own semantically annotated dataset.
 - Use our pretrained models to initialize the weights for your own training.
@@ -140,7 +139,7 @@ After setting your environment variables, it is recommended to run `htc info` to
 
 ## Tutorials
 A series of [tutorials](./tutorials) can help you get started on the `htc` framework by guiding you through different usage scenarios.
-> 💡 The tutorials make use of our soon-to-be-public HSI dataset HeiPorSPECTRAL. If you want to directly run them, please download the dataset first and make it accessible via the environment variable `PATH_Tivita_HeiPorSPECTRAL` as described above.
+> 💡 The tutorials make use of our public HSI dataset [HeiPorSPECTRAL](https://heiporspectral.org/). If you want to directly run them, please download the dataset first and make it accessible via the environment variable `PATH_Tivita_HeiPorSPECTRAL` as described above.
 
 - As a start, we recommend to take a look at this [general notebook](./tutorials/General.ipynb) which showcases the basic functionalities of the `htc` framework. Namely, it demonstrates the usage of the `DataPath` class which is the entry point to load and process HSI data. For example, you will learn how to read HSI cubes, segmentation masks and meta data. Among others, you can use this information to calculate the median spectrum of an organ.
 - If you want to use our framework with your own dataset, it might be necessary to write a custom `DataPath` class so that you can load and process your images and annotations. We [collected some tips](./tutorials/CustomDataPath.md) on how this can be achieved.
@@ -250,7 +249,7 @@ In this paper, we tackled fully automatic organ segmentation and compared deep l
 
 In this paper, we trained a classification model based on median spectra from HSI data. You can find the model code in [htc/tissue_atlas](./htc/tissue_atlas) and the confusion matrix figure of the paper in [paper/NatureReports2021](./paper/NatureReports2021) (including a reproducibility document).
 
-> 📂 The dataset for this paper is not fully publicly available, but a subset of the data is available through the soon-to-be-public HeiPorSPECTRAL dataset.
+> 📂 The dataset for this paper is not fully publicly available, but a subset of the data is available through the public [HeiPorSPECTRAL](https://heiporspectral.org/) dataset.
 
 <details closed>
 <summary>Cite via BibTeX</summary>
@@ -273,15 +272,35 @@ In this paper, we trained a classification model based on median spectra from HS
 ```
 </details>
 
-<!-- TODO: adjust title once set, change soon-to-be & soon -->
+### 📝 HeiPorSPECTRAL - the Heidelberg Porcine HyperSPECTRAL Imaging Dataset of 20 Physiological Organs
+[https://doi.org/10.1038/s41597-023-02315-8](https://doi.org/10.1038/s41597-023-02315-8)
 
-### 📝 HeiPorSPECTRAL - A dataset for hyperspectral imaging data of 20 physiological organs in a porcine model
+This paper introduces the [HeiPorSPECTRAL](https://heiporspectral.org/) dataset containing 5756 hyperspectral images from 11 subjects. We are using these images in our tutorials. You can find the visualization notebook for the paper figures in [paper/NatureData2023](./paper/NatureData2023) (the folder also includes a [reproducibility document](./paper/NatureData2023/reproducibility.md)) and the remaining code in [htc/tissue_atlas_open](./htc/tissue_atlas_open).
 
-This paper introduces the HeiPorSPECTRAL dataset containing 5756 hyperspectral images from 11 subjects. We are using these images in our tutorials. You can find the visualization notebook for the paper figures in [paper/NatureData2023](./paper/NatureData2023) (the folder also includes a [reproducibility document](./paper/NatureData2023/reproducibility.md)) and the remaining code in [htc/tissue_atlas_open](./htc/tissue_atlas_open).
+If you want to learn more about the [HeiPorSPECTRAL](https://heiporspectral.org/) dataset (e.g. the underlying data structure) or you stumbled upon a file and want to know how to read it, you might find this [notebook with low-level details](./htc/tissue_atlas_open/FileReference.ipynb) helpful.
 
-If you want to learn more about the HeiPorSPECTRAL dataset (e.g. the underlying data structure) or you stumbled upon a file and want to know how to read it, you might find this [notebook with low-level details](./htc/tissue_atlas_open/FileReference.ipynb) helpful.
+> 📂 The dataset for this paper is publicly available.
 
-> 📂 The dataset for this paper will soon be publicly available.
+<details closed>
+<summary>Cite via BibTeX</summary>
+
+```bibtex
+@article{Studier-Fischer2023,
+  author={Studier-Fischer, Alexander and Seidlitz, Silvia and Sellner, Jan and Bressan, Marc and Özdemir, Berkin and Ayala, Leonardo and Odenthal, Jan and Knoedler, Samuel and Kowalewski, Karl-Friedrich and Haney, Caelan Max and Salg, Gabriel and Dietrich, Maximilian and Kenngott, Hannes and Gockel, Ines and Hackert, Thilo and Müller-Stich, Beat Peter and Maier-Hein, Lena and Nickel, Felix},
+  title={HeiPorSPECTRAL - the Heidelberg Porcine HyperSPECTRAL Imaging Dataset of 20 Physiological Organs},
+  journal={Scientific Data},
+  year={2023},
+  month={Jun},
+  day={24},
+  volume={10},
+  number={1},
+  pages={414},
+  issn={2052-4463},
+  doi={10.1038/s41597-023-02315-8},
+  url={https://doi.org/10.1038/s41597-023-02315-8}
+}
+```
+</details>
 
 ### 📝 Künstliche Intelligenz und hyperspektrale Bildgebung zur bildgestützten Assistenz in der minimal-invasiven Chirurgie
 [https://doi.org/10.1007/s00104-022-01677-w](https://doi.org/10.1007/s00104-022-01677-w)
