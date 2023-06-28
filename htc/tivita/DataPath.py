@@ -508,7 +508,7 @@ class DataPath:
         Args:
             annotation_name: Name of the annotation(s) passed on to read_segmentation(). If it refers to more than one annotation, the (sorted) unique set of all labels will be returned.
 
-        Returns: Sorted list of valid label names. If no labels are available, an empty list is returned.
+        Returns: Sorted list of valid label names. If no valid labels are available, an empty list is returned.
         """
         names = []
 

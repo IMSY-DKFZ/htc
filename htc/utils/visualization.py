@@ -23,7 +23,7 @@ from plotly.subplots import make_subplots
 from scipy import stats
 
 from htc.cpp import tensor_mapping
-from htc.evaluation.metrics.ECELoss import ECELoss
+from htc.evaluation.metrics.ECE import ECE
 from htc.evaluation.metrics.scores import dice_from_cm
 from htc.models.common.MetricAggregation import MetricAggregation
 from htc.models.data.DataSpecification import DataSpecification
@@ -56,7 +56,7 @@ def compress_html(file: Union[Path, None], fig_or_html: Union[go.Figure, str]) -
 
     Original file size in MiB:
     >>> len(html) / 2**20  # doctest: +ELLIPSIS
-    5.04...
+    5.10...
     >>> import tempfile
     >>> with tempfile.NamedTemporaryFile() as tmpfile:
     ...    tmpfile = Path(tmpfile.name)
@@ -65,7 +65,7 @@ def compress_html(file: Union[Path, None], fig_or_html: Union[go.Figure, str]) -
 
     Compressed file size in MiB:
     >>> compressed_size / 2**20  # doctest: +ELLIPSIS
-    0.62...
+    0.63...
 
     Compression ratio:
     >>> compressed_size / len(html)  # doctest: +ELLIPSIS
@@ -136,12 +136,16 @@ def compress_html(file: Union[Path, None], fig_or_html: Union[go.Figure, str]) -
     )
     html_encoded = html_encoded.replace("{{CODE}}", JS_REPLACE)
 
-    html = html_encoded if len(html_encoded) < len(html_content) else html_content
+    html = (
+        html_encoded
+        if len(bytes(html_encoded, encoding="utf-8")) < len(bytes(html_content, encoding="utf-8"))
+        else html_content
+    )
 
     if file is None:
         return html
     else:
-        with file.open("w") as f:
+        with file.open("w", encoding="utf-8") as f:
             f.write(html)
 
 
@@ -321,7 +325,7 @@ def show_loss_chart(df_train: pd.DataFrame, df_val: pd.DataFrame = None) -> None
                 acc_mat = np.stack([v["accuracies"] for v in df_epoch["ece"]])
                 conf_mat = np.stack([v["confidences"] for v in df_epoch["ece"]])
                 prob_mat = np.stack([v["probabilities"] for v in df_epoch["ece"]])
-                ece = ECELoss.aggregate_vectors(acc_mat, conf_mat, prob_mat)
+                ece = ECE.aggregate_vectors(acc_mat, conf_mat, prob_mat)
                 ece_error.append(ece["error"])
 
             line = {
@@ -578,10 +582,11 @@ def show_class_scores_epoch(df: pd.DataFrame, mapping: LabelMapping) -> None:
         # Plot a line for each class label
         for label in df_epochs["label"].unique():
             df_label = df_epochs.query(f'label == "{label}"').sort_values(by=["epoch_index"])
+            df_dice = df_label.groupby("epoch_index")["dice"]
 
-            mean_dice = df_label.groupby("epoch_index").mean()["dice"].values
-            min_dice = mean_dice - df_label.groupby("epoch_index").min()["dice"].values
-            max_dice = df_label.groupby("epoch_index").max()["dice"].values - mean_dice
+            mean_dice = df_dice.mean().values
+            min_dice = mean_dice - df_dice.min().values
+            max_dice = df_dice.max().values - mean_dice
 
             fig.add_trace(
                 go.Scatter(
@@ -868,7 +873,8 @@ def create_overview_document(
     Returns: HTML string which is best saved with the `compress_html()` function.
     """
     seg = path.read_segmentation(annotation_name="all")
-    if seg is None:
+    if seg is None or len(path.annotated_labels(annotation_name="all")) == 0:
+        # No annotations available, only show the RGB image
         rgb_image = path.read_rgb_reconstructed()
         fig_seg = px.imshow(rgb_image)
 
@@ -992,8 +998,18 @@ def create_overview_document(
                 else:
                     meta = ""
 
+                invisible_meta = p.meta("annotation_name")
+                if invisible_meta is not None:
+                    invisible_meta = " ".join(invisible_meta)
+                    invisible_meta = f'<span class="invisible">{invisible_meta}</span>'
+                else:
+                    invisible_meta = ""
+
                 link = navigation_link_callback(l, label_number, p) + f"?nav=show&link_index={link_index}"
-                paths_html += f'<li><a id="link_{link_index}" {selected}href="{link}">{p.image_name()}{meta}</a></li>'
+                paths_html += (
+                    f'<li><a id="link_{link_index}"'
+                    f' {selected}href="{link}">{p.image_name()}{meta}{invisible_meta}</a></li>'
+                )
                 link_index += 1
 
             # Add an image for the current label if available
@@ -1049,14 +1065,65 @@ def create_overview_document(
                 " next</span>"
             )
 
+        search_function = """
+function searchAll() {
+    // We first search all details elements (labels) and then all list elements (images)
+    const needle = document.getElementById("nav_search").value.toLowerCase();
+    document.querySelectorAll("#image_navigation details").forEach(function (detailsElement) {
+        if (detailsElement.textContent.toLowerCase().includes(needle)) {
+            detailsElement.style.display = "";
+
+            // Show only the images which match
+            // If no image matches (e.g. search for organs), show all
+            let imageList = detailsElement.getElementsByTagName("ul")[0];
+            if (imageList.textContent.toLowerCase().includes(needle)) {
+                for (let listElement of imageList.getElementsByTagName("li")) {
+                    if (listElement.textContent.toLowerCase().includes(needle)) {
+                        listElement.style.display = "";
+                    } else {
+                        listElement.style.display = "none";
+                    }
+                }
+            }
+        } else {
+            detailsElement.style.display = "none";
+        }
+    });
+
+    // Find out which elements of the list are visible
+    let nVisible = 0;
+    document.querySelectorAll("#image_navigation details").forEach(function (detailsElement) {
+        if (detailsElement.style.display != "none") {
+            for (let listElement of detailsElement.getElementsByTagName("li")) {
+                if (listElement.style.display != "none") {
+                    nVisible++;
+                }
+            }
+        }
+    });
+
+    // If filtering is active, display the number of visible elements
+    let searchCount = document.getElementById("search_count");
+    const allListElements = document.querySelectorAll("#image_navigation li");
+    searchCount.innerText = nVisible + " of " + allListElements.length + " elements shown";
+    if (nVisible < allListElements.length) {
+        searchCount.style.display = "";
+    } else {
+        searchCount.style.display = "none";
+    }
+}
+"""
         nav_html = """
 <span id="nav_link" onclick="openNav()">&#9776; Image selection</span>{}{}
 
 <nav id="image_navigation">
   <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+  <input type="text" id="nav_search" onkeyup="searchAll()" placeholder="Search all.." title="Search for everything which is visible in the navigation panel plus the following invisible attributes: annotation_name">
+  <p id="search_count"></p>
   {}
 </nav>
 <script>
+{}
 function openNav() {{
   document.getElementById("image_navigation").style.width = "{}";
 }}
@@ -1090,9 +1157,47 @@ document.addEventListener('DOMContentLoaded', function() {{
       closeNav();
     }}
   }});
+
+  if (urlParams.has("search_text")) {{
+    // Apply an existing search text to the navigation bar
+    document.getElementById("nav_search").value = urlParams.get("search_text");
+    searchAll();
+  }}
+
+  // Pass the current search text to every link in the navigation bar
+  const changeURL = function(event) {{
+    // Stop the link from redirecting
+    event.preventDefault();
+
+    // Redirect instead with JavaScript
+    const needle = document.getElementById("nav_search").value.toLowerCase();
+    if (needle != "") {{
+        let url = new URL(event.target.href);
+        url.searchParams.set("search_text", needle);
+        return url.href;
+    }} else {{
+        return event.target.href;
+    }}
+  }};
+
+  // We need to manually handle click (and middle click) events for the links
+  for (let link of document.querySelectorAll("#image_navigation a")) {{
+    link.addEventListener('click', function(event) {{
+        // Open link in the same window
+        const newURL = changeURL(event);
+        window.location.href = newURL;
+    }}, false);
+    link.addEventListener('auxclick', function(event) {{
+        if (event.button == 1) {{
+            // Middle click (open page in a new window)
+            const newURL = changeURL(event);
+            window.open(newURL, '_blank');
+        }}
+    }}, false);
+  }}
 }});
 </script>
-""".format(prev_link, next_link, details_html, nav_width)
+""".format(prev_link, next_link, details_html, search_function, nav_width)
 
         nav_css = """
 <style>
@@ -1102,12 +1207,28 @@ nav {
   position: fixed;
   z-index: 1;
   top: 0;
-  left: 0;
+  right: 0;
   background-color: #f7f7f7;
-  overflow-x: scroll;
-  transition: 0.5s;
-  padding-top: 30px;
   box-shadow: 2px 0px 5px #9b9b9b;
+  transition: 0.5s;
+  overflow-x: scroll;
+  padding-top: 30px;
+  padding-left: 5px;
+  /* Move the scrollbar to the left side */
+  direction: rtl;
+}
+
+/* The remaining elements should still be left-aligned */
+nav * {
+    direction: ltr;
+}
+#nav_search {
+    display: block;
+    margin-right: auto;
+}
+#nav_search, #search_count {
+    margin-left: 8px;
+    margin-bottom: 5px;
 }
 
 #prev_image {
@@ -1148,10 +1269,15 @@ nav a:hover {
   text-decoration: underline;
 }
 
+nav details a {
+  /* Leave enough space on the right so that it is still possible to select image names */
+  margin-right: 2em;
+}
+
 nav .closebtn {
   position: absolute;
   top: 0;
-  right: 25px;
+  right: 15px;
   font-size: 36px;
   margin-left: 50px;
 }
@@ -1164,6 +1290,10 @@ nav .closebtn {
   width: 1.5em;
   position: relative;
   top: 0.35em;
+}
+
+.invisible {
+    display: none;
 }
 
 a {
@@ -1265,19 +1395,25 @@ def create_segmentation_overlay(
     # Construct segmentation layers
     layer1 = {}
     layer2 = {}
-    for name, s in segmentation.items():
-        assert np.issubdtype(s.dtype, np.integer), f"Segmentation must be integer type ({s.dtype = }, {path = })"
+    for name, seg in segmentation.items():
+        assert np.issubdtype(seg.dtype, np.integer), f"Segmentation must be integer type ({seg.dtype = }, {path = })"
 
-        if s.ndim == 3:
-            assert s.shape[0] == 2, f"Can only handle two-layer segmentations (not {s.shape[0]})"
-            layer1[name] = s[0]
-            layer2[name] = s[1]
-            spatial_shape = s.shape[1:]
+        if not label_mapping.is_index_valid(seg).any():
+            # If there are no valid labels in the segmentation mask, we cannot show it
+            continue
+
+        if seg.ndim == 3:
+            assert seg.shape[0] == 2, f"Can only handle two-layer segmentations (not {seg.shape[0]})"
+            layer1[name] = seg[0]
+            layer2[name] = seg[1]
+            spatial_shape = seg.shape[1:]
         else:
-            layer1[name] = s
-            spatial_shape = s.shape
+            layer1[name] = seg
+            spatial_shape = seg.shape
 
         assert spatial_shape == rgb_image.shape[:2], "The segmentation image must have the same shape as the RGB image"
+
+    assert len(layer1) > 0, f"No valid segmentation found for the image {path}"
 
     img_height, img_width = rgb_image.shape[:2]
     opacity = 0.5
@@ -1302,6 +1438,10 @@ def create_segmentation_overlay(
         if len(label_mapping_valid) == 1:
             tickvals = [0, 1]
         else:
+            assert (
+                len(label_mapping_valid) > 0
+            ), f"No valid labels found for the image:\n{path = }\n{path.annotated_labels(annotation_name='all') = }"
+
             # For example, with three colors, Plotly uses 0, 1, 2 and the colors change at 2/3, 4/3
             # We want the ticks to be placed in the middle of the color rectangles 2/6=2/3*0.5, 6/6=2/6+2/3
             tickstep = (len(label_mapping_valid) - 1) / len(label_mapping_valid)
@@ -1435,6 +1575,15 @@ def create_segmentation_overlay(
 
 
 def create_overlay(overlay: np.ndarray, path: DataPath) -> go.Figure:
+    """
+    General function to overlay an image with a heatmap.
+
+    Args:
+        overlay: Array with the same shape as the image. The values are used to color the image.
+        path: Path to the image.
+
+    Returns: Plotly figure showing the overlay.
+    """
     # Load original image
     rgb_image = path.read_rgb_reconstructed()
     assert overlay.shape == rgb_image.shape[:2], "The overlay image must have the same shape as the RGB image"
@@ -1444,9 +1593,17 @@ def create_overlay(overlay: np.ndarray, path: DataPath) -> go.Figure:
     opacity = 0.5
     fig = go.Figure()
 
-    colorbar = {"title": "value", "ticks": "outside", "yanchor": "top", "y": 1.01}
+    valid_values = np.unique(overlay[~np.isnan(overlay)])
+    colorbar = {
+        "title": "value",
+        "ticks": "outside",
+        "yanchor": "top",
+        "y": 1.01,
+        "tickvals": valid_values.tolist(),
+        "ticktext": valid_values.tolist(),
+    }
 
-    colors = generate_distinct_colors(np.max(overlay) + 1)
+    colors = generate_distinct_colors(len(valid_values))
     fig.add_trace(
         go.Heatmap(
             z=np.flipud(overlay),
@@ -1694,7 +1851,7 @@ def create_ece_figure(df: pd.DataFrame) -> None:
         conf_mat = np.stack([v["confidences"] for v in df_fold["ece"]])
         prob_mat = np.stack([v["probabilities"] for v in df_fold["ece"]])
 
-        ece = ECELoss.aggregate_vectors(acc_mat, conf_mat, prob_mat)
+        ece = ECE.aggregate_vectors(acc_mat, conf_mat, prob_mat)
 
         x = np.linspace(0, 1, len(ece["accuracies"]) + 1)
 

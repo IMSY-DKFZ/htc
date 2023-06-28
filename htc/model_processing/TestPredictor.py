@@ -59,9 +59,12 @@ class TestEnsemble(nn.Module):
     def predict_step(self, batch: dict[str, torch.Tensor], batch_idx: int = None) -> dict[str, torch.Tensor]:
         fold_predictions = []
         for model in self.models.values():
-            fold_predictions.append(model.predict_step(batch)["class"].softmax(dim=1))
+            out = model.predict_step(batch)["class"]
+            if self.config["model/activations"] != "sigmoid":
+                out = out.softmax(dim=1)
+            fold_predictions.append(out)
 
-        # Ensembling over the softmax values
+        # Ensembling over the softmax values (or logits in case of sigmoid)
         return {"class": torch.stack(fold_predictions).mean(dim=0)}
 
 

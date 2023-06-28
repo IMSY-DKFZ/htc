@@ -49,7 +49,7 @@
     },
     "trainer_kwargs": {
         "max_epochs": 100,
-        "precision": 16,
+        "precision": "16-mixed",
         "devices": 1,
         "accelerator": "gpu"
     },

@@ -37,7 +37,12 @@ class SpectrometerReader:
         self.dark = self.read_spectrum("dark_calibration", calibration=False, normalization=None)
 
     def read_spectrum(
-        self, label_name: str, calibration: bool = False, normalization: int = None, adapt_to_tivita: bool = False
+        self,
+        label_name: str,
+        calibration: bool = False,
+        normalization: int = None,
+        adapt_to_tivita: bool = False,
+        transform_to_tivita: bool = False,
     ) -> Union[dict[str, np.ndarray], None]:
         """
         Reads the spectrometer measurements for a specific label.
@@ -47,12 +52,15 @@ class SpectrometerReader:
             calibration: Whether white and dark correction should be performed. Only possible if dark and white measurements exist in the data directory.
             normalization: Which normalization to perform. None: no normalization, 1: L1, 2: L2, ...
             adapt_to_tivita: If True, limit the spectral range to the range of the Tivita camera (from 500 to 1000 nm). If normalization is applied, the resulting spectra is rescaled so that the reflectance values are in the same range as the Tivita reflectance values.
+            transform_to_tivita: If True, transform the spectrometer measurements to Tivita measurements by averaging the spectrometer measurements in non-overlapping wavelength ranges corresponding to the Tivita measurements.
 
         Returns: Dictionary with the following keys (a = number of files, b = dimensionality of the spectrum) or None if no files could be found:
         - `wavelengths`: Array of wavelengths (shape b).
         - `spectra`: Array with the measured reflectance values for each wavelength (shape a x b).
         - `median_spectrum`: Median spectrum across all measurements (shape b).
         - `std_spectrum`: Standard deviation of the spectra across all measurements (shape b).
+        - `median_spectrum_mapped`: Median spectrum across all measurements mapped to the Tivita measurements (shape b). Only if transform_to_tivita is True.
+        - `std_spectrum_mapped`: Standard deviation of the spectra across all measurements mapped to the Tivita measurements (shape b). Only if transform_to_tivita is True.
         """
         if label_name.endswith(".txt"):
             paths = [self.data_dir / label_name]
@@ -117,6 +125,26 @@ class SpectrometerReader:
                 if adapt_to_tivita:
                     # Scale the spectrometer measurements to the same range as the TIVITA measurements
                     spectra[:, :, 1] = spectra[:, :, 1] * spectra.shape[1] / 100
+
+            # transform spectrometer measurements to Tivita measurements
+            if transform_to_tivita:
+                spectra_transformed = np.zeros((spectra.shape[0], 100))
+                spectrometer_wavelengths = spectra[0, :, 0]
+                tivita_wavelengths = np.linspace(500, 1000, 101)
+                for i in np.arange(len(tivita_wavelengths) - 1):
+                    mask = (tivita_wavelengths[i] <= spectrometer_wavelengths) & (
+                        spectrometer_wavelengths < tivita_wavelengths[i + 1]
+                    )
+                    spectra_transformed[:, i] = np.mean(spectra[:, mask, 1], axis=1)
+
+                return {
+                    "wavelengths": spectra[0, :, 0],
+                    "spectra": spectra[:, :, 1],
+                    "median_spectrum": np.median(spectra[:, :, 1], axis=0),
+                    "std_spectrum": np.std(spectra[:, :, 1], axis=0),
+                    "median_spectrum_transformed": np.median(spectra_transformed, axis=0),
+                    "std_spectrum_transformed": np.std(spectra_transformed, axis=0),
+                }
 
             return {
                 "wavelengths": spectra[0, :, 0],

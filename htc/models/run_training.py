@@ -115,7 +115,7 @@ class FoldTrainer:
                 dataset = self.LightningClass.dataset(paths=paths, train=False, config=self.config, fold_name=fold_name)
                 datasets_val.append(dataset)
             else:
-                raise ValueError(f"Invalid dataset name {name}")
+                settings.log_once.info(f"The split {name} is not used for training (neither starts with train nor val)")
 
         if test:
             # To avoid potential errors, we activate the test set only temporarily to get the paths
@@ -203,6 +203,14 @@ class FoldTrainer:
                 "ignore", message="Checkpoint directory.*exists and is not empty", category=UserWarning
             )
             warnings.filterwarnings("ignore", message=".*`IterableDataset` has `__len__` defined", category=UserWarning)
+            warnings.filterwarnings(
+                "ignore",
+                message=(
+                    ".*from an ambiguous collection. The batch size we found is"
+                    f" {self.config['dataloader_kwargs/batch_size']}.*"
+                ),
+                category=UserWarning,
+            )
 
             if self.config["wandb_kwargs"]:
                 wandb_logger = WandbLogger(save_dir=model_dir, **self.config["wandb_kwargs"])

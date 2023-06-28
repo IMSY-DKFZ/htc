@@ -315,7 +315,7 @@ class ToType(HTCTransformation):
     @staticmethod
     def from_config(config: Config = None) -> Self:
         if config is not None and "trainer_kwargs/precision" in config:
-            if config["trainer_kwargs/precision"] == 16:
+            if config["trainer_kwargs/precision"] == "16-mixed":
                 return ToType(dtype=torch.float16)
             elif config["trainer_kwargs/precision"] == 32:
                 return ToType(dtype=torch.float32)

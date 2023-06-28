@@ -2,7 +2,7 @@ numpy
 scipy
 scikit-learn
 Pillow
-pandas<2  # May work again when 2.0.1 is released
+pandas
 pyarrow
 matplotlib
 seaborn

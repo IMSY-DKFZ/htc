@@ -16,7 +16,7 @@ from htc.models.common.class_weights import calculate_class_weights
 from htc.models.common.HierarchicalSampler import HierarchicalSampler
 from htc.models.common.HTCDataset import HTCDataset
 from htc.models.common.HTCLightning import HTCLightning
-from htc.models.common.loss import KLDivLossWeighted, SuperpixelLoss
+from htc.models.common.loss import SuperpixelLoss
 from htc.models.common.StreamDataLoader import StreamDataLoader
 from htc.models.common.torch_helpers import smooth_one_hot
 from htc.models.common.utils import get_n_classes
@@ -40,18 +40,16 @@ class LightningImage(HTCLightning):
             self.model = ModelClass(self.config)
 
         if self.config["model/class_weight_method"] and self.dataset_train is not None:
-            weights = calculate_class_weights(
-                self.config, *self.dataset_train.label_counts()
-            )  # Calculate class weights to overcome class imbalances
+            class_weights = calculate_class_weights(self.config, *self.dataset_train.label_counts())
         else:
-            weights = torch.ones(get_n_classes(self.config))
+            class_weights = torch.ones(get_n_classes(self.config))
+        self.register_buffer("class_weights", class_weights, persistent=False)
 
-        if self.config["optimization/label_smoothing"]:
-            self.ce_loss_weighted = KLDivLossWeighted(weight=weights)
-        else:
-            self.ce_loss_weighted = nn.CrossEntropyLoss(weight=weights)
+        self.ce_loss_weighted = nn.CrossEntropyLoss(
+            weight=self.class_weights, label_smoothing=self.config.get("optimization/label_smoothing_ce", 0)
+        )
 
-        self.dice_loss = DiceLoss(reduction="none", to_onehot_y=True, softmax=True, batch=True)
+        self.dice_loss = DiceLoss(reduction="none", softmax=True, batch=True)
         if "optimization/spx_loss_weight" in self.config:
             assert (
                 "input/superpixels" in self.config
@@ -66,9 +64,8 @@ class LightningImage(HTCLightning):
                     epochs, weights, fill_value=(weights[0], weights[-1]), bounds_error=False
                 )
             else:
-                self.spx_loss_weight_f = lambda _: np.array(
-                    self.config["optimization/spx_loss_weight"]
-                )  # Also an array to be consistent with the interpolation output
+                # Constant value returned as array to be consistent with the interpolation output
+                self.spx_loss_weight_f = lambda _: np.array(self.config["optimization/spx_loss_weight"])
 
     @staticmethod
     def dataset(**kwargs) -> HTCDataset:
@@ -102,36 +99,55 @@ class LightningImage(HTCLightning):
         # x.stride() = (30720000, 1, 64000, 100), i.e. channel last format
         return self.model(x)
 
-    def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int, return_valid_tensors: bool = False) -> dict:
+    def training_step(
+        self, batch: dict[str, torch.Tensor], batch_idx: int, return_valid_tensors: bool = False
+    ) -> dict[str, torch.Tensor]:
         ce_loss_weight = self.config.get("optimization/ce_loss_weight", 1.0)
         dice_loss_weight = self.config.get("optimization/dice_loss_weight", 1.0)
 
         if "optimization/spx_loss_weight" in self.config:
-            spx_loss_weight = self.spx_loss_weight_f(
-                self.current_epoch
-            ).item()  # .item is necessary here as otherwise lightning does not handle the logging properly
+            # .item is necessary here as otherwise lightning does not handle the logging properly
+            spx_loss_weight = self.spx_loss_weight_f(self.current_epoch).item()
             self.log("train/spx_loss_weight", spx_loss_weight)
         else:
             spx_loss_weight = 0
 
-        labels = batch["labels"]
         predictions = self(batch)
         if type(predictions) == dict:
-            predictions = predictions["class"]
+            predictions = predictions["class"]  # [BCHW]
+        n_classes = predictions.size(1)
 
-        # Calculate the losses only for the valid pixels. This is a bit complicated since we need to preserve the logits dimension (we discard the spatial dimension in this process)
-        valid_pixels_mask = (
-            batch["valid_pixels"].unsqueeze(dim=1).expand(-1, predictions.shape[1], -1, -1)
-        )  # Bring the mask to the shape [3, 19, 480, 640] (same as prediction)
-        valid_predictions = predictions.transpose(1, 0)[
-            valid_pixels_mask.transpose(1, 0)
-        ]  # Apply the mask but put the logits dimension in front [19*N] (N = number of valid pixels which remain). This ensures that we can easily reshape the logits dimension back
-        valid_predictions = valid_predictions.reshape(predictions.shape[1], -1).transpose(
-            1, 0
-        )  # Reshape the logits dimension back and put the batch dimension back to the front [N, 19]
-        valid_labels = labels[batch["valid_pixels"]]
-        assert valid_predictions.shape[0] == valid_labels.shape[0], "Invalid shape in the batch dimension"
-        assert valid_predictions.shape[1] == predictions.shape[1], "Invalid shape in the logits dimension"
+        labels = batch["labels"]
+        valid_pixels = batch["valid_pixels"]
+        used_labels = labels[valid_pixels].unique()
+
+        # We need to replace the invalid labels with a "valid" one for the one-hot encoding (but the values won't be used)
+        labels = labels.masked_fill(~valid_pixels, 0)
+        if self.config["optimization/label_smoothing"]:
+            labels = smooth_one_hot(
+                labels, n_classes=n_classes, smoothing=self.config["optimization/label_smoothing"]
+            )  # [BHWC]
+        else:
+            labels = F.one_hot(labels, num_classes=n_classes).to(torch.float16)  # [BHWC]
+
+        if n_mix := self.config["optimization/image_mixing"]:
+            # Mix images in the batch together (with reduced number of images for a smaller memory footprint)
+            labels_mix = (labels.roll(1, dims=0)[:n_mix] + labels[:n_mix]) / 2
+            valid_pixels_mix = valid_pixels.roll(1, dims=0)[:n_mix] & valid_pixels[:n_mix]
+            features_mix = (batch["features"].roll(1, dims=0)[:n_mix] + batch["features"][:n_mix]) / 2
+            predictions_mix = self({"features": features_mix})
+            if type(predictions_mix) == dict:
+                predictions_mix = predictions_mix["class"]
+
+            labels = torch.cat([labels, labels_mix])
+            predictions = torch.cat([predictions, predictions_mix])
+            valid_pixels = torch.cat([valid_pixels, valid_pixels_mix])
+
+        # Calculate the losses only for the valid pixels
+        # Keep the class dimension
+        valid_predictions = predictions.permute(0, 2, 3, 1)[valid_pixels]  # (samples, class)
+        valid_labels = labels[valid_pixels]  # (samples, class)
+        assert valid_predictions.shape == valid_labels.shape, "Invalid shape"
 
         n_invalid = (~valid_predictions.isfinite()).sum()
         if n_invalid > 0:
@@ -147,19 +163,10 @@ class LightningImage(HTCLightning):
             )
 
         # Cross Entropy loss
-        if self.config["optimization/label_smoothing"]:
-            valid_prediction_log = F.log_softmax(valid_predictions, dim=1)
-            valid_labels_smooth = smooth_one_hot(
-                valid_labels, n_classes=valid_predictions.size(1), smoothing=self.config["optimization/label_smoothing"]
-            )
-            ce_loss = self.ce_loss_weighted(valid_prediction_log, valid_labels_smooth)
-        else:
-            ce_loss = self.ce_loss_weighted(valid_predictions, valid_labels)
+        ce_loss = self.ce_loss_weighted(valid_predictions, valid_labels)
 
-        self.log(
-            "train/ce_loss", ce_loss, on_epoch=True
-        )  # Automatically aggregated and averaged by Lightning for all epochs
-        loss = ce_loss_weight * ce_loss
+        self.log("train/ce_loss", ce_loss, on_epoch=True)
+        loss_sum = ce_loss_weight * ce_loss
 
         # Superpixel loss
         if spx_loss_weight > 0:
@@ -172,31 +179,28 @@ class LightningImage(HTCLightning):
             prediction_vec = predictions.transpose(1, 0).flatten(start_dim=1).transpose(1, 0)  # [N, 19]
 
             spx_loss = self.spx_loss(prediction_vec, spxs_vec)
-            loss += spx_loss_weight * spx_loss
+            loss_sum += spx_loss_weight * spx_loss
             self.log("train/spx_loss", spx_loss, on_epoch=True)
 
         # Dice loss
-        valid_predictions = valid_predictions.unsqueeze(dim=-1)  # All pixels are put into the batch dimension [N, C, 1]
-        valid_labels = valid_labels.unsqueeze(dim=-1).unsqueeze(dim=-1)  # Same for the labels [N, 1, 1]
         dice_loss = self.dice_loss(input=valid_predictions, target=valid_labels)  # Dice per class [C]
 
         # We use only the classes available in the batch to calculate the dice
-        used_labels = valid_labels.unique()
-        used_weights = self.ce_loss_weighted.weight[used_labels]
-        dice_loss = (
-            dice_loss[used_labels] * used_weights
-        )  # Only use dice values from classes which really occurred in the images, e.g. [4] and weight the class dices
+        used_weights = self.class_weights[used_labels]
+        # Only use dice values from classes which really occurred in the images, e.g. [4] and weight the class dices
+        dice_loss = dice_loss[used_labels] * used_weights
         dice_loss = dice_loss.sum() / used_weights.sum()  # Weighted average
         self.log("train/dice_loss", dice_loss, on_epoch=True)
-        loss += dice_loss_weight * dice_loss
+        loss_sum += dice_loss_weight * dice_loss
 
-        # Normalize the loss (weighted average)
-        loss /= sum([ce_loss_weight, dice_loss_weight, spx_loss_weight])
-
-        res = {"loss": loss}
-
+        res = {}
+        loss_weights = sum([ce_loss_weight, dice_loss_weight, spx_loss_weight])
         if return_valid_tensors:
             res["valid_predictions"] = valid_predictions
             res["valid_labels"] = valid_labels
+            res["loss_sum"] = loss_sum
+            res["loss_weights"] = loss_weights
 
+        # Normalize the loss (weighted average)
+        res["loss"] = loss_sum / loss_weights
         return res

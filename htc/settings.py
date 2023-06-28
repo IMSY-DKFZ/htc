@@ -79,7 +79,7 @@ class Settings:
     True
 
     If we create a new file, it will be created in our semantic results directory
-    >>> (settings.results_dir / "new_testfile.txt").write_text("test")
+    >>> _ = (settings.results_dir / "new_testfile.txt").write_text("test")
     >>> files = [str(f) for f in sorted(settings.results_dir.rglob("*"))]
     >>> len(files)
     3
@@ -271,6 +271,7 @@ class Settings:
             "lig_teres_hep": "#d451e0",
             "fat_subcutaneous": "#e0536b",
             "fat_visceral": "#43c456",
+            "fat": "#a1ffca",  # Some older scripts still use fat instead of fat_subcutaneous or fat_visceral
             "meso": "#4363c4",
             "esophagus": "#4743c4",
             "plastic": "#42e0f5",
@@ -281,7 +282,12 @@ class Settings:
             "stapler": "#C7DE12",
             "ligasure": "#1277DE",
             "monopolar": "#5B3478",
+            "tag_blood": "#f51505",
+            "tag_cauterization": "#9d9e9e",
+            "tag_malperfused": "#03ffff",
+            "instrument": "#636363",
             "Exterior": "#00000000",  # Unlabeled parts in MITK
+            "network_unsure": "#AAAAAA",
         }
 
         self.known_envs = (

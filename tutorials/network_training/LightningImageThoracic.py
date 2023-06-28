@@ -12,7 +12,7 @@ class LightningImageThoracic(LightningImage):
         super().__init__(*args, **kwargs)
 
         # Focal loss for showcasing purposes
-        self.focal_loss = FocalLoss(to_onehot_y=True)
+        self.focal_loss = FocalLoss()
 
     def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> dict:
         # Batch with training data:
@@ -24,15 +24,14 @@ class LightningImageThoracic(LightningImage):
         # return_valid_tensors=True gives us access to the valid pixels in the prediction/labels. This is handy if we want to compute the loss only on the pixels where we have at least one annotation
         res = super().training_step(batch, batch_idx, return_valid_tensors=True)
 
-        # img_model["valid_predictions"].shape = (N, 19, 1)
-        # img_model["valid_labels"].shape = (N, 1, 1)
+        # img_model["valid_predictions"].shape = (N, 2)
+        # img_model["valid_labels"].shape = (N, 2), already one-hot encoded
         focal_loss = self.focal_loss(res["valid_predictions"], res["valid_labels"])
         self.log("train/focal_loss", focal_loss, on_epoch=True)
-        res["loss"] = (2 / 3) * res["loss"] + (1 / 3) * focal_loss
 
-        # Not needed anymore
-        del res["valid_predictions"]
-        del res["valid_labels"]
+        # Combine the focal loss with the existing cross entropy and dice loss
+        focal_loss_weight = self.config.get("optimization/focal_loss_weight", 1.0)
+        loss_sum = res["loss_sum"] + focal_loss * focal_loss_weight
 
-        # Give the focal loss the same weight as the other two losses
-        return res
+        # Weighted average of all losses
+        return loss_sum / (res["loss_weights"] + focal_loss_weight)

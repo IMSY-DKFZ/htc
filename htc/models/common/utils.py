@@ -121,7 +121,7 @@ def infer_swa_lr(config: Config) -> float:
         return swa_lr
 
 
-def cluster_command(args: str, memory: str = "10.7G", n_gpus: int = 1) -> str:
+def cluster_command(args: str, memory: str = "10.7G", n_gpus: int = 1, excluded_hosts: list[str] = None) -> str:
     """
     Generates a cluster command with some default settings.
 
@@ -129,12 +129,18 @@ def cluster_command(args: str, memory: str = "10.7G", n_gpus: int = 1) -> str:
         args: Argument string for the run_training.py script (model, config, etc.).
         memory: The minimal memory requirements for the GPU.
         n_gpus: The number of GPUs to use.
+        excluded_hosts: List of hosts to exclude. If None, no hosts are excluded.
 
     Returns: The command to run the job on the cluster.
     """
-    # The dgx2 nodes have only 6 cores per job which is not enough for our runs
+    if excluded_hosts is not None:
+        excluded_hosts = " && ".join([f"hname!='{h}'" for h in excluded_hosts])
+        excluded_hosts = f'-R "select[{excluded_hosts}]" '
+    else:
+        excluded_hosts = ""
+
     bsubs_command = (
-        'bsub -R "tensorcore" -R "select[hname!=\'e230-dgx2-1\']" -R "select[hname!=\'e230-dgx2-2\']" -q gpu-lowprio'
+        f'bsub -R "tensorcore" {excluded_hosts}-q gpu-lowprio'
         f" -gpu num={n_gpus}:j_exclusive=yes:mode=exclusive_process:gmem={memory} ./runner_htc.sh htc training {args}"
     )
 
@@ -219,6 +225,8 @@ def samples_equal(sample1: dict, sample2: dict, **allclose_kwargs) -> bool:
                 checks.append(torch.allclose(sample1[key], sample2[key], **allclose_kwargs))
             else:
                 checks.append(torch.all(sample1[key] == sample2[key]))
+        elif type(sample1[key]) == dict and type(sample2[key]) == dict:
+            checks.append(samples_equal(sample1[key], sample2[key], **allclose_kwargs))
         else:
             checks.append(sample1[key] == sample2[key])
 
@@ -257,3 +265,44 @@ def sample_to_batch(func: Callable) -> Callable:
         return batch
 
     return _sample_to_batch
+
+
+def multi_label_condensation(logits: torch.Tensor, config: Config) -> dict[str, torch.Tensor]:
+    """
+    Convert the output of a multi-label network to a single prediction per pixel.
+
+    In case this decision is ambiguous (multiple classes with a confidence > 0.5 or no class at all), the pixel will be marked as "network_unsure".
+
+    Args:
+        logits: The output of the network (batch, class, *).
+        config: The configuration of the training run.
+
+    Returns: Dictionary with the entries:
+        - `predictions`: Predicted labels (batch, *).
+        - `confidences`: Corresponding confidences of the prediction (batch, *).
+    """
+    if (logits >= 0).all() and (logits <= 1).all():
+        settings.log_once.warning(
+            "The logits seem to be already in the range [0, 1]. Please provide the raw logits of the network and not"
+            " the sigmoid activations"
+        )
+
+    confidences = logits.sigmoid()
+    preds = confidences > 0.5  # [BCHW]
+    valid = preds.count_nonzero(dim=1) == 1  # [BHW]
+
+    # We only use predictions if there is exactly one class predicted, the rest will be unsure
+    # This is because we are not evaluating a multi-label scenario yet as we want to be comparable to other runs
+    label_mapping = LabelMapping.from_config(config)
+    predicted_labels = torch.full(
+        valid.shape, label_mapping.name_to_index("network_unsure"), dtype=torch.int64, device=valid.device
+    )
+
+    # We can use argmax here because we explicitly use only pixels with exactly one predicted class
+    predicted_labels[valid] = preds.transpose(0, 1)[:, valid].float().argmax(dim=0)
+
+    confidences = confidences.gather(dim=1, index=predicted_labels.unsqueeze(dim=1)).squeeze(dim=1)
+    return {
+        "predictions": predicted_labels,
+        "confidences": confidences,
+    }

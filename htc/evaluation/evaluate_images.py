@@ -4,12 +4,13 @@
 import math
 import warnings
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from monai.metrics import SurfaceDistanceMetric, compute_dice, compute_surface_dice
 from torchmetrics.functional import confusion_matrix
 
-from htc.evaluation.metrics.ECELoss import ECELoss
+from htc.evaluation.metrics.ECE import ECE
 from htc.settings import settings
 from htc.settings_seg import settings_seg
 
@@ -250,6 +251,7 @@ def evaluate_images(
     metrics: list = None,
     n_classes: int = None,
     tolerances: list[float] = None,
+    confidence_thresholds: list[float] = None,
 ) -> list[dict]:
     """
     Evaluate all images in the batch dimension of the tensors.
@@ -261,8 +263,17 @@ def evaluate_images(
         labels: Target labels (batch, height, width).
         mask: Pixels to include (batch, height, width). You can for example also use it to exclude specific classes (e.g. the background=0) in the calculation by setting the mask for these pixels to False.
         n_classes: Number of classes in the dataset. This value should be the same for every image in the dataset and is e.g. necessary for the confusion matrix where the shape is determined by the number of classes (and is only comparable if this number is the same for all images).
-        metrics: A list of metrics to be calculated, this list can contain the following: DSC = dice similarity coefficient, CM = confusion matrix, ECE = expected calibration error, NSD = normalized surface dice, ASD = average surface distance. If None, DSC, ECE (if softmaxes are provided) and CM will be calculated.
+        metrics: A list of metrics to be calculated, this list can contain the following:
+        - DSC = Dice Similarity Coefficient
+        - CM = Confusion Matrix
+        - ECE = Expected Calibration Error
+        - NSD = Normalized Surface Dice
+        - ASD = Average Surface Distance
+        - DSC_confidences = DSC for different confidence thresholds. For each threshold t, the pixels with confidence < t are ignored in the DSC calculation (invalid pixels). As higher the threshold, as more pixels are ignored. The result for each image is a dictionary with the threshold as key and the DSC and area as values. If a class is removed completely, the area is set to 0 and the DSC to nan. The `aggregated_confidences_table()` function can be used to get aggregated results for all thresholds (based on a validation or test table).
+
+        If None, DSC, ECE (if softmaxes are provided) and CM will be calculated.
         tolerances: Parameter for the NSD metric: the tolerance threshold in pixels for each class. All pixels in the distance of this threshold will count as correct. Higher numbers yield better results.
+        confidence_thresholds: Confidence thresholds to use for the DSC_confidences metric. If None, the thresholds [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] will be used.
 
     Returns: All calculated metrics as a dict for each element in the batch.
     """
@@ -311,11 +322,10 @@ def evaluate_images(
 
     result_batch = {}
 
-    used_labels = [
-        valid_labels[b].unique() for b in range(n_batch)
-    ]  # This is important later when calculating the dice per image (to know which values to exclude)
+    # This is important later when calculating the dice per image (to know which values to exclude)
+    used_labels = [valid_labels[b].unique() for b in range(n_batch)]
 
-    # dice similarity coefficient
+    # Dice Similarity Coefficient
     if "DSC" in metrics:
         dice = calc_dice_metric(predictions_labels, labels, mask)
         assert len(used_labels) == len(dice)
@@ -347,7 +357,7 @@ def evaluate_images(
         ), "Invalid shape of the valid predicted softmaxes"
 
         ece = []
-        ece_model = ECELoss()
+        ece_model = ECE()
         for b in range(n_batch):
             ece_result = ece_model(valid_predictions_softmaxes[b], valid_labels[b])
             ece.append(ece_result)
@@ -375,12 +385,59 @@ def evaluate_images(
             "surface_distance_metric_image": [b["surface_distance_metric_image"] for b in asd],
         }
 
+    if predictions_softmaxes is not None and "DSC_confidences" in metrics:
+        confidences = predictions.max(dim=1).values
+        thresholds = np.arange(0, 1, 0.1) if confidence_thresholds is None else confidence_thresholds
+        conf_results = [{} for _ in range(n_batch)]
+
+        for t in thresholds:
+            # We repeat the DSC calculation for each threshold basically exchanging the mask
+            # Shrink the existing mask by the values which are excluded by the confidence threshold
+            mask_t = mask.clone()
+            mask_t.masked_fill_(confidences < t, False)
+            valid_images = mask_t.any(dim=1).any(dim=1)
+            if valid_images.any():
+                dice_results = calc_dice_metric(predictions_labels, labels, mask_t)
+
+            for b in range(n_batch):
+                if not valid_images[b]:
+                    # If an image does not contain any valid pixels anymore, fill with 0 area and nan DSC
+                    res = {
+                        "areas": torch.zeros(len(used_labels[b]), device=used_labels[b].device),
+                        "dice_metric": torch.full((len(used_labels[b]),), torch.nan, device=used_labels[b].device),
+                    }
+                else:
+                    # The length of the areas and DSC values remain the same for all thresholds even if a label does not exist anymore
+                    areas = []
+                    dice_values = []
+                    for l in used_labels[b]:
+                        if l in dice_results[b]["used_labels"]:
+                            current_labels_all = labels[b] == l
+                            current_labels_conf = labels[b][mask_t[b]] == l
+                            n_total = torch.count_nonzero(current_labels_all)
+                            n_remaining = torch.count_nonzero(current_labels_conf)
+
+                            areas.append(n_remaining / n_total)
+                            dice_values.append(
+                                dice_results[b]["dice_metric"][dice_results[b]["used_labels"] == l].squeeze()
+                            )
+                        else:
+                            areas.append(torch.tensor(0, device=used_labels[b].device))
+                            dice_values.append(torch.tensor(torch.nan, device=used_labels[b].device))
+
+                    res = {
+                        "areas": torch.stack(areas),
+                        "dice_metric": torch.stack(dice_values),
+                    }
+
+                conf_results[b][t] = res
+        result_batch["DSC_confidences"] = conf_results
+
     result_batch |= {
         "used_labels": used_labels,
     }
 
-    results_batch = [
-        dict(zip(result_batch, t)) for t in zip(*result_batch.values())
-    ]  # Convert from dict of lists to list of dicts (https://stackoverflow.com/a/33046935/2762258)
+    # Convert from dict of lists to list of dicts (https://stackoverflow.com/a/33046935/2762258)
+    results_batch = [dict(zip(result_batch, t)) for t in zip(*result_batch.values())]
 
     return results_batch

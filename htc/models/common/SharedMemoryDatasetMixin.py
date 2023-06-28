@@ -39,7 +39,7 @@ class SharedMemoryDatasetMixin:
         # We should unpin the tensor memory when objects of this class get destructed
         # Event though this is not RAII in Python (https://en.wikibooks.org/wiki/Python_Programming/Context_Managers#Not_RAII)
         try:
-            if torch.cuda is not None:
+            if torch is not None and torch.cuda is not None:
                 cudart = torch.cuda.cudart()
 
                 for key, tensor in self.shared_dict.items():

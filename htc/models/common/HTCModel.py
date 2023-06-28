@@ -90,7 +90,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         },
     }
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, fold_name: str = None):
         """
         Base class for all model classes. It implements some logic to automatically replace the weights of a network with the weights from another pretrained network.
 
@@ -111,9 +111,11 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
 
         Args:
             config: Configuration object of the training run.
+            fold_name: the name of the fold being trained. This is used to find the correct parameter for temperature scaling.
         """
         super().__init__()
         self.config = config
+        self.fold_name = fold_name
 
         # Default keys to load/skip for pretraining
         # Subclasses can modify these sets by adding elements to it or replacing them
@@ -126,6 +128,46 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
     def __post__init__(self):
         if self.config["model/pretrained_model"]:
             self._load_pretrained_model()
+
+        # We initialize temperature scaling only after the pretrained model may be loaded because that could change the fold name
+        if self.config.get("post_processing/calibration/temperature", None) is not None:
+            factors = self.config["post_processing/calibration/temperature/scaling"]
+            biases = self.config["post_processing/calibration/temperature/bias"]
+            if self.fold_name not in factors or self.fold_name not in biases:
+                settings.log.warning(
+                    "Found temperature scaling parameters in the config but not for the requested fold"
+                    f" {self.fold_name} (temperature scaling will not be applied)"
+                )
+            else:
+                self.register_buffer("_temp_factor", torch.tensor(factors[self.fold_name]), persistent=False)
+                self.register_buffer("_temp_bias", torch.tensor(biases[self.fold_name]), persistent=False)
+                if (
+                    nll_prior := self.config.get("post_processing/calibration/temperature/nll_prior", default=None)
+                ) is not None:
+                    self.register_buffer("_nll_prior", torch.tensor(nll_prior), persistent=False)
+                self.register_forward_hook(self._temperature_scaling)
+
+    def _temperature_scaling(
+        self, module: nn.Module, input: tuple, output: Union[torch.Tensor, dict[str, torch.Tensor]]
+    ) -> Union[torch.Tensor, dict[str, torch.Tensor]]:
+        if type(output) == dict:
+            logits = output["class"]
+        else:
+            logits = output
+
+        # Actual scaling (based on: https://github.com/luferrer/psr-calibration/blob/master/psrcal/calibration.py)
+        scores = logits * self._temp_factor + self._temp_bias
+        if self._nll_prior is not None:
+            scores = scores - self._nll_prior  # - because nll = -log(prior)
+
+        scores = scores - torch.logsumexp(scores, axis=-1, keepdim=True)
+
+        if type(output) == dict:
+            output["class"] = scores
+        else:
+            output = scores
+
+        return output
 
     def _normalization_check(self, module: nn.Module, module_in: tuple) -> None:
         if self.config["input/n_channels"] == 100 and (
@@ -157,7 +199,6 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
     def _load_pretrained_model(self) -> None:
         model_path = None
         pretrained_dir = None
-        pretrained_model = None
         map_location = None if torch.cuda.is_available() else "cpu"
 
         if self.config["model/pretrained_model/path"]:
@@ -210,9 +251,9 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                     if len(checkpoint_paths) == 1:
                         model_path = checkpoint_paths[0]
                     else:
-                        checkpoint_paths = sorted(fold_dir.rglob(f"epoch={fold_dir.iloc[0].epoch_index}*.ckpt"))
+                        checkpoint_paths = sorted(fold_dir.rglob(f"epoch={df_best.iloc[0].epoch_index}*.ckpt"))
                         assert len(checkpoint_paths) == 1, (
-                            f"More than one checkpoint found for the epoch {fold_dir.iloc[0].epoch_index}:"
+                            f"More than one checkpoint found for the epoch {df_best.iloc[0].epoch_index}:"
                             f" {checkpoint_paths}"
                         )
                         model_path = checkpoint_paths[0]
@@ -223,9 +264,8 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                         f" determine the best model. The first found checkpoint will be used instead: {model_path}"
                     )
 
-        if pretrained_model is None:
-            assert model_path is not None, "Could not find the best model"
-            pretrained_model = torch.load(model_path, map_location=map_location)
+        assert model_path is not None, "Could not find the best model"
+        pretrained_model = torch.load(model_path, map_location=map_location)
 
         # Change state dict keys
         model_dict = self.state_dict()
@@ -257,6 +297,9 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                     else:
                         model_dict[k.replace(load_key_pattern, "")] = pretrained_model["state_dict"][k]
                     num_keys_loaded += 1
+
+        if self.fold_name is None:
+            self.fold_name = model_path.parent.name
 
         # Load the new weights
         self.load_state_dict(model_dict)

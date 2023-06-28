@@ -28,7 +28,7 @@ class Raw16(DatasetIteration):
 
         config = Config(
             {
-                "trainer_kwargs/precision": 16,
+                "trainer_kwargs/precision": "16-mixed",
                 "input/no_labels": True,
             }
         )

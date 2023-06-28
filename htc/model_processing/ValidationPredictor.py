@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import gc
 import multiprocessing
 
 import torch
@@ -90,6 +91,11 @@ class ValidationPredictor(Predictor):
                         )
 
                     progress.advance(task_loader)
+
+                # Make sure the shared memory buffer is cleared before the next iteration
+                del dataloader
+                gc.collect()
+
                 progress.advance(task_folds)
 
     def produce_predictions(
@@ -101,7 +107,11 @@ class ValidationPredictor(Predictor):
         fold_name: str,
         best_epoch_index: int,
     ) -> None:
-        batch_predictions = model.predict_step(batch)["class"].softmax(dim=1).cpu().numpy()
+        batch_predictions = model.predict_step(batch)["class"]
+        if self.config["model/activations"] != "sigmoid":
+            # For the sigmoid activation, we need to pass the logits
+            batch_predictions = batch_predictions.softmax(dim=1)
+        batch_predictions = batch_predictions.cpu().numpy()
 
         for b in range(batch_predictions.shape[0]):
             image_name = batch["image_name"][b]

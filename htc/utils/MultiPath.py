@@ -49,8 +49,6 @@ class MultiPath(type(Path())):
 
                 # e.g. .../2021_02_05_Tivita_multiorgan_masks/intermediates/preprocessing/L1
                 path = super().__new__(cls, args[0]["path"])
-                # e.g. .../2021_02_05_Tivita_multiorgan_semantic/intermediates
-                path._alternatives_root = args[0]["alternatives_root"]
                 # e.g. [.../2021_02_05_Tivita_multiorgan_semantic/intermediates, .../2021_02_05_Tivita_multiorgan_masks/intermediates, ...]
                 path._alternatives = args[0]["alternatives"]
                 # e.g. 2021_02_05_Tivita_multiorgan_masks
@@ -59,7 +57,10 @@ class MultiPath(type(Path())):
                 return path
             else:
                 # Default construction, we just make sure that the path is expanded
-                new_args = [str(unify_path(args[0]))]
+
+                # Normalize the path and make it absolute without resolving symbolic links as this may break the logic of the MultiPath class which relies on path replacements
+                # For example, after resolving a symlink the path may not contain any of the alternatives anymore so it is impossible to do the replacements
+                new_args = [str(unify_path(args[0], resolve_symlinks=False))]
         else:
             # Construction from parts
             new_args = args
@@ -67,20 +68,34 @@ class MultiPath(type(Path())):
         super_path = super().__new__(cls, *new_args, **kwargs)
 
         # Custom attributes
-        super_path._alternatives = []
-        super_path._alternatives_root = str(super_path)
+        super_path._alternatives = [str(super_path)]
         super_path._default_needle = None
+        super_path._set_attributes()
 
         return super_path
 
     def _make_child(self, args):
-        # Any child path which is created via base / new should also receive the additional class attributes
-        child = super()._make_child(args)
-        child._alternatives = self._alternatives
-        child._alternatives_root = self._alternatives_root
-        child._default_needle = self._default_needle
+        if len(args) == 1 and Path(args[0]).is_absolute():
+            # If the child path is already absolute, we can just use it as-is
+            abs_path = args[0]
+            if type(abs_path) == str:
+                abs_path = Path(abs_path)
+            return abs_path
+        else:
+            # Any child path which is created via base / new should also receive the additional class attributes
+            child = super()._make_child(args)
+            child._alternatives = self._alternatives
+            child._default_needle = self._default_needle
+            child._set_attributes()
 
-        return child
+            return child
+
+    def _set_attributes(self):
+        # The attributes are always based on the current best location
+        location = self.find_best_location()
+        self._drv = location._drv
+        self._root = location._root
+        self._parts = location._parts
 
     def __repr__(self):
         """
@@ -130,7 +145,6 @@ class MultiPath(type(Path())):
         # Called when pickling path objects (e.g. multiprocessing)
         kwargs = {
             "path": super().__str__(),
-            "alternatives_root": self._alternatives_root,
             "alternatives": self._alternatives,
             "default_needle": self._default_needle,
         }
@@ -140,22 +154,19 @@ class MultiPath(type(Path())):
         # Paths are always converted to strings when they are used, e.g. on open or on .exists()
         # Here, we overwrite it to return the first existing path from all alternatives
         if hasattr(self, "_alternatives") and len(self._alternatives) > 0:
-            assert hasattr(self, "_alternatives_root"), "_alternatives cannot exists without _alternatives_root"
-
             return str(self.find_best_location())
         else:
             return super().__str__()
 
     @property
     def parent(self):
-        alternatives = [self._alternatives_root] + self._alternatives
+        alternatives = self._alternatives
         if str(self) in alternatives:
             # We go back to a standard Path object when we walk outside of one of the alternative locations because then there is no common subdirectory anymore to share between the alternatives
             return Path(str(self)).parent
         else:
             p = super().parent
             p._alternatives = self._alternatives
-            p._alternatives_root = self._alternatives_root
             p._default_needle = self._default_needle
 
             return p
@@ -192,19 +203,44 @@ class MultiPath(type(Path())):
 
         location.mkdir(*args, **kwargs)
 
-    def resolve(self, *args, **kwargs) -> "MultiPath":
-        # MultiPath is resolved by default since we call unify_path in the constructor and in possible_locations()
-        return self
+    def relative_to(self, *other) -> Path:
+        if len(other) == 1 and isinstance(other[0], MultiPath):
+            other = other[0]
+            error = None
+
+            # The first other location which is relative to self will be used
+            for location in other.possible_locations():
+                try:
+                    return self.relative_to(location)
+                except ValueError as e:
+                    error = e
+
+            assert error is not None, "The parent class should have risen an exception"
+            raise error
+        else:
+            return super().relative_to(*other)
 
     def write_text(self, *args, **kwargs):
-        self.find_best_location().write_text(*args, **kwargs)
+        return self.find_best_location().write_text(*args, **kwargs)
 
     def write_bytes(self, *args, **kwargs):
-        self.find_best_location().write_bytes(*args, **kwargs)
+        return self.find_best_location().write_bytes(*args, **kwargs)
+
+    def with_name(self, *args, **kwargs) -> Path:
+        return self.find_best_location().with_name(*args, **kwargs)
+
+    def with_stem(self, *args, **kwargs) -> Path:
+        return self.find_best_location().with_stem(*args, **kwargs)
+
+    def with_suffix(self, *args, **kwargs) -> Path:
+        return self.find_best_location().with_suffix(*args, **kwargs)
+
+    def resolve(self, *args, **kwargs) -> "Path":
+        return self.find_best_location().resolve(*args, **kwargs)
 
     def add_alternative(self, path: Union[Path, str]) -> None:
         """Adds an alternative location to this path which will be replaced with the root location."""
-        self._alternatives.append(str(unify_path(path)))
+        self._alternatives.append(str(unify_path(path, resolve_symlinks=False)))
 
     def set_default_location(self, location_needle: str) -> None:
         """
@@ -214,30 +250,6 @@ class MultiPath(type(Path())):
             location_needle: Part of path of the default location (it is sufficient if a subset matches). The best match (according to the string similarity) will be used in case of non-unique matches.
         """
         self._default_needle = location_needle
-
-    def find_existing_location(self) -> Path:
-        """
-        Searches for the first existing path by checking all alternatives.
-
-        >>> path = MultiPath('/a/b')
-        >>> path.add_alternative('/')
-        >>> target_path = path / 'home'
-        >>> str(target_path.find_existing_location())
-        '/home'
-
-        Raises:
-            FileNotFoundError: If the target file cannot be find in any of the alternatives.
-
-        Returns: The full path to the target file.
-        """
-        path_str = str(self)
-        if Path(path_str).exists():
-            return Path(path_str)
-        else:
-            raise FileNotFoundError(
-                f'Cannot find the file {path_str.removeprefix(self._alternatives_root + "/")}. Tried the following root'
-                f" locations: {self._alternatives + [self._alternatives_root]}"
-            )
 
     def find_location(self, needle: str) -> Path:
         """
@@ -334,13 +346,23 @@ class MultiPath(type(Path())):
         Returns: All possible locations for the current path.
         """
         path_str = super().__str__()
-        assert path_str.startswith(
-            self._alternatives_root
-        ), f"The root location ({self._alternatives_root}) must always match the root path ({path_str})"
 
-        locations = [Path(path_str)]
+        # Find the root of the current main path (last match)
+        alternatives_root = None
         for alternative in self._alternatives:
-            locations.append(unify_path(path_str.replace(self._alternatives_root, alternative)))
+            if path_str.startswith(alternative):
+                alternatives_root = alternative
+                break
+        assert (
+            alternatives_root is not None
+        ), f"Could not find the alternatives root for {path_str}\n{self._alternatives}"
+
+        # Replace the root with all alternatives to get all possible locations (including the main location)
+        locations = []
+        for alternative in self._alternatives:
+            new = path_str.replace(alternatives_root, alternative)
+            new = unify_path(new, resolve_symlinks=False)
+            locations.append(new)
 
         if filter is not None:
             locations = [l for l in locations if filter(l)]

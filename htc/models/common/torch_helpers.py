@@ -76,7 +76,7 @@ def pad_tensors(
     return padded_tensors
 
 
-def smooth_one_hot(labels: torch.Tensor, n_classes: int, smoothing: float = 0.0):
+def smooth_one_hot(labels: torch.Tensor, n_classes: int, smoothing: float = 0.0) -> torch.Tensor:
     """
     Create one-hot label vectors with optional label smoothing:
 
@@ -88,28 +88,64 @@ def smooth_one_hot(labels: torch.Tensor, n_classes: int, smoothing: float = 0.0)
     >>> labels = torch.tensor([1, 0])
     >>> smooth_one_hot(labels, n_classes=2, smoothing=0)
     tensor([[0., 1.],
-            [1., 0.]])
+            [1., 0.]], dtype=torch.float16)
     >>> smooth_one_hot(labels, n_classes=2, smoothing=0.1)
-    tensor([[0.1000, 0.9000],
-            [0.9000, 0.1000]])
+    tensor([[0.1000, 0.8999],
+            [0.8999, 0.1000]], dtype=torch.float16)
 
     Args:
-        labels: Vector with the label index values.
+        labels: Tensor with label indices, e.g. (batch, height, width).
         n_classes: Number of classes which determines the output shape of the smoothed label vector.
         smoothing: Smoothing value which will be equally distributed across all other classes, e.g. if smoothing=0.1 then for the label index 1 the vector [0.1, 0.9] will be returned.
+
+    Returns: Smoothed one-hot label tensor of type torch.float16. The class dimension will be added to the end, e.g. (batch, height, width, class).
     """
     assert 0 <= smoothing < 1, "Invalid smoothing value"
-    assert len(labels.shape) == 1, "labels must be a vector"
     assert labels.dtype == torch.int64, "Wrong type for labels vector"
 
     confidence = 1.0 - smoothing
-    label_shape = torch.Size((labels.size(0), n_classes))
+    new_shape = torch.Size((*labels.shape, n_classes))
     with torch.no_grad():
-        true_dist = torch.empty(size=label_shape, device=labels.device)
-        true_dist.fill_(smoothing / (n_classes - 1))
-        true_dist.scatter_(1, labels.data.unsqueeze(1), confidence)
+        labels_smooth = torch.empty(size=new_shape, dtype=torch.float16, device=labels.device)
+        labels_smooth.fill_(smoothing / (n_classes - 1))
+        labels_smooth.scatter_(dim=-1, index=labels.unsqueeze(dim=-1), value=confidence)
 
-    return true_dist
+    return labels_smooth
+
+
+def group_mean(indices: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
+    """
+    Group and average values by the given indices.
+
+    >>> indices = torch.tensor([0, 0, 2, 2, 2])
+    >>> values = torch.tensor([1, 2, 3, 4, 5])
+    >>> group_mean(indices, values)
+    (tensor([0, 2]), tensor([1.5000, 4.0000]))
+
+    Args:
+        indices: Indices which define the group membership. Tensor will be flattened.
+        values: Values which should be averaged. Tensor will be flattened.
+
+    Returns: Averaged values per group. Vector of length `max(indices) + 1`.
+    """
+    assert indices.dtype == torch.int64, "Indices must be of type int64 (index values)"
+    indices = indices.flatten()
+    values = values.flatten()
+    assert len(indices) == len(values), "Indices and values must have the same length"
+
+    last_index = indices.max() + 1
+
+    aggregated = torch.zeros(last_index, dtype=values.dtype, device=indices.device)
+    aggregated.scatter_add_(0, indices, values)
+
+    counts = torch.zeros(last_index, dtype=values.dtype, device=indices.device)
+    counts.scatter_add_(0, indices, torch.ones_like(values))
+
+    valid = counts > 0
+    valid_indices = torch.arange(0, last_index, dtype=indices.dtype, device=indices.device)[valid]
+    valid_aggregated = (aggregated / counts)[valid]
+
+    return valid_indices, valid_aggregated
 
 
 def move_batch_gpu(batch: dict, device: torch.device = None) -> dict:

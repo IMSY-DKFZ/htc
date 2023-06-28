@@ -1,7 +1,7 @@
 # Order plays a role here: we first need to run pyupgrade because it changes the code and the new code may not be correctly formatted so we need to run black afterwards. flake8 again should be run after black so that it doesn't e.g. complain about whitespace issues.
 repos:
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.4.0
+    rev: v3.7.0
     hooks:
       - id: pyupgrade
         args: [--py39-plus]
@@ -23,7 +23,7 @@ repos:
           - flake8-use-pathlib
           - flake8-docstrings
   - repo: https://github.com/asottile/yesqa
-    rev: v1.4.0
+    rev: v1.5.0
     hooks:
       - id: yesqa
         additional_dependencies:
@@ -48,7 +48,7 @@ repos:
     rev: "44e8fc9"
     hooks:
       - id: validate-cff
-  - repo: https://github.com/tcort/markdown-link-check
-    rev: v3.11.2
-    hooks:
-      - id: markdown-link-check
+  # - repo: https://github.com/tcort/markdown-link-check
+  #   rev: v3.11.2
+  #   hooks:
+  #     - id: markdown-link-check

@@ -3,12 +3,14 @@
 
 import numpy as np
 import pandas as pd
+import torch
 
 from htc.model_processing.ImageConsumer import ImageConsumer
 from htc.model_processing.Runner import Runner
 from htc.model_processing.TestLeaveOneOutPredictor import TestLeaveOneOutPredictor
 from htc.model_processing.TestPredictor import TestPredictor
 from htc.model_processing.ValidationPredictor import ValidationPredictor
+from htc.models.common.utils import multi_label_condensation
 from htc.utils.LabelMapping import LabelMapping
 from htc.utils.visualization import (
     compress_html,
@@ -22,13 +24,21 @@ class ImageFigureConsumer(ImageConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.target_dir = self.target_dir / "prediction_figures"
+        if self.target_dir == self.run_dir:
+            self.target_dir = self.target_dir / "prediction_figures"
+        else:
+            self.target_dir = self.target_dir / self.run_dir.parent.name / self.run_dir.name
         self.target_dir.mkdir(parents=True, exist_ok=True)
 
     def handle_image_data(self, image_data: dict) -> None:
         predictions = image_data["predictions"]
-        confidence = np.max(predictions, axis=0)
-        predictions = np.argmax(predictions, axis=0)
+        if self.config["model/activations"] == "sigmoid":
+            res = multi_label_condensation(torch.from_numpy(predictions).float().unsqueeze(dim=0), self.config)
+            confidences = res["confidences"].squeeze(dim=0).numpy()
+            predictions = res["predictions"].squeeze(dim=0).numpy()
+        else:
+            confidences = np.max(predictions, axis=0)
+            predictions = np.argmax(predictions, axis=0)
 
         path = image_data["path"]
 
@@ -52,7 +62,7 @@ class ImageFigureConsumer(ImageConsumer):
             title += f", surface={surface:0.2f}"
 
         # Create figures
-        html_prediction = prediction_figure_html(predictions, confidence, path, self.config, title_suffix=title)
+        html_prediction = prediction_figure_html(predictions, confidences, path, self.config, title_suffix=title)
 
         mapping = LabelMapping.from_config(self.config)
         label_names = [mapping.index_to_name(i) for i in df["used_labels"]]

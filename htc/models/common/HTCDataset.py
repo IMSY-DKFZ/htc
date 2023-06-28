@@ -39,7 +39,9 @@ class HTCDataset(ABC, Dataset):
         self.config = config
         self.fold_name = fold_name
         self.image_names = [p.image_name() for p in self.paths]
-        self.features_dtype = torch.float16 if self.config["trainer_kwargs/precision"] == 16 else torch.float32
+        self.features_dtype = (
+            torch.float16 if self.config["trainer_kwargs/precision"] in [16, "16-mixed"] else torch.float32
+        )
         self.n_channels_loading = self.config["input/n_channels"]  # Value before any channel selection
 
         # Data transformations
@@ -329,12 +331,13 @@ class HTCDataset(ABC, Dataset):
             f" extensions were tried: {[e[0] for e in extensions]}"
         )
 
-        precision = self.config["trainer_kwargs/precision"]
-        if precision is not None and precision != 16 and data.dtype == np.float16:
-            settings.log.warning(
-                f"You have set the precision to {precision} but the preprocessed data has a precision of"
-                f" {data.dtype} which means that you will not work with the full precision of the original data"
-            )
+        if self.features_dtype != torch.float16:
+            data_dtype = next(iter(data.values())).dtype if type(data) == dict else data.dtype
+            if data_dtype == np.float16:
+                settings.log_once.warning(
+                    f"You have set the precision to {self.features_dtype} but the preprocessed data has a precision of"
+                    f" {data_dtype} which means that you will not work with the full precision of the original data"
+                )
 
         if folder_name == "parameter_images":
             names = self.config.get("input/parameter_names", ["StO2", "NIR", "TWI", "OHI"])

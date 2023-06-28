@@ -11,12 +11,14 @@ import torch.nn.functional as F
 
 from htc.evaluation.evaluate_images import evaluate_images
 from htc.models.common.MetricAggregation import MetricAggregation
+from htc.models.common.utils import multi_label_condensation
 from htc.tivita.DataPath import DataPath
 
 
 class EvaluationMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.evaluation_kwargs = {}  # Additional arguments for the evaluate_images function (e.g. additional metrics)
         self.df_validation_results = pd.DataFrame()
         self.validation_results_epoch = []  # Also used for storing the test results
 
@@ -53,9 +55,17 @@ class EvaluationMixin:
         batch_clean = {k: v for k, v in batch.items() if not k.startswith("labels")}
 
         logits = self.predict_step(batch_clean)
-        softmaxes = F.softmax(logits["class"], dim=1)
+        if self.config["model/activations"] == "sigmoid":
+            predictions = multi_label_condensation(logits["class"], self.config)["predictions"]
+        else:
+            predictions = F.softmax(logits["class"], dim=1)
+
         batch_results_class = evaluate_images(
-            softmaxes, batch["labels"], batch["valid_pixels"], n_classes=softmaxes.shape[1]
+            predictions,
+            batch["labels"],
+            batch["valid_pixels"],
+            n_classes=logits["class"].shape[1],
+            **self.evaluation_kwargs,
         )
 
         domains = self.config.get("input/target_domain", [])
