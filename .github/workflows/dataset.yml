@@ -1,6 +1,7 @@
 name: HeiPorSPECTRAL dataset example
 
 on:
+  workflow_dispatch:
   schedule:
     # Run once a week on Monday morning at 00:00 UTC
     - cron: "0 0 * * 1"
