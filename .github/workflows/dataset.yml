@@ -1,0 +1,58 @@
+name: HeiPorSPECTRAL dataset example
+
+on:
+  schedule:
+    # Run once a week on Monday morning at 00:00 UTC
+    - cron: "0 0 * * 1"
+
+jobs:
+  download_dataset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download dataset
+        run: |
+          wget --no-verbose https://heiporspectral.org/example.zip
+          unzip -q example.zip
+      - uses: actions/cache@v3
+        with:
+          path: HeiPorSPECTRAL_example
+          key: dataset
+
+      - name: List files
+        run: tree HeiPorSPECTRAL_example
+
+  test_dataset:
+    name: Test the dataset on ${{ matrix.os }}
+    needs: download_dataset
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.9', '3.10']
+
+    steps:
+      - uses: actions/cache@v3
+        with:
+          path: HeiPorSPECTRAL_example
+          enableCrossOsArchive: true
+          key: dataset
+
+      - name: Checkout files
+        uses: Bhacaz/checkout-files@v2
+        with:
+         # Include requirements.txt so that the caching works
+         files: requirements.txt tutorials/website_example.py
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install htc package
+        run: pip install imsy-htc
+      
+      - name: Run example
+        env:
+          PATH_Tivita_HeiPorSPECTRAL: HeiPorSPECTRAL_example
+        run: python tutorials/website_example.py
