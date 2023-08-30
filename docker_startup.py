@@ -26,10 +26,8 @@ if __name__ == "__main__":
             mount_dir_write.mkdir(parents=True, exist_ok=True)
 
             process = subprocess.run(
-                (
-                    "mount -t overlay overlay -o"
-                    f" lowerdir={mount_dir_read},upperdir={tmp_upper},workdir={tmp_work} {mount_dir_write}"
-                ),
+                "mount -t overlay overlay -o"
+                f" lowerdir={mount_dir_read},upperdir={tmp_upper},workdir={tmp_work} {mount_dir_write}",
                 shell=True,
             )
             if process.returncode != 0:

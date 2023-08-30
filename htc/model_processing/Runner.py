@@ -176,70 +176,77 @@ class Runner:
             kwargs.setdefault("default", ["DSC", "ASD", "NSD"])
             kwargs.setdefault(
                 "help",
-                (
-                    "The metrics which are to be calculated. By default, the dice, average surface distance and"
-                    " normalized surface dice are used."
-                ),
+                "The metrics which are to be calculated. By default, the dice, average surface distance and"
+                " normalized surface dice are used.",
             )
         elif name == "--fold-name":
             kwargs.setdefault("type", str)
             kwargs.setdefault("default", None)
             kwargs.setdefault(
                 "help",
-                (
-                    "The name of the fold for which the activations have to be calculated. Currently activations"
-                    " plotting is only implemented for the hyper_diva model."
-                ),
+                "The name of the fold for which the activations have to be calculated. Currently activations"
+                " plotting is only implemented for the hyper_diva model.",
             )
         elif name == "--target-domain":
             kwargs.setdefault("type", str)
             kwargs.setdefault("default", None)
             kwargs.setdefault(
                 "help",
-                (
-                    "The target domain for hyper_diva activations plotting. If this parameter is specified then the"
-                    " target_domain from the config files is overridden."
-                ),
+                "The target domain for hyper_diva activations plotting. If this parameter is specified then the"
+                " target_domain from the config files is overridden.",
             )
         elif name == "--spec":
             kwargs.setdefault("type", str)
             kwargs.setdefault("default", None)
             kwargs.setdefault(
                 "help",
-                (
-                    "If the inference needs to be carried out on a specific data spec file. This argument results in"
-                    " all unique paths from that data spec file to be used for inference. This argument override the"
-                    " --input-dir argument."
-                ),
+                "If the inference needs to be carried out on a specific data spec file. This argument results in"
+                " all unique paths from that data spec file to be used for inference. This argument override the"
+                " --input-dir argument.",
             )
         elif name == "--spec-fold":
             kwargs.setdefault("type", str)
             kwargs.setdefault("default", None)
             kwargs.setdefault(
                 "help",
-                (
-                    "If the inference-spec argument has been set, then use this argument to specify a particular fold"
-                    " within the data spec file. All unique paths in that fold inside that data spec file will be used"
-                    " for inference. This argument can only be used if inference-spec argument has been set."
-                    " This argument overrides the --input-dir argument."
-                ),
+                "If the inference-spec argument has been set, then use this argument to specify a particular fold"
+                " within the data spec file. All unique paths in that fold inside that data spec file will be used"
+                " for inference. This argument can only be used if inference-spec argument has been set."
+                " This argument overrides the --input-dir argument.",
             )
         elif name == "--spec-split":
             kwargs.setdefault("type", str)
             kwargs.setdefault("default", None)
             kwargs.setdefault(
                 "help",
-                (
-                    "If the inference-spec has been set, then use this argument to specify a split name inside"
-                    " the data spec file. All unique paths in that split from that data spec files will"
-                    " be used for inference. This argument can only be used if inference-spec has been set."
-                    " This argument overrides the --input-dir argument."
-                ),
+                "If the inference-spec has been set, then use this argument to specify a split name inside"
+                " the data spec file. All unique paths in that split from that data spec files will"
+                " be used for inference. This argument can only be used if inference-spec has been set."
+                " This argument overrides the --input-dir argument.",
             )
         elif name == "--annotation-name":
             kwargs.setdefault("type", str)
             kwargs.setdefault("default", None)
             kwargs.setdefault("help", "Filter the paths by this annotation name (default is no filtering).")
+        elif name == "--NSD-thresholds":
+
+            def float_or_str(value: Union[float, str]):
+                try:
+                    return float(value)
+                except ValueError:
+                    return value
+
+            kwargs.setdefault("type", float_or_str)
+            kwargs.setdefault("default", "semantic")
+            kwargs.setdefault(
+                "help",
+                "The threshold which will be used for the NSD computation. In the resulting table, a column with"
+                " the name surface_dice_metric_VALUE will be inserted. If a float is given, the same threshold for"
+                " all classes will be used. May also be a name denoting the name of a set of threshold values, e.g."
+                " semantic for the thresholds which we used in the MIA2021 paper. The threshold values are expected"
+                " to be stored in the results directory at rater_variability/nsd_thresholds_<name>.csv or in"
+                " models/nsd_thresholds_<name>.csv on the S3 storage.",
+            )
 
         self.parser.add_argument(name, **kwargs)
         self._used_args.append(name.removeprefix("--").replace("-", "_"))

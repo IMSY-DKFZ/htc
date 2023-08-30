@@ -133,14 +133,13 @@ class ImageTableConsumer(ImageConsumer):
 
         if "NSD" in self.metrics:
             label_mapping = LabelMapping.from_config(self.config)
-            if self.NSD_threshold is None:
-                # Default MIA2021 thresholds
-                self.tolerances = get_nsd_thresholds(label_mapping)
+            if type(self.NSD_thresholds) == str:
+                self.tolerances = get_nsd_thresholds(label_mapping, name=self.NSD_thresholds)
                 self.tolerance_name = settings_seg.nsd_aggregation.split("_")[-1]
             else:
                 # The same threshold for all classes
-                self.tolerances = [self.NSD_threshold] * len(label_mapping)
-                self.tolerance_name = str(self.NSD_threshold)
+                self.tolerances = [self.NSD_thresholds] * len(label_mapping)
+                self.tolerance_name = str(self.NSD_thresholds)
 
             settings.log.info(f"Using the following NSD thresholds: {self.tolerances}")
         else:
@@ -255,6 +254,7 @@ if __name__ == "__main__":
     runner.add_argument("--test")
     runner.add_argument("--test-looc")
     runner.add_argument("--metrics")
+    runner.add_argument("--NSD-thresholds")
     runner.add_argument("--output-dir")
     runner.add_argument(
         "--gpu-only",
@@ -264,16 +264,6 @@ if __name__ == "__main__":
             "If set, the producer/consumer infrastructure will not be used. Instead, everything will be computed on the"
             " GPU (similar as during training). This makes only sense for metrics which work efficiently on the GPU"
             " (like DSC)."
-        ),
-    )
-    runner.add_argument(
-        "--NSD_threshold",
-        default=None,
-        type=float,
-        help=(
-            "The threshold which is used for the NSD computation. In the resulting table, a column with the name"
-            " surface_dice_metric_VALUE will be inserted. Only a global threshold is supported at the moment.If None,"
-            " the default (class-wise) thresholds from the MIA2021 paper will be used."
         ),
     )
 

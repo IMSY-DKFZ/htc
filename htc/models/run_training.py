@@ -2,13 +2,16 @@
 # SPDX-License-Identifier: MIT
 
 import argparse
+import json
 import logging
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import warnings
 from datetime import datetime
+from typing import Union
 
 import numpy as np
 import torch
@@ -28,9 +31,11 @@ from htc.utils.MeasureTime import MeasureTime
 
 
 class FoldTrainer:
-    def __init__(self, model_name: str, config_name: str):
+    def __init__(self, model_name: str, config_name: str, config_extends: Union[Config, None]):
         self.model_name = model_name
         self.config = Config.from_model_name(config_name, model_name, use_shared_dict=True)
+        if config_extends is not None:
+            self.config = self.config.merge(config_extends)
 
         adjust_num_workers(self.config)
 
@@ -88,7 +93,7 @@ class FoldTrainer:
 
         # Start the logging script (it runs as long as this process is running)
         # We need to pipe to devnull as otherwise Popen might hang while running the tests
-        subprocess.Popen(
+        monitor_handle = subprocess.Popen(
             [
                 sys.executable,
                 "-m",
@@ -128,7 +133,7 @@ class FoldTrainer:
             paths=train_paths, train=True, config=self.config, fold_name=fold_name
         )
 
-        # Set some defaults if missing the config
+        # Set some defaults if missing in the config
         if "validation/checkpoint_metric" not in self.config:
             self.config["validation/checkpoint_metric"] = "dice_metric"
             settings.log.warning(
@@ -145,31 +150,7 @@ class FoldTrainer:
                 f" \"{self.config['validation/dataset_index']}\""
             )
 
-        checkpoint_saving = self.config.get("validation/checkpoint_saving", "best")
-        if checkpoint_saving == "best":
-            save_top_k = 1
-            save_last = False
-            test_ckpt_path = "best"
-        elif checkpoint_saving == "last":
-            save_top_k = 0
-            save_last = True
-            test_ckpt_path = model_dir / "last.ckpt"
-        else:
-            raise ValueError(f"Invalid option for checkpoint_saving: {checkpoint_saving}")
-
-        # Logs are stored in the same directory as the checkpoints
-        logger = TensorBoardLogger(save_dir=model_dir, name="", version="")
-
-        checkpoint_callback = ModelCheckpoint(
-            dirpath=model_dir,
-            filename="{epoch:02d}-{" + self.config["validation/checkpoint_metric"] + ":.2f}",
-            save_top_k=save_top_k,
-            save_last=save_last,
-            monitor=self.config["validation/checkpoint_metric"],
-            mode=self.config.get("validation/checkpoint_mode", "max"),
-        )
-        lr_monitor = LearningRateMonitor(logging_interval="epoch")
-
+        # Optional test dataset
         lightning_kwargs = {}
         if test and len(test_paths) > 0:
             dataset_test = self.LightningClass.dataset(
@@ -177,8 +158,36 @@ class FoldTrainer:
             )
             lightning_kwargs["dataset_test"] = dataset_test
 
+        # Main lightning module
         module = self.LightningClass(dataset_train, datasets_val, self.config, fold_name=fold_name, **lightning_kwargs)
-        callbacks = [checkpoint_callback, lr_monitor]
+
+        lr_monitor = LearningRateMonitor(logging_interval="epoch")
+        callbacks = [lr_monitor]
+
+        if self.config["validation/checkpoint_saving"] is not False:
+            checkpoint_saving = self.config.get("validation/checkpoint_saving", "best")
+            if checkpoint_saving == "best":
+                save_top_k = 1
+                save_last = False
+                test_ckpt_path = "best"
+            elif checkpoint_saving == "last":
+                save_top_k = 0
+                save_last = True
+                test_ckpt_path = model_dir / "last.ckpt"
+            else:
+                raise ValueError(f"Invalid option for checkpoint_saving: {checkpoint_saving}")
+
+            checkpoint_callback = ModelCheckpoint(
+                dirpath=model_dir,
+                filename="{epoch:02d}-{" + self.config["validation/checkpoint_metric"] + ":.2f}",
+                save_top_k=save_top_k,
+                save_last=save_last,
+                monitor=self.config["validation/checkpoint_metric"],
+                mode=self.config.get("validation/checkpoint_mode", "max"),
+            )
+            callbacks.append(checkpoint_callback)
+        else:
+            self.config["trainer_kwargs"]["enable_checkpointing"] = False
 
         if self.config["trainer_kwargs/enable_progress_bar"] is not False:
             callbacks.append(RichProgressBar(leave=True))
@@ -191,6 +200,9 @@ class FoldTrainer:
 
         # May be faster on a 3090 and should not hurt (https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision)
         torch.set_float32_matmul_precision("high")
+
+        # Logs are stored in the same directory as the checkpoints
+        logger = TensorBoardLogger(save_dir=model_dir, name="", version="")
 
         # Sanity check is disabled since it only leads to problems (duplicate epoch number, incomplete dataset)
         trainer = Trainer(logger=logger, callbacks=callbacks, num_sanity_val_steps=0, **self.config["trainer_kwargs"])
@@ -234,12 +246,28 @@ class FoldTrainer:
         self.config.save_config(model_dir / "config.json")
         shutil.copy2(self.data_specs.path, model_dir / "data.json")
 
+        # Inform the system monitor that the training is finished
+        monitor_handle.send_signal(signal.SIGINT)
+        try:
+            # Wait for a moment to give the system monitor time to finish
+            # This is important when the training is run in a Docker container because the container may be stopped before the system monitor is finished
+            monitor_handle.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            settings.log.warning("The system monitor did not terminate in time. Logs may not be complete")
+
 
 def train_all_folds(
-    model_name: str, config_name: str, run_folder: str, test: bool, file_log_handler: DelayedFileHandler
+    model_name: str,
+    config_name: str,
+    config_extends: Union[Config, None],
+    run_folder: Union[str, None],
+    test: bool,
+    file_log_handler: DelayedFileHandler,
 ) -> None:
     with MeasureTime("training_all", silent=True) as mt:
         config = Config.from_model_name(config_name, model_name)
+        if config_extends is not None:
+            config = config.merge(config_extends)
 
         # Unique folder name per run
         if run_folder is None:
@@ -259,7 +287,7 @@ def train_all_folds(
         for i, fold_name in enumerate(data_specs.fold_names()):
             # We start the training of a fold in a new process so that we can start fresh, i.e. this makes sure that all resources like RAM are freed
             command = (
-                f"{sys.executable} {__file__} --model {model_name} --config {config_name} --fold-name"
+                f"{sys.executable} {__file__} --model {model_name} --config {config['config_name']} --fold-name"
                 f' {fold_name} --run-folder "{run_folder_tmp}"'
             )
             if test:
@@ -297,11 +325,18 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, required=True, help="Name of the model to train (e.g. image or pixel).")
     parser.add_argument(
         "--config",
-        default="default.json",
+        type=str,
+        required=True,
         help=(
             "Name of the configuration file to use (either absolute, relative to the current working directory or"
             " relative to the models config folder)."
         ),
+    )
+    parser.add_argument(
+        "--config-extends",
+        type=str,
+        default=None,
+        help="""JSON string which can be used to extend config parameters. For example, --config-extends '{"seed": 1}' will set a specific seed for the training.""",
     )
     parser.add_argument(
         "--fold-name",
@@ -349,8 +384,13 @@ if __name__ == "__main__":
 
     sys.excepthook = handle_exception
 
-    if args.fold_name == "all":
-        train_all_folds(args.model, args.config, args.run_folder, args.test, file_log_handler)
+    if args.config_extends is not None:
+        config_extends = Config(json.loads(args.config_extends))
     else:
-        fold_trainer = FoldTrainer(args.model, args.config)
+        config_extends = None
+
+    if args.fold_name == "all":
+        train_all_folds(args.model, args.config, config_extends, args.run_folder, args.test, file_log_handler)
+    else:
+        fold_trainer = FoldTrainer(args.model, args.config, config_extends)
         fold_trainer.train_fold(args.run_folder, args.fold_name, args.test, file_log_handler)

@@ -38,6 +38,7 @@ from htc.utils.ColorcheckerReader import ColorcheckerReader
 from htc.utils.colors import generate_distinct_colors
 from htc.utils.Config import Config
 from htc.utils.helper_functions import median_table, sort_labels
+from htc.utils.JSONSchemaMeta import JSONSchemaMeta
 from htc.utils.LabelMapping import LabelMapping
 
 
@@ -786,29 +787,43 @@ def consecutive_segmentation(segmentation: np.ndarray, mapping: dict[int, int]):
     return segmentation
 
 
-def dict_to_html_list(data: dict, units: dict[str, str] = None) -> str:
+def dict_to_html_list(data: dict, schema: JSONSchemaMeta = None) -> str:
     """
     Simple function to display dict data as a nested HTML list.
 
     Args:
         data: The data to display.
-        units: Optional dictionary of (value, unit) mappings. The unit is concatenated with the value.
+        schema: Optional json schema reference with meta information about the data (currently, the keys `unit`, `level_of_measurement` and `description` are supported). This information is usually stored in the `meta.schema` file of the data folder.
 
     Returns: The HTML string with the nested list.
     """
-    if units is None:
-        units = {}
-
     html = "<ul>"
     for k, v in data.items():
+        schema_k = schema[k] if schema is not None else None
+
         if type(v) == list:
             v_html = ", ".join([str(e) for e in v])
         elif type(v) == dict:
-            v_html = dict_to_html_list(v, units)
+            v_html = dict_to_html_list(v, schema_k)
         else:
-            v_html = f"{v}{units.get(k, '')}"
+            v_html = str(v)
 
-        html += f"<li>{k}: {v_html}</li>"
+            # Add infos based on the associated schema
+            if schema_k is not None:
+                if (unit := schema_k.meta("unit")) is not None:
+                    v_html += f" {unit}"
+                if (level := schema_k.meta("level_of_measurement")) is not None:
+                    v_html += (
+                        ' [<a href="https://en.wikipedia.org/wiki/Level_of_measurement" target="_blank" title="Level'
+                        f' of measurement (scale of measure)">{level}-scaled</a>]'
+                    )
+
+        if schema_k is not None and schema_k.has_meta("description"):
+            k_text = f'<abbr title="{schema_k.meta("description")}">{k}</abbr>'
+        else:
+            k_text = k
+
+        html += f"<li>{k_text}: {v_html}</li>"
     html += "</ul>"
 
     return html
@@ -920,7 +935,7 @@ def create_overview_document(
     annotation_meta = path.read_annotation_meta()
     if annotation_meta is not None:
         meta_html = "<h3>Meta annotation for this image:</h3>\n"
-        meta_html += dict_to_html_list(annotation_meta, units={"angle": "°"})
+        meta_html += dict_to_html_list(annotation_meta, schema=path.annotation_meta_schema())
     else:
         meta_html = ""
 
@@ -2100,7 +2115,8 @@ def add_std_fill(
     label: str,
     row: int = None,
     col: int = None,
-    x=None,
+    x: Union[list, np.ndarray] = None,
+    opacity: float = 0.15,
     **scatter_kwargs,
 ) -> go.Figure:
     assert mid_line.shape == std_range.shape, "Shapes of mid line and std range dont match!"
@@ -2141,7 +2157,7 @@ def add_std_fill(
             fill="toself",
             fillcolor=linecolor,
             line_color=linecolor,
-            opacity=0.15,
+            opacity=opacity,
             name=label,
             legendgroup=legendgroup,
             showlegend=False,

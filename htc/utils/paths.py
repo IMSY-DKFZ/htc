@@ -67,10 +67,10 @@ class ParserPreprocessing:
             required=False,
             default=None,
             help=(
-                "Name of the dataset (e.g. name of the corresponding folder on the network drive). This will also be"
-                " used to set the default intermediates directory, i.e. the generated files will be stored in the"
-                " intermediates directory corresponding to the given dataset name. If both --spec and --dataset-path"
-                " are None, then the paths will be collected from the dataset."
+                "Name of the dataset (e.g. name of the corresponding folder on the network drive). This will be used to"
+                " set the default intermediates directory, i.e. the generated files will be stored in the intermediates"
+                " directory corresponding to the given dataset name (if --output-path is not given). If both --spec and"
+                " --dataset-path are None, then the paths will be collected from the dataset."
             ),
         )
         self.parser.add_argument(
@@ -120,5 +120,10 @@ class ParserPreprocessing:
         if self.args.dataset_name is not None:
             # From now on, we write to the intermediates directory of the selected dataset
             settings.intermediates_dir_all.set_default_location(self.args.dataset_name)
+        else:
+            assert self.args.output_path is not None, (
+                "Either --dataset-name or --output-path must be given (we need to know where the generated files should"
+                " be stored)"
+            )
 
         return paths

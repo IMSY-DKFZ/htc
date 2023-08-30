@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -33,10 +34,16 @@ if __name__ == "__main__":
     total = {"time": [], "main_memory": [], "cpus_load": [], "gpus_memory": [], "gpus_load": []}
 
     log_path = args.output_dir / f'system_log_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.json'
+    log_path_finished = Path(str(log_path).replace("running_", ""))
+    refresh_rate = float(os.getenv("HTC_SYSTEM_MONITOR_REFRESH_RATE", "5"))
 
-    def log_file(total: dict, log_path: Path) -> None:
+    def log_file(total: dict) -> None:
         if log_path.parent.exists():
             with log_path.open("w") as f:
+                json.dump(total, f)
+        elif log_path_finished.parent.exists():
+            # Try again without the running_ prefix in case the folder was already renamed (happens when the run is finished)
+            with log_path_finished.open("w") as f:
                 json.dump(total, f)
         else:
             # If the parent folder does not exist anymore, stop logging
@@ -58,20 +65,22 @@ if __name__ == "__main__":
 
             if count % 100 == 0:
                 # Don't log too often to reduce resource consumption of this script
-                log_file(total, log_path)
+                log_file(total)
 
             count += 1
 
             if args.pid is not None and psutil.pid_exists(args.pid):
-                time.sleep(5)
+                time.sleep(refresh_rate)
             else:
                 break
     except KeyboardInterrupt:
-        log_file(total, log_path)
-        exit(0)
+        pass
 
-    try:
-        log_file(total, log_path)
-    except FileNotFoundError:
-        # Try again without the running_ prefix in case the folder was already renamed (happens when the run is finished)
-        log_file(total, str(log_path).replace("running_", ""))
+    # It is possible that the monitoring gets interrupted before the current event is added to every list in the dict
+    # In that case, we remove the last elements from the lists which have more than the smallest list
+    lengths = [len(values) for values in total.values()]
+    if len(set(lengths)) != 1:
+        for k, v in total.items():
+            total[k] = v[: min(lengths)]
+
+    log_file(total)

@@ -76,6 +76,43 @@ def pad_tensors(
     return padded_tensors
 
 
+def scaled_stack(tensors: list[torch.Tensor]) -> torch.Tensor:
+    """
+    Stack a list of 1D tensors of varying lengths into a single 2D tensor by linearly interpolating
+    the shorter tensors to match the length of the longest tensor.
+
+    >>> tensor_a = torch.tensor([1, 2, 3])
+    >>> tensor_b = torch.tensor([1, 2, 3, 4, 5])
+    >>> tensor_ab = scaled_stack([tensor_a, tensor_b])
+    >>> tensor_ab.shape
+    torch.Size([2, 5])
+    >>> tensor_ab
+    tensor([[1.0000, 1.5000, 2.0000, 2.5000, 3.0000],
+            [1.0000, 2.0000, 3.0000, 4.0000, 5.0000]])
+
+    Args:
+        tensors: A list of 1D tensors to be stacked.
+
+    Returns: A stacked tensor with shape (len(tensors), max_len), where max_len is the length of the longest tensor in the input list. The resulting tensor will always have a floating type.
+    """
+    assert all(t.ndim == 1 for t in tensors), "All tensors must be 1D"
+
+    max_len = max(len(x) for x in tensors)
+    for i in range(len(tensors)):
+        if len(tensors[i]) < max_len:
+            if not tensors[i].is_floating_point():
+                tensors[i] = tensors[i].to(torch.float32)
+
+            tensors[i] = torch.nn.functional.interpolate(
+                tensors[i].unsqueeze(dim=0).unsqueeze(dim=0),
+                size=max_len,
+                mode="linear",
+                align_corners=True,
+            ).squeeze()
+
+    return torch.stack(tensors)
+
+
 def smooth_one_hot(labels: torch.Tensor, n_classes: int, smoothing: float = 0.0) -> torch.Tensor:
     """
     Create one-hot label vectors with optional label smoothing:
@@ -113,7 +150,7 @@ def smooth_one_hot(labels: torch.Tensor, n_classes: int, smoothing: float = 0.0)
     return labels_smooth
 
 
-def group_mean(indices: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
+def group_mean(indices: torch.Tensor, values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Group and average values by the given indices.
 
@@ -126,7 +163,7 @@ def group_mean(indices: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
         indices: Indices which define the group membership. Tensor will be flattened.
         values: Values which should be averaged. Tensor will be flattened.
 
-    Returns: Averaged values per group. Vector of length `max(indices) + 1`.
+    Returns: Indices and corresponding group average values.
     """
     assert indices.dtype == torch.int64, "Indices must be of type int64 (index values)"
     indices = indices.flatten()

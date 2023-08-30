@@ -18,7 +18,7 @@ from htc.utils.blosc_compression import decompress_file
 class DataPathReference(DataPath):
     _references_cache = None
 
-    def __init__(self, network_path: Path, dataset_name: str, *args, **kwargs) -> None:
+    def __init__(self, network_path: Path, dataset_name: str, *args, **kwargs):
         """
         Constructs a a data path object which has only a reference to an image folder on the network drive.
         The information about the images is stored in a image_references table in the dataset folder.
@@ -30,18 +30,34 @@ class DataPathReference(DataPath):
             dataset_name: Name of the dataset where the image comes from.
         """
         self.network_path = network_path
+        self.dataset_name = dataset_name
+
         if settings.datasets.network_data is None:
             super().__init__(None, *args, **kwargs)
             self.timestamp = self.network_path.name
         else:
-            super().__init__(settings.datasets.network_data / self.network_path, *args, **kwargs)
+            local_dataset = settings.datasets[self.dataset_name]
+            if local_dataset is not None:
+                # If the dataset is locally available (e.g. Tivita studies), then use it (always faster than the network drive)
+                image_dir = settings.datasets[self.dataset_name]["path_dataset"] / Path(self.network_path).relative_to(
+                    self.dataset_name
+                )
+                assert image_dir.exists(), (
+                    f"Could not find the image directory {image_dir} locally but the dataset is available. This could"
+                    f" mean that the dataset {self.dataset_name} is not in sync with the network drive"
+                )
 
-        self.dataset_name = dataset_name
+                kwargs["data_dir"] = local_dataset["path_data"]
+                kwargs["intermediates_dir"] = local_dataset["path_intermediates"]
+            else:
+                image_dir = settings.datasets.network_data / self.network_path
+
+            super().__init__(image_dir, *args, **kwargs)
 
     def image_name(self) -> str:
         return f"ref#{self.dataset_name}#{self.timestamp}"
 
-    def image_name_parts(self):
+    def image_name_parts(self) -> list[str]:
         return list(self.image_name_typed())
 
     def image_name_typed(self) -> dict[str, Any]:
@@ -107,12 +123,12 @@ class DataPathReference(DataPath):
 
         match = cache[image_name]
         return DataPathReference(
-            match["network_path"],
-            match["dataset_name"],
-            match["data_dir"],
-            match["intermediates_dir"],
-            match["dsettings"],
-            annotation_name,
+            network_path=match["network_path"],
+            dataset_name=match["dataset_name"],
+            data_dir=match["data_dir"],
+            intermediates_dir=match["intermediates_dir"],
+            dataset_settings=match["dsettings"],
+            annotation_name_default=annotation_name,
         )
 
     @staticmethod
@@ -127,7 +143,12 @@ class DataPathReference(DataPath):
 
         for i, row in df_references.iterrows():
             path = DataPathReference(
-                row["network_path"], row["dataset_name"], data_dir, intermediates_dir, dataset_settings, annotation_name
+                network_path=row["network_path"],
+                dataset_name=row["dataset_name"],
+                data_dir=data_dir,
+                intermediates_dir=intermediates_dir,
+                dataset_settings=dataset_settings,
+                annotation_name_default=annotation_name,
             )
             if all(f(path) for f in filters):
                 yield path

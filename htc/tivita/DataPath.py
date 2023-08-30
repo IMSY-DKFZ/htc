@@ -16,6 +16,7 @@ from htc.settings import settings
 from htc.tivita.DatasetSettings import DatasetSettings
 from htc.utils.blosc_compression import decompress_file
 from htc.utils.Config import Config
+from htc.utils.JSONSchemaMeta import JSONSchemaMeta
 from htc.utils.LabelMapping import LabelMapping
 
 
@@ -376,7 +377,7 @@ class DataPath:
         >>> cc_mask["mask"].shape
         (480, 640)
         >>> list(cc_mask["median_table"].columns)
-        ['label_index', 'label_name', 'label_color', 'row', 'col', 'median_spectrum', 'std_spectrum', 'median_normalized_spectrum', 'std_normalized_spectrum']
+        ['label_index', 'label_name', 'label_color', 'row', 'col', 'median_spectrum', 'std_spectrum', 'median_normalized_spectrum', 'std_normalized_spectrum', 'median_sto2', 'std_sto2', 'median_nir', 'std_nir', 'median_twi', 'std_twi', 'median_ohi', 'std_ohi', 'median_thi', 'std_thi', 'median_tli', 'std_tli']
         >>> len(cc_mask["label_mapping"])
         24
         >>> cc_mask["label_mapping"].index_to_name(1)
@@ -446,10 +447,26 @@ class DataPath:
             cube_norm = self.read_cube(normalization=1)
             cube = self.read_cube()
 
+            # compute parameter images from cube
+            sto2_img = self.compute_sto2(cube)
+            nir_img = self.compute_nir(cube)
+            twi_img = self.compute_twi(cube)
+            ohi_img = self.compute_ohi(cube)
+            thi_img = self.compute_thi(cube)
+            tli_img = self.compute_tli(cube)
+
             table_rows = []
             for i in np.unique(mask[mask != 0]):
                 spectra_norm = cube_norm[mask == i, :]
                 spectra = cube[mask == i, :]
+
+                selected_sto2 = sto2_img[mask == i]
+                selected_nir = nir_img[mask == i]
+                selected_twi = twi_img[mask == i]
+                selected_ohi = ohi_img[mask == i]
+                selected_thi = thi_img[mask == i]
+                selected_tli = tli_img[mask == i]
+
                 table_rows.append(
                     {
                         "label_index": i,
@@ -461,6 +478,18 @@ class DataPath:
                         "std_spectrum": np.std(spectra, axis=0),
                         "median_normalized_spectrum": np.median(spectra_norm, axis=0),
                         "std_normalized_spectrum": np.std(spectra_norm, axis=0),
+                        "median_sto2": np.median(selected_sto2.data),
+                        "std_sto2": np.std(selected_sto2.data),
+                        "median_nir": np.median(selected_nir.data),
+                        "std_nir": np.std(selected_nir.data),
+                        "median_twi": np.median(selected_twi.data),
+                        "std_twi": np.std(selected_twi.data),
+                        "median_ohi": np.median(selected_ohi.data),
+                        "std_ohi": np.std(selected_ohi.data),
+                        "median_thi": np.median(selected_thi.data),
+                        "std_thi": np.std(selected_thi.data),
+                        "median_tli": np.median(selected_tli.data),
+                        "std_tli": np.std(selected_tli.data),
                     }
                 )
             table = pd.DataFrame(table_rows)
@@ -819,6 +848,22 @@ class DataPath:
             DataPath._meta_labels_cache[self.image_name()] = meta_labels
 
         return DataPath._meta_labels_cache[self.image_name()]
+
+    def annotation_meta_schema(self) -> Union[JSONSchemaMeta, None]:
+        """
+        Read the associated JSON schema for the annotation meta labels if available (`meta.schema` file in the `data` directory). This is useful to retrieve additional information about the meta labels (e.g. description, type, unit, etc.).
+
+        >>> path = DataPath.from_image_name('P087#2021_04_16_10_12_31')
+        >>> schema = path.annotation_meta_schema()
+        >>> schema["label_meta/kidney/angle"].meta("unit")
+        'degree'
+
+        Returns: The schema object or None if not available.
+        """
+        if self.data_dir is not None and (schema_path := self.data_dir / "meta.schema").exists():
+            return JSONSchemaMeta(schema_path)
+        else:
+            return None
 
     def meta(self, key: str = None, default: Any = None) -> Any:
         """

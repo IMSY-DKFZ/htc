@@ -30,19 +30,6 @@ def track_key_usage(method: Callable) -> Callable:
     return _track_key_usage
 
 
-def get_possible_paths(path: Path) -> list[Path]:
-    return [
-        # Relative/absolute
-        path,
-        # Relative to the model's dir (name of the model must be provided, though, e.g. image/configs/default)
-        settings.models_dir / path,
-        # Relative to the htc package directory
-        settings.htc_package_dir / path,
-        # Relative to the src directory
-        settings.src_dir / path,
-    ]
-
-
 class Config:
     def __init__(self, path_or_dict: Union[str, Path, dict], use_shared_dict=False):
         """
@@ -112,7 +99,7 @@ class Config:
                 path_or_dict = path_or_dict.with_name(path_or_dict.name + ".json")
 
             # Find the location to the config file
-            for p in get_possible_paths(path_or_dict):
+            for p in Config._get_possible_paths(path_or_dict):
                 if p.exists():
                     self.path_config = unify_path(p)
                     break
@@ -140,7 +127,7 @@ class Config:
             inherits = Path(self["inherits"] + extension)
 
             # We try several locations to find the parent config file
-            possible_paths = get_possible_paths(inherits)
+            possible_paths = Config._get_possible_paths(inherits)
             if self.path_config is not None:
                 possible_paths.append(self.path_config.with_name(inherits.name))  # Same directory as the child config
 
@@ -161,20 +148,7 @@ class Config:
 
             del self["inherits"]
 
-        # Users can extend additional lists by adding the same key with _extends appended
-        for k, v in self.items():
-            if k.endswith("_extends") and type(v) == list:
-                k_original = k.removesuffix("_extends")
-                assert k_original in self, (
-                    f"The extends key {k} is in the config but not the original version (without extends, i.e."
-                    f" {k_original})"
-                )
-                assert type(self[k_original]) == list, (
-                    f"The original key {k_original} is not a list but a {type(self[k_original])} which is not supported"
-                    " for the extends feature"
-                )
-                self[k_original] = self[k_original] + v
-                del self[k]
+        self._extend_lists()
 
         # We start counting usage from here on
         if use_shared_dict:
@@ -183,34 +157,71 @@ class Config:
         else:
             self._used_keys = {}
 
-    def __copy__(self):
+    def _extend_lists(self) -> None:
+        # Users can extend additional lists by adding the same key with _extends appended
+        for k, v in self.items():
+            if k.endswith("_extends") and type(v) == list:
+                k_original = k.removesuffix("_extends")
+                if k_original in self:
+                    assert type(self[k_original]) == list, (
+                        f"The original key {k_original} is not a list but a {type(self[k_original])} which is not"
+                        " supported for the extends feature"
+                    )
+                    self[k_original] = self[k_original] + v
+                    del self[k]
+
+    def _copy_data(self, dict_data: dict) -> dict:
+        new_data = {}
+
+        for key, value in dict_data.items():
+            if type(value) == dict:
+                # Due to the recursive call of this function, we are basically deep-copying dicts
+                new_data[key] = self._copy_data(value)
+            elif type(value) == list:
+                # Similarly, we are also deep-copying lists
+                new_data[key] = copy.deepcopy(value)
+            else:
+                # Everything else will just be reference-copied (e.g. data specs)
+                new_data[key] = value
+
+        return new_data
+
+    def __copy__(self) -> Self:
         # Making a deepcopy of the config may be costly e.g. with large data specs
         # Here we are only (deep)copying builtins but keep references to objects (like a data specs)
         # Can be used via copy.copy(config)
         cls = self.__class__
         config_new = cls.__new__(cls)
 
-        def copy_data(dict_data: dict) -> dict:
-            new_data = {}
-
-            for key, value in dict_data.items():
-                if type(value) == dict:
-                    # Due to the recursive call of this function, we are basically deep-copying dicts
-                    new_data[key] = copy_data(value)
-                elif type(value) == list:
-                    # Similarly, we are also deep-copying lists
-                    new_data[key] = copy.deepcopy(value)
-                else:
-                    # Everything else will just be reference-copied (e.g. data specs)
-                    new_data[key] = value
-
-            return new_data
-
-        config_new.data = copy_data(self.data)
+        config_new.data = self._copy_data(self.data)
         config_new.path_config = self.path_config
         config_new._used_keys = self._used_keys
 
         return config_new
+
+    def merge(self, other: Self) -> Self:
+        """
+        Merge the current config with another config or a dictionary of properties. The other config has precedence over the current config.
+
+        >>> config = Config({'a/b': 1, 'c': 3})
+        >>> config_merged = config.merge(Config({'a/b': 2, 'd': 4}))
+        >>> config_merged['a/b']
+        2
+        >>> config_merged['c']
+        3
+        >>> config_merged['d']
+        4
+
+        Args:
+            other: The config to merge the current config with.
+
+        Returns: The merged config (the old config remains untouched).
+        """
+        config_merge = copy.copy(self)
+        config_merge.data = dict(merge_dicts_deep(config_merge.data, other.data))
+        config_merge._extend_lists()
+
+        return config_merge
 
     def used_keys(self) -> list[str]:
         """Returns: List of all keys which have been accessed from this config (either via getter, setter, contains check or deletion). Nested keys are not in the list if only the top-level key has been used (e.g. 'a/b' and 'a/c are not in the list if only 'a' is accessed)."""
@@ -381,6 +392,7 @@ class Config:
             commentjson.dump(self.data, fp, indent=4, sort_keys=True, cls=AdvancedJSONEncoder)
 
         self.path_config = path
+        self["config_name"] = self.path_config.stem
 
     @classmethod
     def from_model_name(cls, config_name: Union[Path, str] = None, model_name: str = None, **config_kwargs) -> Self:
@@ -410,7 +422,7 @@ class Config:
         if not path_config.name.endswith(".json"):
             path_config = path_config.with_name(path_config.name + ".json")
 
-        possible_paths = get_possible_paths(path_config)
+        possible_paths = Config._get_possible_paths(path_config)
         if model_name is not None:
             possible_paths.append(settings.models_dir / model_name / "configs" / path_config)
 
@@ -457,3 +469,16 @@ class Config:
 
         assert config is not None, f"Could not find a config file in the experiment folder {experiment_folder}"
         return config
+
+    @staticmethod
+    def _get_possible_paths(path: Path) -> list[Path]:
+        return [
+            # Relative/absolute
+            path,
+            # Relative to the model's dir (name of the model must be provided, though, e.g. image/configs/default)
+            settings.models_dir / path,
+            # Relative to the htc package directory
+            settings.htc_package_dir / path,
+            # Relative to the src directory
+            settings.src_dir / path,
+        ]

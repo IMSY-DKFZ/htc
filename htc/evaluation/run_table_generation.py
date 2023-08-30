@@ -127,7 +127,6 @@ def save_validation_table(run_dir: Path) -> None:
     additional_results = sorted(run_dir.rglob("*validation_results_*"))
     if len(additional_results) > 0:
         for stem in {f.name.split(".")[0] for f in additional_results}:
-            print(stem)
             df = generate_validation_table(run_dir, table_stem=stem)
             df.to_pickle(run_dir / f"{stem.replace('results', 'table')}.pkl.xz")
 

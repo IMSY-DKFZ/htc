@@ -90,7 +90,6 @@ class SpectrometerReader:
                                 continue
                             spectrum_file.append([wavelength, value])
                         else:
-                            print(f"{path.name}: Could not extract the spectra values from the line {line}")
                             continue
 
                     if ">>>>>Begin" in line:
@@ -135,7 +134,10 @@ class SpectrometerReader:
                     mask = (tivita_wavelengths[i] <= spectrometer_wavelengths) & (
                         spectrometer_wavelengths < tivita_wavelengths[i + 1]
                     )
-                    spectra_transformed[:, i] = np.mean(spectra[:, mask, 1], axis=1)
+                    if spectra[:, mask, 1].shape[-1] == 0:
+                        spectra_transformed[:, i] = 0  # missing data is set to 0
+                    else:
+                        spectra_transformed[:, i] = np.mean(spectra[:, mask, 1], axis=1)
 
                 return {
                     "wavelengths": spectra[0, :, 0],

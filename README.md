@@ -156,6 +156,8 @@ This framework gives you access to a variety of pretrained segmentation and clas
 The following table lists all the models you can get:
 | model type | modality | class | run folder |
 | ----------- | ----------- | ----------- | ----------- |
+| image | hsi | [`ModelImage`](./htc/models/image/ModelImage.py) | [2023-02-08_14-48-02_organ_transplantation_0.8](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2023-02-08_14-48-02_organ_transplantation_0.8.zip) |
+| image | rgb | [`ModelImage`](./htc/models/image/ModelImage.py) | [2023-01-29_11-31-04_organ_transplantation_0.8_rgb](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2023-01-29_11-31-04_organ_transplantation_0.8_rgb.zip) |
 | image | hsi | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_model_comparison.zip) |
 | image | param | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_parameters_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) |
 | image | rgb | [`ModelImage`](./htc/models/image/ModelImage.py) | [2022-02-03_22-58-44_generated_default_rgb_model_comparison](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) |
@@ -215,14 +217,13 @@ There is a common command line interface for many scripts in this repository. Mo
 ## Papers
 This repository contains code to reproduce our publications listed below:
 
-### 📝 Robust deep learning-based semantic organ segmentation in hyperspectral images
-[https://doi.org/10.1016/j.media.2022.102488](https://doi.org/10.1016/j.media.2022.102488)
+### 📝 [Robust deep learning-based semantic organ segmentation in hyperspectral images](https://doi.org/10.1016/j.media.2022.102488)
 
 <div align="center">
 <a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_abstract.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_abstract.png" alt="Logo" width="800" /></a>
 </div>
 
-In this paper, we tackled fully automatic organ segmentation and compared deep learning models on different spatial granularities (e.g. patch vs. image) and modalities (e.g. HSI vs. RGB). Furthermore, we studied the required amount of training data and the generalization capabilities of our models across subjects. The pretrained networks are related to this paper. You can find the notebooks to generate the paper figures in [paper/MIA2021](./paper/MIA2021) (the folder also includes a [reproducibility document](./paper/MIA2021/reproducibility.md)) and the models in [htc/models](./htc/models). For each model, there are three configuration files, namely default, default_rgb and default_parameters, which correspond to the HSI, RGB and TPI modality, respectively.
+In this paper, we tackled fully automatic organ segmentation and compared deep learning models on different spatial granularities (e.g. patch vs. image) and modalities (e.g. HSI vs. RGB). Furthermore, we studied the required amount of training data and the generalization capabilities of our models across subjects. The pretrained networks are related to this paper. You can find the notebooks to generate the paper figures in [paper/MIA2021](./paper/MIA2021) (the folder also includes a [reproducibility document](./paper/MIA2021/reproducibility.md)) and the models in [htc/models](./htc/models). For each model, there are three configuration files, namely `default`, `default_rgb` and `default_parameters`, which correspond to the HSI, RGB and TPI modality, respectively. You can also download the [NSD thresholds](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/nsd_thresholds_semantic.csv) which we used for the NSD metric (cf. Fig. 12).
 
 > 📂 The dataset for this paper is not publicly available.
 
@@ -244,8 +245,34 @@ In this paper, we tackled fully automatic organ segmentation and compared deep l
 ```
 </details>
 
-### 📝 Spectral organ fingerprints for machine learning-based intraoperative tissue classification with hyperspectral imaging in a porcine model
-[https://doi.org/10.1038/s41598-022-15040-w](https://doi.org/10.1038/s41598-022-15040-w)
+### 📝 [Semantic segmentation of surgical hyperspectral images under geometric domain shifts](https://doi.org/10.48550/arXiv.2303.10972)
+
+<div align="center">
+<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MICCAI_abstract.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MICCAI_abstract.png" alt="Logo" width="600" /></a>
+</div>
+
+This paper is the direct successor of our MIA paper. We analyzed how well our networks perform under geometrical domain shifts which commonly occur in real-world open surgeries (e.g. situs occlusions). The effect is drastic (drop of Dice similarity coefficient by 45 %) but the good news is that performance on par with in-distribution data can be achieved with our simple, model-independent solution (augmentation method). You can find all the code in [htc/context](./htc/context) and paper figures as well as [reproducibility instructions](./paper/MICCAI2023/reproducibility.md) in [paper/MICCAI2023](./paper/MICCAI2023). Pretrained models are available for our organ transplantation networks with HSI and RGB modalities.
+
+> 💡 If you are only interested in our data augmentation method, you can also head over to [Kornia](https://github.com/kornia/kornia) where this augmentation is also implemented for generic use cases (including 2D and 3D data). You will find it under the name `RandomTransplantation`.
+
+> 📂 The dataset for this paper is not publicly available.
+
+<details closed>
+<summary>Cite via BibTeX</summary>
+
+```bibtex
+@misc{sellner2023semantic,
+      title={Semantic segmentation of surgical hyperspectral images under geometric domain shifts}, 
+      author={Jan Sellner and Silvia Seidlitz and Alexander Studier-Fischer and Alessandro Motta and Berkin Özdemir and Beat Peter Müller-Stich and Felix Nickel and Lena Maier-Hein},
+      year={2023},
+      eprint={2303.10972},
+      archivePrefix={arXiv},
+      primaryClass={eess.IV}
+}
+```
+</details>
+
+### 📝 [Spectral organ fingerprints for machine learning-based intraoperative tissue classification with hyperspectral imaging in a porcine model](https://doi.org/10.1038/s41598-022-15040-w)
 
 In this paper, we trained a classification model based on median spectra from HSI data. You can find the model code in [htc/tissue_atlas](./htc/tissue_atlas) and the confusion matrix figure of the paper in [paper/NatureReports2021](./paper/NatureReports2021) (including a reproducibility document).
 
@@ -272,8 +299,7 @@ In this paper, we trained a classification model based on median spectra from HS
 ```
 </details>
 
-### 📝 HeiPorSPECTRAL - the Heidelberg Porcine HyperSPECTRAL Imaging Dataset of 20 Physiological Organs
-[https://doi.org/10.1038/s41597-023-02315-8](https://doi.org/10.1038/s41597-023-02315-8)
+### 📝 [HeiPorSPECTRAL - the Heidelberg Porcine HyperSPECTRAL Imaging Dataset of 20 Physiological Organs](https://doi.org/10.1038/s41597-023-02315-8)
 
 This paper introduces the [HeiPorSPECTRAL](https://heiporspectral.org/) dataset containing 5756 hyperspectral images from 11 subjects. We are using these images in our tutorials. You can find the visualization notebook for the paper figures in [paper/NatureData2023](./paper/NatureData2023) (the folder also includes a [reproducibility document](./paper/NatureData2023/reproducibility.md)) and the remaining code in [htc/tissue_atlas_open](./htc/tissue_atlas_open).
 
@@ -302,8 +328,7 @@ If you want to learn more about the [HeiPorSPECTRAL](https://heiporspectral.org/
 ```
 </details>
 
-### 📝 Künstliche Intelligenz und hyperspektrale Bildgebung zur bildgestützten Assistenz in der minimal-invasiven Chirurgie
-[https://doi.org/10.1007/s00104-022-01677-w](https://doi.org/10.1007/s00104-022-01677-w)
+### 📝 [Künstliche Intelligenz und hyperspektrale Bildgebung zur bildgestützten Assistenz in der minimal-invasiven Chirurgie](https://doi.org/10.1007/s00104-022-01677-w)
 
 This paper presents several applications of intraoperative HSI, including our organ [segmentation](https://doi.org/10.1016/j.media.2022.102488) and [classification](https://doi.org/10.1038/s41598-022-15040-w) work. You can find the code generating our figure for this paper at [paper/Chirurg2022](./paper/Chirurg2022).
 

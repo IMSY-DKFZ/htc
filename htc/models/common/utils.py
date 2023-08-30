@@ -5,18 +5,30 @@ import copy
 import functools
 import importlib
 import math
+import os
 import platform
+import subprocess
+import sys
 import warnings
 from collections.abc import Callable
 from typing import Any, Union
 
+import numpy as np
 import psutil
 import torch
 import torch.nn as nn
 
 from htc.settings import settings
 from htc.utils.Config import Config
+from htc.utils.import_extra import requires_extra
 from htc.utils.LabelMapping import LabelMapping
+
+try:
+    import paramiko
+
+    _missing_library = ""
+except ImportError:
+    _missing_library = "paramiko"
 
 
 def get_n_classes(config: Config) -> int:
@@ -167,6 +179,45 @@ def cpu_count() -> int:
     else:
         # No hostname information available, just return the number of physical cores
         return psutil.cpu_count(logical=False)
+
+
+@requires_extra(_missing_library)
+def run_jobs(jobs: list[str]) -> None:
+    # Make sure the cluster is up-to-date
+    res = subprocess.run([sys.executable, settings.src_dir / "cluster/run_update_cluster.py"])
+    assert res.returncode == 0, "Could not update the cluster files"
+
+    sftpURL = "bsub01.lsf.dkfz.de"
+    sftpUser = settings.dkfz_userid
+
+    ssh = paramiko.SSHClient()
+    ssh.load_system_host_keys()
+
+    # Automatically add keys without requiring human intervention
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        ssh.connect(sftpURL, username=sftpUser)
+    except paramiko.SSHException:
+        # Sometimes the key cannot be found automatically, try the default location in this case
+        ssh.connect(sftpURL, username=sftpUser, key_filename=os.path.expanduser("~/.ssh/cluster"))
+
+    # We cannot submit too many jobs at once so we submit them in multiple submissions
+    settings.log.info(f"Submitting {len(jobs)} jobs to the cluster...")
+    MAX_SUBMISSION_JOBS = 100
+    for jobs_split in np.array_split(jobs, np.ceil(len(jobs) / MAX_SUBMISSION_JOBS)):
+        jobs_str = "\n".join(jobs_split.tolist()).replace(
+            '"', '\\"'
+        )  # We need to excape any " as we wrap the command in ""
+        _, stdout, stderr = ssh.exec_command(
+            f'bash --login -c "{jobs_str}"'
+        )  # We need to login into the shell so that the cluster commands are available
+        if len(out_lines := stdout.readlines()) > 0:
+            settings.log.info(out_lines)
+        if len(err_lines := stderr.readlines()) > 0:
+            settings.log.error(err_lines)
+
+    ssh.close()
 
 
 def adjust_num_workers(config: Config) -> None:

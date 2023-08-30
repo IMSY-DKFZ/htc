@@ -89,7 +89,9 @@ ssh {settings.dkfz_userid}@bsub01.lsf.dkfz.de <<"BASH"
 
         if single_submit:
             bashstring += cluster_command(
-                f'--model {model_name} --config "{config_rel_path}"', n_gpus=n_gpus, memory=memory
+                f'--model {model_name} --config "{config_rel_path}" --run-folder "{run_name}"',
+                n_gpus=n_gpus,
+                memory=memory,
             )
             if test:
                 bashstring += " --test"

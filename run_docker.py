@@ -39,22 +39,33 @@ if __name__ == "__main__":
         envs.append("PATH_HTC_DOCKER_RESULTS=/home/results")
 
     # Mount volumes and set environment variables for all available datasets
+    symlinks = []
     for env_name in os.environ.keys():
         if not env_name.upper().startswith("PATH_TIVITA"):
             continue
 
         if path_env := os.getenv(env_name, False):
-            dataset_name = Path(path_env).name
+            path_env = Path(path_env)
+
+            # Check for symlinks in the first level of the dataset folder and automatically mount it
+            for f in sorted(path_env.iterdir()):
+                if f.is_symlink():
+                    symlinks.append(f.readlink())
+
+            dataset_name = path_env.name
             volumes.append(f"${env_name}:/home/{dataset_name}-ro:ro")
             envs.append(f"{env_name}=/home/{dataset_name}")
 
-    # Additional mount points are e.g. useful to include symbolic link locations in the container
+    # Additional mount points are e.g. useful to include symbolic link locations in the container (if not done automatically)
     if "HTC_DOCKER_MOUNTS" in os.environ:
         mounts = os.environ["HTC_DOCKER_MOUNTS"].split(";")
         for mount in mounts:
             if not mount.endswith(":ro"):
                 mount = f"{mount}:ro"
             volumes.append(mount)
+
+    for s in symlinks:
+        volumes.append(f"{s}:{s}:ro")
 
     override_file = file_dir / "docker-compose.override.yml"
     if len(volumes) > 0:

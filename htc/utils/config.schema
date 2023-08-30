@@ -166,9 +166,9 @@
                     "type": "string"
                 },
                 "checkpoint_saving": {
-                    "description": "Strategy for checkpoint saving. Either the best (default) or the last checkpoint is saved.",
-                    "type": ["string", "null"],
-                    "enum": ["best", "last"]
+                    "description": "Strategy for checkpoint saving. Either the best (default) or the last checkpoint is saved. If set to false, no checkpoints are saved.",
+                    "type": ["string", "boolean"],
+                    "enum": ["best", "last", false]
                 }
             }
         },

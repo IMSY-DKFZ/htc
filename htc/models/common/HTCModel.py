@@ -27,6 +27,7 @@ class PostInitCaller(type):
 
 
 class HTCModel(nn.Module, metaclass=PostInitCaller):
+    # Models from our MIA2021 paper
     known_models = {
         "pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
             "sha256": "b380b43935a9d7e5fd0c39efe04420539416791b61517b69db9f8e7ee96cd5db",
@@ -87,6 +88,17 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         "image@2022-02-03_22-58-44_generated_default_model_comparison": {
             "sha256": "7a78a54c1a43ae273b22bd0f721ca1c22c57257c61cbc5bb6e5a84e4895344d4",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_model_comparison.zip",
+        },
+    }
+    # Models from our MICCAI2023 paper
+    known_models |= {
+        "image@2023-01-29_11-31-04_organ_transplantation_0.8_rgb": {
+            "sha256": "5d1a9d556c348f308570310f637058acfa8e0b14c9c4cd30d2b58d9a1cc12364",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2023-01-29_11-31-04_organ_transplantation_0.8_rgb.zip",
+        },
+        "image@2023-02-08_14-48-02_organ_transplantation_0.8": {
+            "sha256": "fd9e7c26e6fee477893a626e1c4bab47ca324fbc43028c858edf1a4e57073b1b",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2023-02-08_14-48-02_organ_transplantation_0.8.zip",
         },
     }
 
@@ -183,15 +195,34 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                     break
 
             # It is possible that we cannot find the channel dimensions, e.g. for the pixel model if an input != 100 is passed to the model
-            if channel_dim is not None and not torch.allclose(
-                features.abs().sum(dim=channel_dim), torch.tensor(1.0, device=features.device), atol=0.1
-            ):
-                settings.log.warning(
-                    f"The model {module.__class__.__name__} expects L1 normalized input but the features"
-                    f" ({features.shape = }) do not seem to be L1 normalized:\naverage per pixel ="
-                    f" {features.abs().sum(dim=channel_dim).mean()}\nstandard deviation per pixel ="
-                    f" {features.abs().sum(dim=channel_dim).std()}\nThis check is only performed for the first batch."
+            # It is also ok if a spectrum only contains zeros since this is done by some augmentations
+            if channel_dim is not None:
+                # Either all values must be close to 1 (or 0)
+                all_valid = torch.all(
+                    torch.isclose(
+                        features.abs().sum(dim=channel_dim), torch.tensor(1.0, device=features.device), atol=0.1
+                    )
+                    | torch.isclose(
+                        features.abs().sum(dim=channel_dim), torch.tensor(0.0, device=features.device), atol=0.1
+                    )
                 )
+
+                # Or the mean/std must fit on average for the non-zero elements (because single pixels may be off)
+                mean = features.abs().sum(dim=channel_dim)
+                mean = mean[mean.nonzero(as_tuple=True)].mean()
+                std = features.abs().sum(dim=channel_dim)
+                std = std[std.nonzero(as_tuple=True)].std()
+                average_valid = torch.isclose(
+                    mean, torch.tensor(1.0, device=features.device), atol=0.01
+                ) and torch.isclose(std, torch.tensor(0.0, device=features.device), atol=0.01)
+
+                if not (all_valid or average_valid):
+                    settings.log.warning(
+                        f"The model {module.__class__.__name__} expects L1 normalized input but the features"
+                        f" ({features.shape = }) do not seem to be L1 normalized:\naverage per pixel ="
+                        f" {mean}\nstandard deviation per pixel ="
+                        f" {std}\nThis check is only performed for the first batch."
+                    )
 
         # We only perform this check for the first batch
         self._normalization_handle.remove()

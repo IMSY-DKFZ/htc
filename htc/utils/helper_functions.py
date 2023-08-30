@@ -421,8 +421,16 @@ def load_util_log(folder: Path) -> dict:
 
     n_different_gpus = len(np.unique([len(v) for v in data["gpus_load"]]))
     if n_different_gpus != 1:
-        # This is weird. Different number of GPUs measured over time --> just take the first measurement
-        data["gpus_load"] = [[v[0]] for v in data["gpus_load"] if len(v) > 0]  # Fix the data
+        # It can happen that for some timepoints GPU values are missing. In this case, the list may be empty
+        # We fill the list with np.nan and then interpolate the missing values
+        # Note: This only works for one GPU
+        gpu_data = np.array([[v[0] if len(v) > 0 else np.nan] for v in data["gpus_load"]])
+        gpu_data_mask = np.isnan(gpu_data)
+        gpu_data[gpu_data_mask] = np.interp(
+            np.flatnonzero(gpu_data_mask), np.flatnonzero(~gpu_data_mask), gpu_data[~gpu_data_mask]
+        )
+
+        data["gpus_load"] = gpu_data.tolist()
         gpus_load = data["gpus_load"]
     else:
         # Find the used GPU based on the load
@@ -691,8 +699,25 @@ def checkpoint_path(fold_dir: Path) -> tuple[Path, int]:
     return ckpt_file, best_epoch_index
 
 
-def get_nsd_thresholds(mapping: LabelMapping, aggregation_method: str = None) -> list[float]:
-    df = pd.read_csv(settings_seg.nsd_tolerances_path)
+def get_nsd_thresholds(mapping: LabelMapping, aggregation_method: str = None, name: str = "semantic") -> list[float]:
+    """
+    Load precomputed NSD thresholds from a file.
+
+    Args:
+        mapping: Label mapping of the training run which is used to make a selection of labels.
+        aggregation_method: Aggregation method (e.g. mean). Must correspond to a column name in the table.
+        name: Name of the table (e.g. semantic for the MIA2021 thresholds).
+
+    Returns: Tolerance value for each class in the order defined in the label mapping.
+    """
+    if (
+        settings.results_dir is not None
+        and (table_path := settings.results_dir / "rater_variability" / f"nsd_thresholds_{name}.csv").exists()
+    ):
+        df = pd.read_csv(table_path)
+    else:
+        # If not available, try to download the file
+        df = pd.read_csv(f"https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/nsd_thresholds_{name}.csv")
     tolerance_column = settings_seg.nsd_aggregation.split("_")[-1] if aggregation_method is None else aggregation_method
     tolerance_column = f"tolerance_{tolerance_column}"
 

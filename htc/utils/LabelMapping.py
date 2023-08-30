@@ -262,6 +262,43 @@ class LabelMapping:
             for label_index, label_name in self.mapping_index_name.items()
         }
 
+    def append(self, name: str, invalid: bool = False) -> None:
+        """
+        Append a new label name to the mapping.
+
+        For valid labels, the new label index will be last_valid_label_index + 1. For invalid labels, the new label index will be the first unused index.
+
+        Args:
+            name: The name of the new label.
+            invalid: If True, the new label will be treated as invalid.
+        """
+
+        def get_unused_index() -> int:
+            # Find the first free index
+            # 256 because we usually store segmentation maps as uint8
+            for i in range(self.last_valid_label_index + 1, 256):
+                if i not in self.mapping_index_name:
+                    return i
+
+            raise ValueError("No unused label index found (reached maximum of 255)")
+
+        if name not in self.mapping_name_index:
+            if invalid:
+                unused_index = get_unused_index()
+                self.mapping_name_index[name] = unused_index
+                self.mapping_index_name[unused_index] = name
+            else:
+                self.mapping_name_index[name] = self.last_valid_label_index + 1
+                self.last_valid_label_index += 1
+
+                if self.last_valid_label_index in self.mapping_index_name:
+                    # self.last_valid_label_index + 1 is already used by an invalid label -> assign a new index to the invalid label
+                    unused_index = get_unused_index()
+                    self.mapping_index_name[unused_index] = self.mapping_index_name[self.last_valid_label_index]
+                    self.mapping_name_index[self.mapping_index_name[self.last_valid_label_index]] = unused_index
+
+                self.mapping_index_name[self.last_valid_label_index] = name
+
     def to_json(self) -> dict:
         """Returns: All class attributes as dictionary so that the object can be reconstructed again from the dict."""
         return {

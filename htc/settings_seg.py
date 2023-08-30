@@ -168,7 +168,7 @@ class SettingsSeg:
 
     @property
     def nsd_tolerances_path(self) -> MultiPath:
-        return self.results_dir / "rater_variability/nsd_tolerances.csv"
+        return self.results_dir / "rater_variability/nsd_thresholds_semantic.csv"
 
 
 settings_seg = SettingsSeg()
