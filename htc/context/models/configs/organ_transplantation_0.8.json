@@ -1,0 +1,16 @@
+{
+    "inherits": "image/configs/default",
+    "input": {
+        "transforms_gpu_extends": [{
+            "class": "htc.context.context_transforms>OrganTransplantation",
+            "p": 0.8
+        }]
+    },
+    "trainer_kwargs": {
+        "check_val_every_n_epoch": 10
+    },
+    "validation": {
+        "checkpoint_metric_mode": "class_level",
+        "checkpoint_saving": "last"
+    }
+}
