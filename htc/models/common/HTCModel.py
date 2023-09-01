@@ -30,63 +30,63 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
     # Models from our MIA2021 paper
     known_models = {
         "pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
-            "sha256": "b380b43935a9d7e5fd0c39efe04420539416791b61517b69db9f8e7ee96cd5db",
+            "sha256": "2f7acf8a4aed3938caf061aa15da559895bb7efd54a00db5deba1b8813614109",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip",
         },
         "pixel@2022-02-03_22-58-44_generated_default_parameters_model_comparison": {
-            "sha256": "84ff8e96348e907c1911dde774085f0dd7de08f58403f2c3109845b15a1303c6",
+            "sha256": "09f16309d95fae44baeef282c6db57600685856b4282438c8d406392150a021e",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip",
         },
         "pixel@2022-02-03_22-58-44_generated_default_model_comparison": {
-            "sha256": "fc6cdf705b3243643ab1f45daca46436e16ccb183ac62f59bbec825579704162",
+            "sha256": "58ff07c55f18d939ef6a40848795ef7ca632255d9798c9c71abda45492dab841",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_model_comparison.zip",
         },
         "superpixel_classification@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
-            "sha256": "6d5fa1a64a85439a4cac354f36801ae38ebebab62321d72338d89dfafc35e904",
+            "sha256": "bc6be1d0d0f91d4db9677b13d869bd47208ef1d1d468f565c27e8f6f71e9f958",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip",
         },
         "superpixel_classification@2022-02-03_22-58-44_generated_default_parameters_model_comparison": {
-            "sha256": "0d9182bc82643d1f8a7bf74b8cd7bf6684968068c56daa5aef8e76162c476108",
+            "sha256": "c3aab2baf46189c587a6d1585621b631ecaf33bd8d28b5e202383adeede3d269",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip",
         },
         "superpixel_classification@2022-02-03_22-58-44_generated_default_model_comparison": {
-            "sha256": "f495b331b471258af88701d18b585e3638f8bba820c43056b9dda41d470423ef",
+            "sha256": "4a2ebe1f465454d3a5acf38ca32683ece83e0ba6336b7d89ef75224164bbc9e9",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/superpixel_classification@2022-02-03_22-58-44_generated_default_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
-            "sha256": "d5e9d831f03ea0b3988d766b0fff2f63d2d0f2321b60edfb3bf7f6a6aeaa17f8",
+            "sha256": "a01981b1b078b048834f056fd733949f0bb1549f6ecf17607092f50421054647",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_parameters_model_comparison": {
-            "sha256": "ac5ce443cb5564862d978b02f27560da3b5502083aac27d5dbe6c337adac5090",
+            "sha256": "52572255229d340945800b4f4c026ce78b5f8d0e6a740f2afea1fdf1084846cd",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_model_comparison": {
-            "sha256": "cdfe5bb3894b386e63f588a25a7f2af0fec4d25c89a1f3129895624dd7497e70",
+            "sha256": "b6160ac7862e9430c95523133f3c0c635839ad8e9479cda3118d084318e99750",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_64_rgb_model_comparison": {
-            "sha256": "f13d098fc65999eeb3e16d572879baa14fb9c8c558acfc62b7da326691f7fbeb",
+            "sha256": "0ec1a0cbad9df361783d25c90dd1d6914bc66eadbf47080b62501698d4616227",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_rgb_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_64_parameters_model_comparison": {
-            "sha256": "b1246ceb17f87f08cac3f62038ebf4e29aac6ed71f71909bc58334dac3682559",
+            "sha256": "005ccfc7e7c138152cdc159587a328bd32ebbef2a60c55fa29c1a1b4f63b5743",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_parameters_model_comparison.zip",
         },
         "patch@2022-02-03_22-58-44_generated_default_64_model_comparison": {
-            "sha256": "31ff412697122afc780c416c53ee465d606cd3fa59feadc87d86cf77f4e90358",
+            "sha256": "9e5b6e86ad74d457087692f93267d4cfc1c5566e2878b0d51b3c0e4a59fda61b",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/patch@2022-02-03_22-58-44_generated_default_64_model_comparison.zip",
         },
         "image@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
-            "sha256": "5bc230782e4a4f252fa5db4c2a30dbb3f150977a6ee56b05d724b84c6d4a7e64",
+            "sha256": "715f6914ac6a88a3395754b95b7228b5160dbf611c2198dd0b3234b37aeba77f",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip",
         },
         "image@2022-02-03_22-58-44_generated_default_parameters_model_comparison": {
-            "sha256": "d65e94e5cb859afdee540e1ed454eede8e9e91778e8e6731a97e3f41889e7e17",
+            "sha256": "d21c983dadd13aafab78e3c7dbad5ecfcaa362d5aa2a61833847c12c434eec65",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip",
         },
         "image@2022-02-03_22-58-44_generated_default_model_comparison": {
-            "sha256": "7a78a54c1a43ae273b22bd0f721ca1c22c57257c61cbc5bb6e5a84e4895344d4",
+            "sha256": "97604ba00c2cdd9b859f64884145f486c317b63be1f8160fa196ecbec6552350",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_model_comparison.zip",
         },
     }

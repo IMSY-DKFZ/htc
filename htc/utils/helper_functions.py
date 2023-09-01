@@ -253,7 +253,7 @@ def median_table(
 
     image_names = image_names_only + list(itertools.chain.from_iterable(annotation_images.values()))
     image_names = pd.unique(np.asarray(image_names))  # Unique without sorting
-    image_names_ordering = pd.unique(image_names_ordering)
+    image_names_ordering = pd.unique(np.asarray(image_names_ordering))
 
     # First all the images without annotation name requirements
     dfs = []

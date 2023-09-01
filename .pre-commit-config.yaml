@@ -48,7 +48,11 @@ repos:
     rev: "44e8fc9"
     hooks:
       - id: validate-cff
-  # - repo: https://github.com/tcort/markdown-link-check
-  #   rev: v3.11.2
-  #   hooks:
-  #     - id: markdown-link-check
+  - repo: https://github.com/tcort/markdown-link-check
+    rev: v3.11.2
+    hooks:
+      - id: markdown-link-check
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: 1.1.0
+    hooks:
+      - id: pyproject-fmt
