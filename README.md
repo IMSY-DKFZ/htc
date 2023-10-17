@@ -12,7 +12,7 @@ This package is a framework for automated tissue classification and segmentation
 - The implementation of deep learning models to solve supervised classification and segmentation problems for a variety of different input spatial granularities (pixels, superpixels, patches and entire images, cf. figure below) and modalities (RGB data, raw and processed HSI data) from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488). It is based on [PyTorch](https://pytorch.org/) and [Lightning](https://lightning.ai/).
 - Corresponding pretrained models.
 - A pipeline to efficiently load and process HSI data, to aggregate deep learning results and to validate and visualize findings.
-- Presentation of several solutions to speed up the data loading pipeline (see [Pytorch Conference 2023](./README.md#-dealing-with-io-bottlenecks-in-high-throughput-model-training) poster details below).
+- Presentation of several solutions to speed up the data loading pipeline (see [Pytorch Conference 2023 poster details](./README.md#-dealing-with-io-bottlenecks-in-high-throughput-model-training) below).
 
 <div align="center">
 <a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.svg" alt="Overview of deep learning models in the htc framework, here shown for HSI input." /></a>
