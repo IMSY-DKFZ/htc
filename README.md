@@ -9,9 +9,10 @@
 # Hyperspectral Tissue Classification
 This package is a framework for automated tissue classification and segmentation on medical hyperspectral imaging (HSI) data. It contains:
 
-- The implementation of deep learning models to solve supervised classification and segmentation problems for a variety of different input spatial granularities (pixels, superpixels, patches and entire images, cf. figure below) and modalities (RGB data, raw and processed HSI data) from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488). It is based on [PyTorch](https://pytorch.org/) and [PyTorch Lightning](https://lightning.ai/).
+- The implementation of deep learning models to solve supervised classification and segmentation problems for a variety of different input spatial granularities (pixels, superpixels, patches and entire images, cf. figure below) and modalities (RGB data, raw and processed HSI data) from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488). It is based on [PyTorch](https://pytorch.org/) and [Lightning](https://lightning.ai/).
 - Corresponding pretrained models.
 - A pipeline to efficiently load and process HSI data, to aggregate deep learning results and to validate and visualize findings.
+- Presentation of several solutions to speed up the data loading pipeline (see [Pytorch Conference 2023](./README.md#-dealing-with-io-bottlenecks-in-high-throughput-model-training) poster details below).
 
 <div align="center">
 <a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.svg" alt="Overview of deep learning models in the htc framework, here shown for HSI input." /></a>
@@ -271,6 +272,10 @@ This paper is the direct successor of our MIA paper. We analyzed how well our ne
 }
 ```
 </details>
+
+### 📝 [Dealing with I/O bottlenecks in high-throughput model training](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/PyTorchConference_Poster.pdf)
+
+The poster was presented at the PyTorch Conference 2023 and presents several solutions to improve the data loading pipeline for faster network training. This originated from the MICCAI2023 paper, where we load huge amount of data while using a relatively small network. This requested the need for fast data loading strategies so that the CPU delivers data in-time for the GPU. The solutions include efficient data storage via [Blosc](https://www.blosc.org/) compression, appropriate precision settings, GPU instead of CPU augmentations using the [Kornia](https://kornia.readthedocs.io) library and a fixed shared pinned memory buffer for efficient data transfer to the GPU. For the last part, you will find the relevant code to create the buffer in this repository as part of the [SharedMemoryDatasetMixin](./htc/models/common/SharedMemoryDatasetMixin.py#L106) class (`_add_tensor_shared()` method).
 
 ### 📝 [Spectral organ fingerprints for machine learning-based intraoperative tissue classification with hyperspectral imaging in a porcine model](https://doi.org/10.1038/s41598-022-15040-w)
 
