@@ -23,8 +23,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt --use-pep517
-        pip install pytest
+        pip install -r requirements.txt
+        pip install pytest wheel
 
     - name: Install htc
       run: pip install --no-use-pep517 -e .
