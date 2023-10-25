@@ -18,7 +18,8 @@ class SharedMemoryDatasetMixin:
     def __init__(self, *args, sampler: Union[Sampler, Iterable] = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.sampler = sampler
-        self.shared_dict = {}
+        self.shared_dict: dict[str, torch.Tensor] = {}
+        self.pointer_keys: Union[list[str], None] = None
 
         # Each worker operates on its own set of paths and we use a shared memory tensor which stores a random set of path indices
         if self.sampler is None:
@@ -66,6 +67,7 @@ class SharedMemoryDatasetMixin:
         if len(self.shared_dict) == 0:
             self._add_tensor_shared("worker_index", torch.int64)
             self._add_shared_resources()
+            self.pointer_keys = [k for k in self.shared_dict.keys() if k.startswith(("features", "data"))]
 
     def shuffle_paths(self):
         assert len(self.paths) > 0, "At least one data path is required"
@@ -113,6 +115,7 @@ class SharedMemoryDatasetMixin:
         res = cudart.cudaHostRegister(tensor.data_ptr(), tensor.numel() * tensor.element_size(), flags)
         assert res.value == 0 and res.name == "success", f"Cannot pin memory tensor {name}"
         assert tensor.is_pinned() and tensor.is_shared(), "Each tensor should be shared and pinned"
+        assert tensor.is_contiguous(), "Each tensor should be contiguous in memory (otherwise data pointer cannot work)"
 
         self.shared_dict[name] = tensor
 
@@ -121,6 +124,25 @@ class SharedMemoryDatasetMixin:
         worker_index = worker_info.id if worker_info is not None else 0
 
         return worker_index
+
+    def _get_start_pointers(self, buffer_index: int, image_index: int) -> dict[str, int]:
+        """
+        Calculate the start pointers for every tensor which should be directly copied into the pinned memory buffer (usually the features because they do not require any additional processing). This avoids unnecessary copies of the data and can help with pinned memory issues (system freeze due to memory allocations).
+
+        Args:
+            buffer_index: Index of the current buffer.
+            image_index: Index of the current image.
+
+        Returns: Dictionary with the start pointers for every tensor which should be directly copied into the pinned memory buffer.
+        """
+        start_pointers = {}
+
+        for key in self.pointer_keys:
+            start_index = buffer_index * self.shared_dict[key].size(1) + image_index
+            n_image_bytes = self.shared_dict[key].element_size() * torch.tensor(self.shared_dict[key].shape[2:]).prod()
+            start_pointers[key] = (self.shared_dict[key].data_ptr() + n_image_bytes * start_index).item()
+
+        return start_pointers
 
     @classmethod
     def batched_iteration(cls, paths: list[DataPath], config: Config) -> StreamDataLoader:

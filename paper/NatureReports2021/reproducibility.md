@@ -24,7 +24,7 @@ export PATH_HTC_RESULTS=~/htc/results
 > Please use a [`screen`](https://linuxize.com/post/how-to-use-linux-screen/) environment for all of the following commands since they may take a while to complete.
 
 ## Sanity check
-The confusion matrix is created via the notebook [ConfusionMatrix.ipynb](./ConfusionMatrix.ipynb) notebook. If you run them now, you should get an error about missing paths since the trained network is not available yet.
+The confusion matrix is created via the [ConfusionMatrix.ipynb](./ConfusionMatrix.ipynb) notebook. If you run it now, you should get an error about missing paths since the trained network is not available yet.
 
 ## Training
 We will only re-train the best-performing network, i.e. we will not redo the complete grid search to reduce the required number of training runs. To start the training, you only need the following command: [≈ 4–6 hours]

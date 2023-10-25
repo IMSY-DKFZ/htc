@@ -30,6 +30,8 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
         """
         super().__init__(*args, **kwargs)
         self.single_pass = single_pass
+        self.buffer_index = None
+        self.image_index = None
 
         # Each worker is responsible for one part of the batch of this size
         self.batch_part_size = (
@@ -58,11 +60,13 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
 
         worker_base_index = self._get_worker_index() * self.batch_part_size
         i = 0
-        buffer_index = 0
+        self.buffer_index = 0
+        self.image_index = worker_base_index + i
         expected_keys = set(self.shared_dict.keys())
 
         for sample in self.iter_samples():  # Each worker iterates over its own samples
             n_samples = None
+            self.image_index = worker_base_index + i
 
             if i == 0:
                 sample_keys = set(sample.keys())
@@ -74,14 +78,16 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
             for key, tensor in sample.items():
                 assert i == (i % self.batch_part_size), "The index must never go beyond the batch part size"
 
-                if type(tensor) == torch.Tensor and tensor.names[0] == "B":
+                if isinstance(tensor, torch.Tensor) and tensor.names[0] == "B":
                     # Subclasses (e.g. pixel dataset) may directly return batch parts instead of individual samples
                     n_samples_current = tensor.size(0)
                     self.shared_dict[key][
-                        buffer_index, worker_base_index + i : worker_base_index + i + n_samples_current
+                        self.buffer_index, self.image_index : self.image_index + n_samples_current
                     ] = tensor
                 else:
-                    self.shared_dict[key][buffer_index, worker_base_index + i] = tensor
+                    # A subclass may already filled the shared memory buffer. In that case, there is nothing more to do
+                    if tensor != "pointer":
+                        self.shared_dict[key][self.buffer_index, self.image_index] = tensor
                     n_samples_current = 1
 
                 if n_samples is not None:
@@ -94,21 +100,21 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
             assert i <= self.batch_part_size, "The number of samples must never increase over the batch part size"
 
             if i == self.batch_part_size:
-                assert buffer_index < self.buffer_size, "Invalid buffer location"
+                assert self.buffer_index < self.buffer_size, "Invalid buffer location"
                 yield {
-                    "buffer_index": buffer_index,
+                    "buffer_index": self.buffer_index,
                     "start_index": worker_base_index,
                     "end_index": worker_base_index + i,
                     "partly_filled": False,
                 }
 
-                buffer_index = (buffer_index + 1) % self.buffer_size
+                self.buffer_index = (self.buffer_index + 1) % self.buffer_size
                 i = 0
 
         if i > 0:
             # Last batch is not fully filled
             yield {
-                "buffer_index": buffer_index,
+                "buffer_index": self.buffer_index,
                 "start_index": worker_base_index,
                 "end_index": worker_base_index + i,
                 "partly_filled": True,

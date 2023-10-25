@@ -12,7 +12,7 @@ This package is a framework for automated tissue classification and segmentation
 - The implementation of deep learning models to solve supervised classification and segmentation problems for a variety of different input spatial granularities (pixels, superpixels, patches and entire images, cf. figure below) and modalities (RGB data, raw and processed HSI data) from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488). It is based on [PyTorch](https://pytorch.org/) and [Lightning](https://lightning.ai/).
 - Corresponding pretrained models.
 - A pipeline to efficiently load and process HSI data, to aggregate deep learning results and to validate and visualize findings.
-- Presentation of several solutions to speed up the data loading pipeline (see [Pytorch Conference 2023 poster details](./README.md#-dealing-with-io-bottlenecks-in-high-throughput-model-training) below).
+- Presentation of several solutions to speed up the data loading process (see [Pytorch Conference 2023 poster details](./README.md#-dealing-with-io-bottlenecks-in-high-throughput-model-training) below).
 
 <div align="center">
 <a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MIA_model_overview.svg" alt="Overview of deep learning models in the htc framework, here shown for HSI input." /></a>
@@ -60,6 +60,24 @@ This installs all the required dependencies defined in [`requirements.txt`](./re
 > &#x26a0;&#xfe0f; Network training and inference was conducted using an RTX 3090 GPU with 24 GiB of memory. It should also work with GPUs which have less memory but you may have to adjust some settings (e.g. the batch size).
 
 <details close>
+<summary>PyTorch Compatibility</summary>
+
+We cannot provide wheels for all PyTorch versions. Hence, a version of `imsy-htc` may not work with all versions of PyTorch due to changes in the ABI. In the following table, we list the PyTorch versions which are compatible with the respective `imsy-htc` version.
+
+| `imsy-htc` | `torch` |
+| -------- | ------- |
+| 0.0.9 | 1.13 |
+| 0.0.10 | 1.13 |
+| 0.0.11 | 2.0 |
+| 0.0.12 | 2.0 |
+| 0.0.13 | 2.1 |
+
+However, we do not make explicit version constraints in the dependencies of the `imsy-htc` package because a future version of PyTorch may still work and we don't want to break the installation if it is not necessary.
+
+> 💡 Please note that it is always possible to build the `imsy-htc` package with your installed PyTorch version yourself (cf. Developer Installation).
+</details>
+
+<details close>
 <summary>Optional Dependencies (<code>imsy-htc[extra]</code>)</summary>
 
 Some requirements are considered optional (e.g. if they are only needed by certain scripts) and you will get an error message if they are needed but unavailable. You can install them via
@@ -80,7 +98,7 @@ This installs the optional dependencies defined in [`requirements-extra.txt`](./
 
 We also provide a Docker setup for testing. As a prerequisite:
 - Clone this repository
-- Install [Docker](https://docs.docker.com/get-docker/) and [nvidia-docker2](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker)
+- Install [Docker](https://docs.docker.com/get-docker/) and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 - Install the required dependencies to run the Docker startup script:
 ```bash
 pip install python-dotenv
@@ -103,7 +121,7 @@ If you want to make changes to the package code (which is highly welcome 😉), 
 # Set up the conda environment
 # Note: By adding conda-forge to your default channels, you will get the latest patch releases for Python:
 #   conda config --add channels conda-forge
-conda create --yes --name htc python=3.10
+conda create --yes --name htc python=3.11
 conda activate htc
 
 # Install the htc package and its requirements
@@ -252,9 +270,9 @@ In this paper, we tackled fully automatic organ segmentation and compared deep l
 <a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MICCAI_abstract.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MICCAI_abstract.png" alt="Logo" width="600" /></a>
 </div>
 
-This paper is the direct successor of our MIA paper. We analyzed how well our networks perform under geometrical domain shifts which commonly occur in real-world open surgeries (e.g. situs occlusions). The effect is drastic (drop of Dice similarity coefficient by 45 %) but the good news is that performance on par with in-distribution data can be achieved with our simple, model-independent solution (augmentation method). You can find all the code in [htc/context](./htc/context) and paper figures as well as [reproducibility instructions](./paper/MICCAI2023/reproducibility.md) in [paper/MICCAI2023](./paper/MICCAI2023). Pretrained models are available for our organ transplantation networks with HSI and RGB modalities.
+This MICCAI2023 paper is the direct successor of our MIA2021 paper. We analyzed how well our networks perform under geometrical domain shifts which commonly occur in real-world open surgeries (e.g. situs occlusions). The effect is drastic (drop of Dice similarity coefficient by 45 %) but the good news is that performance on par with in-distribution data can be achieved with our simple, model-independent solution (augmentation method). You can find all the code in [htc/context](./htc/context) and paper figures as well as [reproducibility instructions](./paper/MICCAI2023/reproducibility.md) in [paper/MICCAI2023](./paper/MICCAI2023). Pretrained models are available for our organ transplantation networks with HSI and RGB modalities.
 
-> 💡 If you are only interested in our data augmentation method, you can also head over to [Kornia](https://github.com/kornia/kornia) where this augmentation is also implemented for generic use cases (including 2D and 3D data). You will find it under the name `RandomTransplantation`.
+> 💡 If you are only interested in our data augmentation method, you can also head over to [Kornia](https://github.com/kornia/kornia) where this augmentation is implemented for generic use cases (including 2D and 3D data). You will find it under the name [`RandomTransplantation`](https://kornia.readthedocs.io/en/latest/augmentation.module.html#kornia.augmentation.RandomTransplantation).
 
 > 📂 The dataset for this paper is not publicly available.
 
@@ -275,7 +293,11 @@ This paper is the direct successor of our MIA paper. We analyzed how well our ne
 
 ### 📝 [Dealing with I/O bottlenecks in high-throughput model training](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/PyTorchConference_Poster.pdf)
 
-The poster was presented at the PyTorch Conference 2023 and presents several solutions to improve the data loading pipeline for faster network training. This originated from the MICCAI2023 paper, where we load huge amount of data while using a relatively small network. This requested the need for fast data loading strategies so that the CPU delivers data in-time for the GPU. The solutions include efficient data storage via [Blosc](https://www.blosc.org/) compression, appropriate precision settings, GPU instead of CPU augmentations using the [Kornia](https://kornia.readthedocs.io) library and a fixed shared pinned memory buffer for efficient data transfer to the GPU. For the last part, you will find the relevant code to create the buffer in this repository as part of the [SharedMemoryDatasetMixin](./htc/models/common/SharedMemoryDatasetMixin.py#L106) class (`_add_tensor_shared()` method).
+The poster was presented at the PyTorch Conference 2023 and presents several solutions to improve data loading for faster network training. This originated from our MICCAI2023 paper, where we load huge amount of data while using a relatively small network resulting in GPU idle times when the GPU has to wait for the CPU to deliver new data. This requested the need for fast data loading strategies so that the CPU delivers data in-time for the GPU. The solutions include (1) efficient data storage via [Blosc](https://www.blosc.org/) compression, (2) appropriate precision settings, (3) GPU instead of CPU augmentations using the [Kornia](https://kornia.readthedocs.io) library and (4) a fixed shared pinned memory buffer for efficient data transfer to the GPU. For the last part, you will find the relevant code to create the buffer in this repository as part of the [SharedMemoryDatasetMixin](./htc/models/common/SharedMemoryDatasetMixin.py) class (`_add_tensor_shared()` method).
+
+You can find the code to generate the results figures of the poster in [paper/PyTorchConf2023](./paper/PyTorchConf2023) including [reproducibility instructions](./paper/PyTorchConf2023/reproducibility.md).
+
+> 📂 The dataset for this poster is not publicly available.
 
 ### 📝 [Spectral organ fingerprints for machine learning-based intraoperative tissue classification with hyperspectral imaging in a porcine model](https://doi.org/10.1038/s41598-022-15040-w)
 

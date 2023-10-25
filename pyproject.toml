@@ -17,7 +17,7 @@ profile = "black"
 line_length = 120
 
 [tool.cibuildwheel]
-build = "cp39-* cp310-*"
+build = "cp39-* cp310-* cp311-*"
 skip = "*musllinux*"
 # If more than one wheel is built (e.g. cp39 and cp310), the second wheel fails due to a non-clean build directory
 # Hence, we just delete it to start fresh

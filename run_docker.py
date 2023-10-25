@@ -45,7 +45,7 @@ if __name__ == "__main__":
             continue
 
         if path_env := os.getenv(env_name, False):
-            path_env = Path(path_env)
+            path_env = Path(path_env).expanduser()
 
             # Check for symlinks in the first level of the dataset folder and automatically mount it
             for f in sorted(path_env.iterdir()):

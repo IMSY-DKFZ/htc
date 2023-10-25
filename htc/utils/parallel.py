@@ -45,7 +45,7 @@ def p_imap(
     """
     Iterate in parallel over a function with one or more iterables. Items are processed and returned in order as soon as they are finished. A progress bar (using the rich library) will be printed during execution.
 
-    This function is similar to p_imap from the p_tqdm package (https://github.com/swansonk14/p_tqdm) but offers Python 3.10 support and uses rich for the progress bar.
+    This function is similar to p_imap from the p_tqdm package (https://github.com/swansonk14/p_tqdm) but offers Python 3.10+ support and uses rich for the progress bar.
 
     >>> a = [1, 2, 3]
     >>> b = [1, 2, 3]

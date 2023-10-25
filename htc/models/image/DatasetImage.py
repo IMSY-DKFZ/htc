@@ -59,8 +59,8 @@ class DatasetImage(HTCDataset):
             with specs.activated_test_set():
                 self.domain_mapper = DomainMapper.from_config(self.config)
 
-    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
-        sample = self.read_experiment(self.paths[index])
+    def __getitem__(self, index: int, start_pointers: dict[str, int] = None) -> dict[str, torch.Tensor]:
+        sample = self.read_experiment(self.paths[index], start_pointers=start_pointers)
         sample["image_index"] = index
 
         if self.config["input/superpixels"]:

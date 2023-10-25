@@ -76,7 +76,7 @@ else:
 
 setup(
     name="imsy-htc",
-    version="0.0.12",
+    version="0.0.13",
     # We are using find_namespace_packages() instead of find_packages() to resolve this deprecation warning: https://github.com/pypa/setuptools/issues/3340
     packages=find_namespace_packages(include=["htc*"]),
     author="Division of Intelligent Medical Systems, DKFZ",
@@ -97,6 +97,7 @@ setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: Microsoft :: Windows",

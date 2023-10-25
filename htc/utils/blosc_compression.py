@@ -60,14 +60,17 @@ def compress_file(path: Path, data: Union[np.ndarray, dict[Any, np.ndarray]]) ->
             f.write(compressed_data)
 
 
-def decompress_file(path: Path) -> Union[np.ndarray, dict[Any, np.ndarray]]:
+def decompress_file(
+    path: Path, start_pointer: Union[int, dict[str, int]] = None
+) -> Union[Union[np.ndarray, int], dict[Any, Union[np.ndarray, int]]]:
     """
     Decompresses a blosc file.
 
     Args:
         path: File to the blosc data.
+        start_pointer: If not None must be a valid memory address. It will be used to store the decompressed data directly into the provided memory location. This is, for example, useful if the data should be directly loaded into a shared memory buffer. If the compressed data contains a dictionary, the pointers must also be a dictionary with the keys corresponding to the (expected) keys in the compressed data. A pointer can only be used if the size and dtype of the decompressed data is known in advance.
 
-    Returns: Decompressed array data. Depending on the file, this will either be directly the numpy array or a dict with all numpy arrays.
+    Returns: Decompressed array data or the given pointer address. Depending on the file, this will either be directly the numpy array or a dict with all numpy arrays.
     """
     res = {}
 
@@ -76,15 +79,24 @@ def decompress_file(path: Path) -> Union[np.ndarray, dict[Any, np.ndarray]]:
         if type(meta) == tuple:
             shape, dtype = meta
             data = f.read()
-            array = np.empty(shape=shape, dtype=dtype)
-            blosc.decompress_ptr(data, array.__array_interface__["data"][0])
 
-            res = array
+            if start_pointer is not None:
+                blosc.decompress_ptr(data, start_pointer)
+                res = start_pointer
+            else:
+                array = np.empty(shape=shape, dtype=dtype)
+                blosc.decompress_ptr(data, array.__array_interface__["data"][0])
+                res = array
         else:
             for name, (shape, dtype, size) in meta.items():
                 data = f.read(size)
-                array = np.empty(shape=shape, dtype=dtype)
-                blosc.decompress_ptr(data, array.__array_interface__["data"][0])
-                res[name] = array
+
+                if start_pointer is not None:
+                    blosc.decompress_ptr(data, start_pointer[name])
+                    res[name] = start_pointer[name]
+                else:
+                    array = np.empty(shape=shape, dtype=dtype)
+                    blosc.decompress_ptr(data, array.__array_interface__["data"][0])
+                    res[name] = array
 
     return res

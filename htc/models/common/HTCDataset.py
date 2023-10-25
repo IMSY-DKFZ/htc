@@ -3,12 +3,14 @@
 
 import re
 from abc import ABC, abstractmethod
+from functools import partial
 from typing import Union
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from htc.models.common.torch_helpers import str_to_dtype
 from htc.models.common.transforms import HTCTransformation, ToType
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
@@ -39,10 +41,19 @@ class HTCDataset(ABC, Dataset):
         self.config = config
         self.fold_name = fold_name
         self.image_names = [p.image_name() for p in self.paths]
-        self.features_dtype = (
-            torch.float16 if self.config["trainer_kwargs/precision"] in [16, "16-mixed"] else torch.float32
-        )
         self.n_channels_loading = self.config["input/n_channels"]  # Value before any channel selection
+
+        if self.config["input/features_dtype"]:
+            # User sets the dtype to load the features to the GPU explicitly
+            self.features_dtype = str_to_dtype(self.config["input/features_dtype"])
+        else:
+            # If the data is stored as float16, we also load it as float16
+            # As a user, it is possible to convert the data via:
+            # input/test_time_transforms_cpu": [{"class": "ToType", "dtype": "float32"}]
+            default_dtype = torch.float16 if self.config["input/preprocessing"] in ["raw16", "L1"] else torch.float32
+            self.features_dtype = (
+                torch.float16 if self.config["trainer_kwargs/precision"] in [16, "16-mixed"] else default_dtype
+            )
 
         # Data transformations
         if self.train and self.config["input/transforms_cpu"]:
@@ -214,19 +225,25 @@ class HTCDataset(ABC, Dataset):
         assert len(sample) > 0, "No labels found"
         return sample
 
-    def read_experiment(self, path: DataPath) -> dict[str, torch.Tensor]:
+    def read_experiment(self, path: DataPath, start_pointers: dict[str, int] = None) -> dict[str, torch.Tensor]:
         """
         Reads the experiment data of one image.
 
         Args:
             path: Path to the experiment folder.
+            start_pointers: If not None, should be a dictionary with sample key names (e.g. `features`) and pointer addresses to memory locations where the sample data should be stored.
 
-        Returns: Dictionary with tensors of the features, labels, etc. ready to be used in the network.
+        Returns: Dictionary with tensors of the features, labels, etc. ready to be used in the network. If a starting pointer is given for a sample key, no data will be returned for this key but instead the pointer address.
         """
+        if start_pointers is None:
+            start_pointers = {}
+
         if self.config["input/no_features"]:
             data = None
         elif self.config["input/preprocessing"]:
-            data = self._load_preprocessed(path.image_name(), self.config["input/preprocessing"])
+            data = self._load_preprocessed(
+                path.image_name(), self.config["input/preprocessing"], start_pointer=start_pointers.get("features")
+            )
         else:
             assert self.n_channels_loading != 0, (
                 "At least one channel is necessary (please use input/no_features if you do not want to load any"
@@ -234,48 +251,52 @@ class HTCDataset(ABC, Dataset):
             )
 
             if self.n_channels_loading == 3:  # RGB
-                data = path.read_rgb_reconstructed() / 255
+                data = torch.from_numpy(path.read_rgb_reconstructed() / 255)
             else:  # HSI
                 normalization = 1 if self.config["input/normalization"] == "L1" else None
-                data = path.read_cube(normalization)
+                data = torch.from_numpy(path.read_cube(normalization))
 
         sample = self.read_labels(path)
         if sample is None:
             sample = {}
 
         if data is not None:
-            sample["features"] = torch.from_numpy(data)
+            sample["features"] = data
 
         if folder_names := self.config["input/preprocessing_additional"]:
             for name in folder_names:
-                data_additional = self._load_preprocessed(path.image_name(), name)
-                sample[f"data_{name}"] = torch.from_numpy(data_additional)
+                sample_key = f"data_{name}"
+                data_additional = self._load_preprocessed(
+                    path.image_name(), name, start_pointer=start_pointers.get(sample_key)
+                )
+                sample[sample_key] = data_additional
 
         if self.config["input/channel_selection"] and "features" in sample:
             start_channel, end_channel = self.config["input/channel_selection"]
             sample["features"] = sample["features"][:, :, start_channel:end_channel]
 
         if self.config["input/n_channels"]:
-            if not self.config["input/no_features"]:
+            if not self.config["input/no_features"] and isinstance(sample["features"], torch.Tensor):
                 assert sample["features"].shape[-1] == self.config["input/n_channels"], (
                     f'Number of feature channels ({sample["features"].shape = }) does not correspond to the number of'
                     f' channels in the config {self.config["input/n_channels"] = }'
                 )
             else:
-                assert "features" not in sample
+                assert "features" not in sample or type(sample["features"]) == int, "Either no features or pointers"
 
         for name, tensor in sample.items():
-            if name.startswith(("labels", "valid_pixels")):
-                # May be CHW
-                spatial_shape = tensor.shape[-2:]
-            else:
-                # May be HWC
-                spatial_shape = tensor.shape[:2]
+            if isinstance(tensor, torch.Tensor):
+                if name.startswith(("labels", "valid_pixels")):
+                    # May be CHW
+                    spatial_shape = tensor.shape[-2:]
+                else:
+                    # May be HWC
+                    spatial_shape = tensor.shape[:2]
 
-            assert spatial_shape == path.dataset_settings["spatial_shape"], (
-                f"All tensors must agree in the spatial dimension but the tensor {name} has only a shape of"
-                f" {tensor.shape}"
-            )
+                assert spatial_shape == path.dataset_settings["spatial_shape"], (
+                    f"All tensors must agree in the spatial dimension but the tensor {name} has only a shape of"
+                    f" {tensor.shape}"
+                )
 
         sample["image_name"] = path.image_name()
 
@@ -312,12 +333,14 @@ class HTCDataset(ABC, Dataset):
         sample_weights = weights[dataset_indices]
         return sample_weights
 
-    def _load_preprocessed(self, image_name: str, folder_name: str) -> Union[np.ndarray, None]:
+    def _load_preprocessed(
+        self, image_name: str, folder_name: str, start_pointer: int = None
+    ) -> Union[torch.Tensor, None]:
         # Load a preprocessed HSI cube
         files_dir = settings.intermediates_dir_all / "preprocessing" / folder_name
 
         extensions = [
-            (".blosc", decompress_file),
+            (".blosc", partial(decompress_file, start_pointer=start_pointer)),
             (".npy", np.load),
             (".npz", lambda p: np.load(p, allow_pickle=True)["data"]),
         ]
@@ -354,6 +377,9 @@ class HTCDataset(ABC, Dataset):
                 array[..., i] = data[name]
 
             data = array
+
+        if start_pointer is None:
+            data = torch.from_numpy(data)
 
         return data
 

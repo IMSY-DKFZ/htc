@@ -20,7 +20,7 @@ from htc.models.common.loss import SuperpixelLoss
 from htc.models.common.StreamDataLoader import StreamDataLoader
 from htc.models.common.torch_helpers import smooth_one_hot
 from htc.models.common.utils import get_n_classes
-from htc.models.image.DatasetImageStream import DatasetImageStream
+from htc.models.image.DatasetImageBatch import DatasetImageBatch
 from htc.settings import settings
 from htc.utils.type_from_string import type_from_string
 
@@ -50,6 +50,11 @@ class LightningImage(HTCLightning):
         )
 
         self.dice_loss = DiceLoss(reduction="none", softmax=True, batch=True)
+        if hasattr(self.dice_loss, "class_weight"):
+            # MONAI >=1.3.0 uses a class weight buffer which breaks loading of old checkpoints
+            # Since we have our own class weighting anyway, we simple remove the buffer
+            del self.dice_loss.class_weight
+
         if "optimization/spx_loss_weight" in self.config:
             assert (
                 "input/superpixels" in self.config
@@ -77,11 +82,11 @@ class LightningImage(HTCLightning):
                     kwargs["paths"], replacement=True, num_samples=kwargs["config"]["input/epoch_size"]
                 )
 
-            return DatasetImageStream(sampler=sampler, **kwargs)
+            return DatasetImageBatch(sampler=sampler, **kwargs)
         else:
             # We want every image from the validation/test dataset
             sampler = list(range(len(kwargs["paths"])))
-            return DatasetImageStream(sampler=sampler, **kwargs)
+            return DatasetImageBatch(sampler=sampler, **kwargs)
 
     def train_dataloader(self) -> DataLoader:
         return StreamDataLoader(self.dataset_train)

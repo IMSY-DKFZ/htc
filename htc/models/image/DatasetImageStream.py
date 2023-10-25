@@ -35,11 +35,16 @@ class DatasetImageStream(DatasetImage, HTCDatasetStream):
 
     def iter_samples(self) -> Iterator[dict[str, torch.Tensor]]:
         for worker_index, path_index in self._iter_paths():
-            sample = self[path_index]
+            start_pointers = self._get_start_pointers(self.buffer_index, self.image_index)
+            sample = self.__getitem__(path_index, start_pointers=start_pointers)
             del sample["image_name"]
 
             if "features" in sample:
-                sample["features"] = sample["features"].refine_names("H", "W", "C")
+                if isinstance(sample["features"], torch.Tensor):
+                    sample["features"] = sample["features"].refine_names("H", "W", "C")
+                else:
+                    # HTCDatasetStream needs to know that features was already filled by a pointer
+                    sample["features"] = "pointer"
             if "labels" in sample:
                 sample["labels"] = sample["labels"].refine_names("H", "W")
             if "valid_pixels" in sample:

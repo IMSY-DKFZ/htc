@@ -116,16 +116,16 @@ def read_meta_patient(path: Path) -> dict:
     Read the patient meta file (xml file) which contains meta information about the patient if provided during image acquisition in the Tivita system.
 
     >>> from htc.settings import settings
-    >>> path = Path(settings.data_dirs.studies / "2022_09_29_Surgery2_baseline" / "2022_09_29_17_04_13" / "calibration.xml")
+    >>> path = Path(settings.data_dirs.studies / "2022_09_29_Surgery2_baseline" / "2022_09_29_17_04_13" / "calibration_white.xml")
     >>> meta = read_meta_patient(path)
     >>> meta["PatientID"]
-    'calibration'
+    'calibration_white'
 
     If possible, it is recommended to use the DataPath class instead of this (low-level) function:
     >>> from htc.tivita.DataPath import DataPath
     >>> path = DataPath(settings.data_dirs.studies / "2022_09_29_Surgery2_baseline" / "2022_09_29_17_04_13")
     >>> path.meta("PatientID")
-    'calibration'
+    'calibration_white'
 
     Args:
         path: Path to the xml file.

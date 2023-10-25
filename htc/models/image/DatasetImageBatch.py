@@ -50,13 +50,18 @@ class DatasetImageBatch(SharedMemoryDatasetMixin, DatasetImage):
                     "batch_size": i,
                 }
 
+            start_pointers = self._get_start_pointers(buffer_index, i)
             image_index = self.path_indices_worker[sampler_index]
-            sample = super().__getitem__(image_index)
+            sample = super().__getitem__(image_index, start_pointers=start_pointers)
             sample["worker_index"] = worker_index
             del sample["image_name"]
 
             for key, tensor in sample.items():
-                self.shared_dict[key][buffer_index, i] = tensor
+                if key in self.pointer_keys and type(tensor) == int:
+                    # Only blosc preprocessed files can be directly loaded into the pinned memory buffer, so not every pointer is used
+                    assert tensor == start_pointers[key], f"The pointer for the key {key} does not match"
+                else:
+                    self.shared_dict[key][buffer_index, i] = tensor
             del sample
 
         self.worker_buffer_index = (self.worker_buffer_index + 1) % self.worker_buffer_size

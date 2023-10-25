@@ -21,6 +21,11 @@
                         "null"
                     ]
                 },
+                "features_dtype": {
+                    "description": "Explicitly set the dtype for the features. This determines with which dtype the features are transferred to the GPU. Usually, this is automatically inferred from the training precision (e.g. 16-mixed leads to float16) but in some cases you may want to have control over this parameter (e.g. for benchmarking).",
+                    "type": "string",
+                    "enum": ["float16", "float32"]
+                },
                 "parameter_names": {
                     "description": "Name of the parameter images which are concatenated along the channel dimension. Defaults to StO2, NIR, TWI and OHI since THI is very similar to OHI and TLI offers only limited information.",
                     "type": "array",

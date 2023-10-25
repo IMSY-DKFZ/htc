@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import importlib
 import json
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Callable, Union
 
 import numpy as np
@@ -561,6 +563,46 @@ class DataPath:
 
         return names
 
+    def _code_from_official(self, name: str) -> Union[ModuleType, None]:
+        """
+        Loads a function from the official code provided by Diaspective Vision.
+
+        Args:
+            name: Name of the function to load.
+
+        Returns: The function or None if the code is not available.
+        """
+        options = ["htc.tivita.functions_official", "functions_official"]
+        module = None
+        for option in options:
+            try:
+                module = importlib.import_module(option)
+                break
+            except ImportError:
+                pass
+
+        if module is not None:
+            return getattr(module, name, None)
+        else:
+            return None
+
+    def _load_precomputed_parameters(self) -> Union[Union[np.ndarray, int], dict[Any, Union[np.ndarray, int]]]:
+        """
+        Loads the precomputed parameter images from the corresponding *.blosc file. A `ValueError` is thrown if the *.blosc file does not exist.
+        """
+        params_path = self.intermediates_dir / "preprocessing" / "parameter_images" / f"{self.image_name()}.blosc"
+        if not params_path.exists():
+            raise ValueError(
+                f"Could not compute the parameter images for {self.image_name()}. Neither are precomputed values"
+                f" available at {params_path} nor is the official code from Diaspective Vision importable. Please note"
+                " that the code for computing the parameter images is intellectual property of Diaspective Vision and"
+                " you must obtain it directly from the company if you want to use it. If you have the code, please"
+                " provide it in a script with the name `functions_official` and make sure it can be imported (e.g."
+                " `from functions_official import calc_sto2` should work)."
+            )
+
+        return decompress_file(params_path)
+
     def compute_sto2(self, cube: np.ndarray = None) -> np.ndarray:
         """
         Computes the Tissue oxygen saturation (StO2) for the image.
@@ -580,24 +622,25 @@ class DataPath:
         >>> np.unique(sto2.mask)
         array([False,  True])
 
+        Note: Parameter images can only be computed if the corresponding code is available in a file called `functions_official` (e.g. `from functions_official import calc_sto2` should work). This is not the case per default since the code is intellectual property of Diaspective Vision. If you need the code, please contact the company directly. If the code cannot be found, the precomputed parameter images will be loaded instead. If they are not available, a `ValueError` will be raised.
+
         Args:
             cube: If not None, will use this cube instead of loading it.
 
         Returns: The StO2 parameter image (as numpy masked array) with values in the range [0;1].
         """
-        try:
-            from htc.tivita.functions_official import calc_sto2, detect_background
+        calc_sto2 = self._code_from_official("calc_sto2")
+        detect_background = self._code_from_official("detect_background")
 
+        if calc_sto2 is not None and detect_background is not None:
             with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
                 cube = self.read_cube() if cube is None else cube
                 param = np.nan_to_num(np.rot90(calc_sto2(cube), k=-1), copy=False)
                 background = np.rot90(detect_background(cube), k=-1)
 
                 return np.ma.MaskedArray(param, background == 0, fill_value=0)
-        except ImportError:
-            params = decompress_file(
-                self.intermediates_dir / "preprocessing" / "parameter_images" / f"{self.image_name()}.blosc"
-            )
+        else:
+            params = self._load_precomputed_parameters()
             return np.ma.MaskedArray(params["StO2"], params["background"], fill_value=0)
 
     def compute_nir(self, cube: np.ndarray = None) -> np.ndarray:
@@ -616,19 +659,18 @@ class DataPath:
 
         Returns: The NIR parameter image (as numpy masked array) with values in the range [0;1].
         """
-        try:
-            from htc.tivita.functions_official import calc_nir, detect_background
+        calc_nir = self._code_from_official("calc_nir")
+        detect_background = self._code_from_official("detect_background")
 
+        if calc_nir is not None and detect_background is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 cube = self.read_cube() if cube is None else cube
                 param = np.nan_to_num(np.rot90(calc_nir(cube), k=-1), copy=False)
                 background = np.rot90(detect_background(cube), k=-1)
 
                 return np.ma.MaskedArray(param, background == 0, fill_value=0)
-        except ImportError:
-            params = decompress_file(
-                self.intermediates_dir / "preprocessing" / "parameter_images" / f"{self.image_name()}.blosc"
-            )
+        else:
+            params = self._load_precomputed_parameters()
             return np.ma.MaskedArray(params["NIR"], params["background"], fill_value=0)
 
     def compute_twi(self, cube: np.ndarray = None) -> np.ndarray:
@@ -645,19 +687,18 @@ class DataPath:
 
         Returns: The TWI parameter image (as numpy masked array) with values in the range [0;1].
         """
-        try:
-            from htc.tivita.functions_official import calc_twi, detect_background
+        calc_twi = self._code_from_official("calc_twi")
+        detect_background = self._code_from_official("detect_background")
 
+        if calc_twi is not None and detect_background is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 cube = self.read_cube() if cube is None else cube
                 param = np.nan_to_num(np.rot90(calc_twi(cube), k=-1), copy=False)
                 background = np.rot90(detect_background(cube), k=-1)
 
                 return np.ma.MaskedArray(param, background == 0, fill_value=0)
-        except ImportError:
-            params = decompress_file(
-                self.intermediates_dir / "preprocessing" / "parameter_images" / f"{self.image_name()}.blosc"
-            )
+        else:
+            params = self._load_precomputed_parameters()
             return np.ma.MaskedArray(params["TWI"], params["background"], fill_value=0)
 
     def compute_ohi(self, cube: np.ndarray = None) -> np.ndarray:
@@ -674,19 +715,18 @@ class DataPath:
 
         Returns: The OHI parameter image (as numpy masked array) with values in the range [0;1].
         """
-        try:
-            from htc.tivita.functions_official import calc_ohi, detect_background
+        calc_ohi = self._code_from_official("calc_ohi")
+        detect_background = self._code_from_official("detect_background")
 
+        if calc_ohi is not None and detect_background is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 cube = self.read_cube() if cube is None else cube
                 param = np.nan_to_num(np.rot90(calc_ohi(cube), k=-1), copy=False)
                 background = np.rot90(detect_background(cube), k=-1)
 
                 return np.ma.MaskedArray(param, background == 0, fill_value=0)
-        except ImportError:
-            params = decompress_file(
-                self.intermediates_dir / "preprocessing" / "parameter_images" / f"{self.image_name()}.blosc"
-            )
+        else:
+            params = self._load_precomputed_parameters()
             return np.ma.MaskedArray(params["OHI"], params["background"], fill_value=0)
 
     def compute_tli(self, cube: np.ndarray = None) -> np.ndarray:
@@ -703,19 +743,18 @@ class DataPath:
 
         Returns: The TLI parameter image (as numpy masked array) with values in the range [0;1].
         """
-        try:
-            from htc.tivita.functions_official import calc_tli, detect_background
+        calc_tli = self._code_from_official("calc_tli")
+        detect_background = self._code_from_official("detect_background")
 
+        if calc_tli is not None and detect_background is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 cube = self.read_cube() if cube is None else cube
                 param = np.nan_to_num(np.rot90(calc_tli(cube), k=-1), copy=False)
                 background = np.rot90(detect_background(cube), k=-1)
 
                 return np.ma.MaskedArray(param, background == 0, fill_value=0)
-        except ImportError:
-            params = decompress_file(
-                self.intermediates_dir / "preprocessing" / "parameter_images" / f"{self.image_name()}.blosc"
-            )
+        else:
+            params = self._load_precomputed_parameters()
             return np.ma.MaskedArray(params["TLI"], params["background"], fill_value=0)
 
     def compute_thi(self, cube: np.ndarray = None) -> np.ndarray:
@@ -732,9 +771,10 @@ class DataPath:
 
         Returns: The THI parameter image (as numpy masked array) with values in the range [0;1].
         """
-        try:
-            from htc.tivita.functions_official import calc_ohi, detect_background
+        calc_ohi = self._code_from_official("calc_ohi")
+        detect_background = self._code_from_official("detect_background")
 
+        if calc_ohi is not None and detect_background is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 cube = self.read_cube() if cube is None else cube
                 param = np.clip(calc_ohi(cube) * 2, 0.000001, 1)
@@ -742,10 +782,8 @@ class DataPath:
                 background = np.rot90(detect_background(cube), k=-1)
 
                 return np.ma.MaskedArray(param, background == 0, fill_value=0)
-        except ImportError:
-            params = decompress_file(
-                self.intermediates_dir / "preprocessing" / "parameter_images" / f"{self.image_name()}.blosc"
-            )
+        else:
+            params = self._load_precomputed_parameters()
             return np.ma.MaskedArray(params["THI"], params["background"], fill_value=0)
 
     def camera_meta_path(self) -> Path:
@@ -784,7 +822,7 @@ class DataPath:
 
         >>> path = DataPath(settings.data_dirs.studies / "2022_09_29_Surgery2_baseline" / "2022_09_29_17_04_13")
         >>> path.patient_meta_path().name
-        'calibration.xml'
+        'calibration_white.xml'
 
         Note: Not every image has a patient meta file and if such a file does not exist, None will be returned.
 
