@@ -146,7 +146,7 @@ public:
 private:
     void checkExceptions()
     {
-        for (const std::exception_ptr exception : threadExceptions)
+        for (const std::exception_ptr &exception : threadExceptions)
         {
             std::rethrow_exception(exception);
         }

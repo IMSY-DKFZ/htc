@@ -30,4 +30,4 @@ jobs:
       run: pip install --no-use-pep517 -e .
 
     - name: Tests
-      run: py.test --doctest-modules --import-mode=importlib --collect-only htc
+      run: py.test --doctest-modules --import-mode=importlib --collect-only .
