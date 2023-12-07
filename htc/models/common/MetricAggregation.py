@@ -39,17 +39,23 @@ class MetricAggregation:
 
         assert all(m in self.df for m in self.metrics), f"Not all metrics are in the dataframe ({self.df.columns})"
 
-        if ("subject_name" not in self.df or "timestamp" not in self.df) and "image_name" in self.df:
+        if "subject_name" not in self.df and "image_name" in self.df:
+            type_infos = []
+            for name in self.df["image_name"]:
+                if DataPath.image_name_exists(name):
+                    type_infos.append(DataPath.from_image_name(name).image_name_typed())
+                else:
+                    # If the path is not available (e.g. because the user has no access to the dataset), then assume the first part is the image name
+                    subject_name = name.split("#")[0]
+                    assert subject_name != "ref", f"Cannot infer subject name from references: {name}"
+                    type_infos.append({"subject_name": subject_name})
+
             # Reconstruct missing information
-            df_meta = pd.DataFrame(
-                [DataPath.from_image_name(name).image_name_typed() for name in self.df["image_name"]]
-            )
+            df_meta = pd.DataFrame(type_infos)
             self.df = pd.concat([self.df.reset_index(drop=True), df_meta], axis=1)
             assert len(df_meta) == len(self.df), "The length of the dataframe should not change"
 
-        assert all(
-            c in self.df.columns for c in (["subject_name", "timestamp"])
-        ), "The dataframe misses some of the required columns"
+        assert "subject_name" in self.df.columns, "The dataframe misses some of the required columns"
 
     def checkpoint_metric(self, domains: Union[str, list[str], bool] = None, mode: str = None) -> float:
         """
@@ -81,7 +87,7 @@ class MetricAggregation:
             df_g = df_g.groupby(["used_labels"], as_index=False)[self.metrics].agg(self._default_aggregator)
         elif mode == "image_level":
             df_g = self.df.explode(self.metrics + ["used_labels"])
-            df_g = df_g.groupby(domains + ["subject_name", "timestamp"], as_index=False)[self.metrics].agg(
+            df_g = df_g.groupby(domains + ["subject_name", "image_name"], as_index=False)[self.metrics].agg(
                 self._default_aggregator
             )
             df_g = df_g.groupby(domains + ["subject_name"], as_index=False)[self.metrics].agg(self._default_aggregator)
@@ -164,7 +170,7 @@ class MetricAggregation:
                     df_g = df.explode(self.metrics + additional)
 
                 if not no_aggregation:
-                    df_g = df_g.groupby(domains + ["subject_name", "timestamp"], as_index=False)[self.metrics].agg(
+                    df_g = df_g.groupby(domains + ["subject_name", "image_name"], as_index=False)[self.metrics].agg(
                         self._default_aggregator
                     )
                     df_g = df_g.groupby(domains + ["subject_name"], as_index=False)[self.metrics].agg(
@@ -257,7 +263,7 @@ class MetricAggregation:
 
             return df.iloc[0]
 
-        cols = [domain, "subject_name", "timestamp", f"{domain}_predicted"]
+        cols = [domain, "subject_name", "image_name", f"{domain}_predicted"]
         df_domain = df_domain.groupby(cols, as_index=False)[cols].agg(reduce_unique)
 
         # Accuracy for each pig
@@ -278,7 +284,11 @@ class MetricAggregation:
             df = df.rename(columns={"used_labels": "label_index"}).infer_objects()
 
         # Index to name
-        if len(domains) > 0 and self.config["input/data_spec"]:
+        if (
+            len(domains) > 0
+            and self.config["input/data_spec"]
+            and any(d in self.config.get("input/target_domain", []) for d in domains)
+        ):
             domain_mappings = DomainMapper.from_config(self.config)
             for domain in domains:
                 if domain in domain_mappings:
