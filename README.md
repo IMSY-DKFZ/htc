@@ -250,16 +250,16 @@ In this paper, we tackled fully automatic organ segmentation and compared deep l
 <summary>Cite via BibTeX</summary>
 
 ```bibtex
-@article{SEIDLITZ2022102488,
-    title = {Robust deep learning-based semantic organ segmentation in hyperspectral images},
-    journal = {Medical Image Analysis},
-    volume = {80},
-    pages = {102488},
-    year = {2022},
-    issn = {1361-8415},
-    doi = {10.1016/j.media.2022.102488},
-    url = {https://www.sciencedirect.com/science/article/pii/S1361841522001359},
-    author = {Silvia Seidlitz and Jan Sellner and Jan Odenthal and Berkin Özdemir and Alexander Studier-Fischer and Samuel Knödler and Leonardo Ayala and Tim J. Adler and Hannes G. Kenngott and Minu Tizabi and Martin Wagner and Felix Nickel and Beat P. Müller-Stich and Lena Maier-Hein}
+@article{seidlitz_seg_2022,
+  author       = {Seidlitz, Silvia and Sellner, Jan and Odenthal, Jan and Özdemir, Berkin and Studier-Fischer, Alexander and Knödler, Samuel and Ayala, Leonardo and Adler, Tim J. and Kenngott, Hannes G. and Tizabi, Minu and Wagner, Martin and Nickel, Felix and Müller-Stich, Beat P. and Maier-Hein, Lena},
+  language     = {en},
+  date         = {2022-08},
+  issn         = {1361-8415},
+  journaltitle = {Medical Image Analysis},
+  keywords     = {Hyperspectral imaging,Surgical data science,Deep learning,Open surgery,Organ segmentation,Semantic scene segmentation},
+  pages        = {102488},
+  title        = {Robust deep learning-based semantic organ segmentation in hyperspectral images},
+  volume       = {80},
 }
 ```
 </details>
@@ -280,13 +280,16 @@ This MICCAI2023 paper is the direct successor of our MIA2021 paper. We analyzed 
 <summary>Cite via BibTeX</summary>
 
 ```bibtex
-@misc{sellner2023semantic,
-      title={Semantic segmentation of surgical hyperspectral images under geometric domain shifts}, 
-      author={Jan Sellner and Silvia Seidlitz and Alexander Studier-Fischer and Alessandro Motta and Berkin Özdemir and Beat Peter Müller-Stich and Felix Nickel and Lena Maier-Hein},
-      year={2023},
-      eprint={2303.10972},
-      archivePrefix={arXiv},
-      primaryClass={eess.IV}
+@inproceedings{sellner_context_2023,
+  author    = {Sellner, Jan and Seidlitz, Silvia and Studier-Fischer, Alexander and Motta, Alessandro and Özdemir, Berkin and Müller-Stich, Beat Peter and Nickel, Felix and Maier-Hein, Lena},
+  editor    = {Greenspan, Hayit and Madabhushi, Anant and Mousavi, Parvin and Salcudean, Septimiu and Duncan, James and Syeda-Mahmood, Tanveer and Taylor, Russell},
+  location  = {Cham},
+  publisher = {Springer Nature Switzerland},
+  booktitle = {Medical Image Computing and Computer Assisted Intervention -- MICCAI 2023},
+  date      = {2023},
+  isbn      = {978-3-031-43996-4},
+  pages     = {618--627},
+  title     = {Semantic Segmentation of Surgical Hyperspectral Images Under Geometric Domain Shifts},
 }
 ```
 </details>
@@ -299,6 +302,20 @@ You can find the code to generate the results figures of the poster in [paper/Py
 
 > 📂 The dataset for this poster is not publicly available.
 
+<details closed>
+<summary>Cite via BibTeX</summary>
+
+```bibtex
+@misc{sellner_benchmarking_2023,
+  author   = {Sellner, Jan and Seidlitz, Silvia and Maier-Hein, Lena},
+  language = {en},
+  url      = {https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/PyTorchConference_Poster.pdf},
+  date     = {2023-10-16},
+  title    = {Dealing with I/O bottlenecks in high-throughput model training},
+}
+```
+</details>
+
 ### 📝 [Spectral organ fingerprints for machine learning-based intraoperative tissue classification with hyperspectral imaging in a porcine model](https://doi.org/10.1038/s41598-022-15040-w)
 
 In this paper, we trained a classification model based on median spectra from HSI data. You can find the model code in [htc/tissue_atlas](./htc/tissue_atlas) and the confusion matrix figure of the paper in [paper/NatureReports2021](./paper/NatureReports2021) (including a reproducibility document).
@@ -309,19 +326,17 @@ In this paper, we trained a classification model based on median spectra from HS
 <summary>Cite via BibTeX</summary>
 
 ```bibtex
-@article{Studier-Fischer2022,
-    author = {Studier-Fischer, Alexander and Seidlitz, Silvia and Sellner, Jan and Özdemir, Berkin and Wiesenfarth, Manuel and Ayala, Leonardo and Odenthal, Jan and Knödler, Samuel and Kowalewski, Karl Friedrich and Haney, Caelan Max and Camplisson, Isabella and Dietrich, Maximilian and Schmidt, Karsten and Salg, Gabriel Alexander and Kenngott, Hannes Götz and Adler, Tim Julian and Schreck, Nicholas and Kopp-Schneider, Annette and Maier-Hein, Klaus and Maier-Hein, Lena and Müller-Stich, Beat Peter and Nickel, Felix},
-    title = {Spectral organ fingerprints for machine learning-based intraoperative tissue classification with hyperspectral imaging in a porcine model},
-    journal = {Scientific Reports},
-    year = {2022},
-    month = {Jun},
-    day = {30},
-    volume = {12},
-    number = {1},
-    pages = {11028},
-    issn = {2045-2322},
-    doi = {10.1038/s41598-022-15040-w},
-    url = {https://doi.org/10.1038/s41598-022-15040-w}
+@article{studierfischer_atlas_2022,
+  author       = {Studier-Fischer, Alexander and Seidlitz, Silvia and Sellner, Jan and Özdemir, Berkin and Wiesenfarth, Manuel and Ayala, Leonardo and Odenthal, Jan and Knödler, Samuel and Kowalewski, Karl Friedrich and Haney, Caelan Max and Camplisson, Isabella and Dietrich, Maximilian and Schmidt, Karsten and Salg, Gabriel Alexander and Kenngott, Hannes Götz and Adler, Tim Julian and Schreck, Nicholas and Kopp-Schneider, Annette and Maier-Hein, Klaus and Maier-Hein, Lena and Müller-Stich, Beat Peter and Nickel, Felix},
+  url          = {https://doi.org/10.1038/s41598-022-15040-w},
+  date         = {2022-06-30},
+  doi          = {10.1038/s41598-022-15040-w},
+  issn         = {2045-2322},
+  journaltitle = {Scientific Reports},
+  number       = {1},
+  pages        = {11028},
+  title        = {Spectral organ fingerprints for machine learning-based intraoperative tissue classification with hyperspectral imaging in a porcine model},
+  volume       = {12},
 }
 ```
 </details>
@@ -338,19 +353,17 @@ If you want to learn more about the [HeiPorSPECTRAL](https://heiporspectral.org/
 <summary>Cite via BibTeX</summary>
 
 ```bibtex
-@article{Studier-Fischer2023,
-  author={Studier-Fischer, Alexander and Seidlitz, Silvia and Sellner, Jan and Bressan, Marc and Özdemir, Berkin and Ayala, Leonardo and Odenthal, Jan and Knoedler, Samuel and Kowalewski, Karl-Friedrich and Haney, Caelan Max and Salg, Gabriel and Dietrich, Maximilian and Kenngott, Hannes and Gockel, Ines and Hackert, Thilo and Müller-Stich, Beat Peter and Maier-Hein, Lena and Nickel, Felix},
-  title={HeiPorSPECTRAL - the Heidelberg Porcine HyperSPECTRAL Imaging Dataset of 20 Physiological Organs},
-  journal={Scientific Data},
-  year={2023},
-  month={Jun},
-  day={24},
-  volume={10},
-  number={1},
-  pages={414},
-  issn={2052-4463},
-  doi={10.1038/s41597-023-02315-8},
-  url={https://doi.org/10.1038/s41597-023-02315-8}
+@article{studierfischer_open_2023,
+  author       = {Studier-Fischer, Alexander and Seidlitz, Silvia and Sellner, Jan and Bressan, Marc and Özdemir, Berkin and Ayala, Leonardo and Odenthal, Jan and Knoedler, Samuel and Kowalewski, Karl-Friedrich and Haney, Caelan Max and Salg, Gabriel and Dietrich, Maximilian and Kenngott, Hannes and Gockel, Ines and Hackert, Thilo and Müller-Stich, Beat Peter and Maier-Hein, Lena and Nickel, Felix},
+  url          = {https://doi.org/10.1038/s41597-023-02315-8},
+  date         = {2023-06-24},
+  doi          = {10.1038/s41597-023-02315-8},
+  issn         = {2052-4463},
+  journaltitle = {Scientific Data},
+  number       = {1},
+  pages        = {414},
+  title        = {HeiPorSPECTRAL - the Heidelberg Porcine HyperSPECTRAL Imaging Dataset of 20 Physiological Organs},
+  volume       = {10},
 }
 ```
 </details>
@@ -365,19 +378,17 @@ This paper presents several applications of intraoperative HSI, including our or
 <summary>Cite via BibTeX</summary>
 
 ```bibtex
-@article{Chalopin2022,
-    author = {Chalopin, Claire and Nickel, Felix and Pfahl, Annekatrin and Köhler, Hannes and Maktabi, Marianne and Thieme, René and Sucher, Robert and Jansen-Winkeln, Boris and Studier-Fischer, Alexander and Seidlitz, Silvia and Maier-Hein, Lena and Neumuth, Thomas and Melzer, Andreas and Müller-Stich, Beat Peter and Gockel, Ines},
-    title = {Künstliche Intelligenz und hyperspektrale Bildgebung zur bildgestützten Assistenz in der minimal-invasiven Chirurgie},
-    journal = {Die Chirurgie},
-    year = {2022},
-    month = {Oct},
-    day = {01},
-    volume = {93},
-    number = {10},
-    pages = {940-947},
-    issn = {2731-698X},
-    doi = {10.1007/s00104-022-01677-w},
-    url = {https://doi.org/10.1007/s00104-022-01677-w}
+@article{chalopin_chirurgie_2022,
+  author       = {Chalopin, Claire and Nickel, Felix and Pfahl, Annekatrin and Köhler, Hannes and Maktabi, Marianne and Thieme, René and Sucher, Robert and Jansen-Winkeln, Boris and Studier-Fischer, Alexander and Seidlitz, Silvia and Maier-Hein, Lena and Neumuth, Thomas and Melzer, Andreas and Müller-Stich, Beat Peter and Gockel, Ines},
+  url          = {https://doi.org/10.1007/s00104-022-01677-w},
+  date         = {2022-10-01},
+  doi          = {10.1007/s00104-022-01677-w},
+  issn         = {2731-698X},
+  journaltitle = {Die Chirurgie},
+  number       = {10},
+  pages        = {940--947},
+  title        = {Künstliche Intelligenz und hyperspektrale Bildgebung zur bildgestützten Assistenz in der minimal-invasiven Chirurgie},
+  volume       = {93},
 }
 ```
 </details>

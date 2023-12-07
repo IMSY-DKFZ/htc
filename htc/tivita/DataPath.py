@@ -629,17 +629,26 @@ class DataPath:
 
         Returns: The StO2 parameter image (as numpy masked array) with values in the range [0;1].
         """
-        calc_sto2 = self._code_from_official("calc_sto2")
-        detect_background = self._code_from_official("detect_background")
+        try:
+            from htc.tivita.functions_official import calc_sto2, calc_sto2_2_helper, detect_background
 
-        if calc_sto2 is not None and detect_background is not None:
             with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
                 cube = self.read_cube() if cube is None else cube
-                param = np.nan_to_num(np.rot90(calc_sto2(cube), k=-1), copy=False)
+                if self.meta("Camera_CamID") is None or self.meta("Camera_CamID") in [
+                    "0102-00057",
+                    "0102-00085",
+                    "0102-00098",
+                    "0202-00113",
+                    "0202-00118",
+                ]:
+                    sto2_img = calc_sto2(cube)  # Halogen formula should be used
+                else:
+                    sto2_img = calc_sto2_2_helper(cube)  # LED formula should be used
+                param = np.nan_to_num(np.rot90(sto2_img, k=-1), copy=False)
                 background = np.rot90(detect_background(cube), k=-1)
 
                 return np.ma.MaskedArray(param, background == 0, fill_value=0)
-        else:
+        except ImportError:
             params = self._load_precomputed_parameters()
             return np.ma.MaskedArray(params["StO2"], params["background"], fill_value=0)
 
@@ -1146,6 +1155,30 @@ class DataPath:
                 return None
 
         return cache[image_name]
+
+    @staticmethod
+    def image_name_exists(image_name: str) -> bool:
+        """
+        Checks whether the image name can be found.
+
+        >>> DataPath.image_name_exists('P043#2019_12_20_12_38_35')
+        True
+
+        Args:
+            image_name: Unique identifier of the path in the same format as for `from_image_name()`.
+
+        Returns: True if the image name can be found, False otherwise.
+        """
+        if "@" in image_name:
+            image_name = image_name.split("@")[0]
+
+        if image_name.startswith("ref"):
+            from htc.tivita.DataPathReference import DataPathReference
+
+            return DataPathReference.image_name_exists(image_name)
+        else:
+            match = DataPath._find_image(image_name)
+            return match is not None
 
     @staticmethod
     def from_image_name(image_name: str) -> Self:

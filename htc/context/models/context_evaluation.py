@@ -323,7 +323,7 @@ def glove_runs(networks: dict[str, Path] = None, aggregate: bool = True) -> pd.D
     Note: The results are always from the test dataset since only here glove and no-glove is available.
 
     Args:
-        networks: List of glove runs which should be included in the final table. If None, the default glove runs (as specified in settings_context.glove_runs) are used.
+        networks: Dictionary of (name, run_dir) pairs of glove runs which should be included in the final table. If None, the default glove runs (as specified in settings_context.glove_runs) are used.
         aggregate: If True, organ-level aggregated results are returned. If False, a much larger table with metric values per image is returned.
 
     Returns: Table with all aggregated results.

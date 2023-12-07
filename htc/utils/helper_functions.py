@@ -46,7 +46,7 @@ def basic_statistics(
 
     Args:
         dataset_name: Name of the dataset (folder name on the network drive).
-        specs_name: Name or path to a data specification file. A set_type column will be added indicating for each image whether it is part of the train or test set.
+        specs_name: Name or path to a data specification file. A set_type column will be added indicating for each image whether it is part of the train, test set or not part of the specification. Please note that the specification is not used to select images.
         label_mapping: Optional label mapping which is applied to the statistics table. It will rename all labels, remove invalid labels and give the sum of pixels for the new labels (in case multiple labels like blue_cloth or metal map to the same name like background).
         annotation_name: Optional parameter. If not None, the table will only include the annotations corresponding zu the given annotation_name. Otherwise, all available annotations will be included.
 
@@ -111,7 +111,7 @@ def median_table(
 
     Besides basic info about the image and the median spectra (`median_normalized_spectrum`), all available metadata is included in the table as well:
     >>> df.columns.to_list()
-    ['image_name', 'subject_name', 'timestamp', 'label_index', 'label_name', 'median_spectrum', 'std_spectrum', 'median_normalized_spectrum', 'std_normalized_spectrum', 'n_pixels', 'median_sto2', 'std_sto2', 'median_nir', 'std_nir', 'median_twi', 'std_twi', 'median_ohi', 'std_ohi', 'median_thi', 'std_thi', 'median_tli', 'std_tli', 'image_labels', 'Camera_CamID', 'Camera_Exposure', 'Camera_analoger Gain', 'Camera_digitaler Gain', 'Camera_Speed', 'SW_Name', 'SW_Version', 'Fremdlichterkennung_Fremdlicht erkannt?', 'Fremdlichterkennung_PixelmitFremdlicht', 'Fremdlichterkennung_Breite LED Rot', 'Fremdlichterkennung_Breite LED Gruen', 'Fremdlichterkennung_Grenzwert Pixelanzahl', 'Fremdlichterkennung_Intensity Grenzwert', 'Aufnahme_Aufnahmemodus', 'camera_name', 'annotation_name']
+    ['image_name', 'subject_name', 'timestamp', 'label_index', 'label_name', 'median_spectrum', 'std_spectrum', 'median_normalized_spectrum', 'std_normalized_spectrum', 'n_pixels', 'median_sto2', 'std_sto2', 'median_nir', 'std_nir', 'median_twi', 'std_twi', 'median_ohi', 'std_ohi', 'median_thi', 'std_thi', 'median_tli', 'std_tli', 'image_labels', 'Camera_CamID', 'Camera_Exposure', 'Camera_analoger Gain', 'Camera_digitaler Gain', 'Camera_Speed', 'SW_Name', 'SW_Version', 'Fremdlichterkennung_Fremdlicht erkannt?', 'Fremdlichterkennung_PixelmitFremdlicht', 'Fremdlichterkennung_Breite LED Rot', 'Fremdlichterkennung_Breite LED Gruen', 'Fremdlichterkennung_Grenzwert Pixelanzahl', 'Fremdlichterkennung_Intensity Grenzwert', 'Aufnahme_Aufnahmemodus', 'camera_name', 'path', 'annotation_name']
 
     This function can also be used to select specific annotations, either globally per dataset:
     >>> df = median_table(dataset_name="2021_02_05_Tivita_multiorgan_semantic", annotation_name="semantic#intra1")

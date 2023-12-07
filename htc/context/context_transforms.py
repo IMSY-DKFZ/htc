@@ -17,9 +17,6 @@ from htc.utils.Config import Config
 
 
 class ContextTransformation(HTCTransformation):
-    # Global cache of the cloth sample since it is always the same and we only want to load it once
-    _filling_sample = None
-
     def __init__(
         self,
         fill_value: str,
@@ -33,6 +30,7 @@ class ContextTransformation(HTCTransformation):
         self.p = p
         self.config = config
         assert 0 <= self.p <= 1, f"Invalid p value: {self.p}"
+        self._filling_sample = None
 
     def _apply_selection(self, selection: torch.Tensor, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         if self.p != 1:
@@ -69,7 +67,7 @@ class ContextTransformation(HTCTransformation):
         return batch
 
     def _load_filling_sample(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
-        if ContextTransformation._filling_sample is None:
+        if self._filling_sample is None:
             # Lazy load the filling sample (only once and with the same dtype and device as the batch)
             if self.fill_value == "cloth":
                 assert self.config is not None, "Config is required to fill with a data sample"
@@ -82,12 +80,12 @@ class ContextTransformation(HTCTransformation):
                 paths = [
                     DataPath.from_image_name("ref#2020_07_23_hyperspectral_MIC_organ_database#2020_02_20_18_29_29")
                 ]
-                ContextTransformation._filling_sample = DatasetImage(paths, train=False, config=config_loading)[0]
-                ContextTransformation._filling_sample = ContextTransformation._filling_sample["features"].to(
+                self._filling_sample = DatasetImage(paths, train=False, config=config_loading)[0]
+                self._filling_sample = self._filling_sample["features"].to(
                     device=batch["features"].device, dtype=batch["features"].dtype
                 )
 
-        return ContextTransformation._filling_sample
+        return self._filling_sample
 
 
 class OrganRemoval(ContextTransformation):

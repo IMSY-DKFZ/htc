@@ -293,7 +293,11 @@ class Runner:
 
             # The producer creates the predictions (only the main process since we use only 1 GPU)
             predictor = PredictorClass(
-                self.run_dir, self.args.use_predictions, self.args.store_predictions, **additional_kwargs
+                self.run_dir,
+                self.args.use_predictions,
+                self.args.store_predictions,
+                paths=self.paths,
+                **additional_kwargs,
             )
 
             exit_code = 0

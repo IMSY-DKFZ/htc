@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import itertools
+import re
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +13,6 @@ from htc.data_processing.DatasetIteration import DatasetIteration
 from htc.models.image.DatasetImage import DatasetImage
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
-from htc.tivita.metadata import generate_metadata_table
 from htc.utils.Config import Config
 from htc.utils.helper_functions import sort_labels
 from htc.utils.LabelMapping import LabelMapping
@@ -141,7 +141,10 @@ class MedianSpectra(DatasetIteration):
         df_median = pd.DataFrame(rows)
 
         # Directly add metadata information to the table as this is often useful to have
-        df_meta = generate_metadata_table(self.paths)
+        # There is only one meta table for the complete dataset (and not for the subdatasets), so we need to remove the subdataset information for this step
+        meta_table_name = re.sub("#.*$", "", self.dataset_name) + "@meta.feather"
+        df_meta = pd.read_feather(self.output_dir / meta_table_name)
+        df_meta.drop(columns=["annotation_name"], inplace=True)
         df = df_median.merge(df_meta, how="left")
 
         if "annotation_name" in df:

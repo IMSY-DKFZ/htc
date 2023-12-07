@@ -14,7 +14,7 @@ class KLDivLossWeighted(nn.KLDivLoss):
     """
 
     def __init__(self, weight: torch.Tensor, *args, **kwargs) -> None:
-        super().__init__(reduction="none", *args, **kwargs)
+        super().__init__(*args, reduction="none", **kwargs)
         self.register_buffer(
             "weight", weight
         )  # See _WeightedLoss in PyTorch; ensures that weights get transferred to the GPU if necessary

@@ -117,6 +117,10 @@ class DataPathReference(DataPath):
         return DataPathReference._references_cache
 
     @staticmethod
+    def image_name_exists(image_name: str) -> bool:
+        return image_name in DataPathReference._cache()
+
+    @staticmethod
     def from_image_name(image_name: str, annotation_name: Union[str, list[str]]) -> Self:
         cache = DataPathReference._cache()
         assert image_name in cache, f"Could not find the image {image_name} in the reference table"

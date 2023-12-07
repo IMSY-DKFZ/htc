@@ -153,6 +153,10 @@ class ImageTableConsumer(ImageConsumer):
         config["input/preprocessing"] = None
         config["input/no_features"] = True  # As we only need labels from the sample
 
+        # Avoid problems if this script is applied to new data with different labels (everything which the model does not know of will be ignored)
+        mapping = LabelMapping.from_config(config)
+        mapping.unknown_invalid = True
+
         path = image_data["path"]
         sample = DatasetImage([path], train=False, config=config)[0]
 
@@ -255,6 +259,9 @@ if __name__ == "__main__":
     runner.add_argument("--test-looc")
     runner.add_argument("--metrics")
     runner.add_argument("--NSD-thresholds")
+    runner.add_argument("--spec")
+    runner.add_argument("--spec-fold")
+    runner.add_argument("--spec-split")
     runner.add_argument("--output-dir")
     runner.add_argument(
         "--gpu-only",

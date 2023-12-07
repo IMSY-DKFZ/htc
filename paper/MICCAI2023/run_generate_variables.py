@@ -10,13 +10,10 @@ from htc.context.settings_context import settings_context
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings_seg import settings_seg
 from htc.utils.helper_functions import basic_statistics
-from paper.MIA2021.run_generate_variables import NumberMapping
 
 
 class VariableGeneration:
     def __init__(self):
-        self.num_mapping = NumberMapping()
-
         self.df_best = best_run_data(test=True)
 
         self.vars = {}
