@@ -31,11 +31,11 @@ from htc.utils.MeasureTime import MeasureTime
 
 
 class FoldTrainer:
-    def __init__(self, model_name: str, config_name: str, config_extends: Union[Config, None]):
+    def __init__(self, model_name: str, config_name: str, config_extends: Union[str, None]):
         self.model_name = model_name
         self.config = Config.from_model_name(config_name, model_name, use_shared_dict=True)
         if config_extends is not None:
-            self.config = self.config.merge(config_extends)
+            self.config = self.config.merge(Config(json.loads(config_extends)))
 
         adjust_num_workers(self.config)
 
@@ -259,7 +259,7 @@ class FoldTrainer:
 def train_all_folds(
     model_name: str,
     config_name: str,
-    config_extends: Union[Config, None],
+    config_extends: Union[str, None],
     run_folder: Union[str, None],
     test: bool,
     file_log_handler: DelayedFileHandler,
@@ -267,7 +267,7 @@ def train_all_folds(
     with MeasureTime("training_all", silent=True) as mt:
         config = Config.from_model_name(config_name, model_name)
         if config_extends is not None:
-            config = config.merge(config_extends)
+            config = config.merge(Config(json.loads(config_extends)))
 
         # Unique folder name per run
         if run_folder is None:
@@ -287,11 +287,13 @@ def train_all_folds(
         for i, fold_name in enumerate(data_specs.fold_names()):
             # We start the training of a fold in a new process so that we can start fresh, i.e. this makes sure that all resources like RAM are freed
             command = (
-                f"{sys.executable} {__file__} --model {model_name} --config {config['config_name']} --fold-name"
+                f"{sys.executable} {__file__} --model {model_name} --config {config_name} --fold-name"
                 f' {fold_name} --run-folder "{run_folder_tmp}"'
             )
             if test:
                 command += " --test"
+            if config_extends is not None:
+                command += f' --config-extends "{config_extends}"'
 
             settings.log.info(f"Starting training of the fold {fold_name} [{i + 1}/{len(data_specs.fold_names())}]")
             ret = subprocess.run(command, shell=True)
@@ -384,13 +386,8 @@ if __name__ == "__main__":
 
     sys.excepthook = handle_exception
 
-    if args.config_extends is not None:
-        config_extends = Config(json.loads(args.config_extends))
-    else:
-        config_extends = None
-
     if args.fold_name == "all":
-        train_all_folds(args.model, args.config, config_extends, args.run_folder, args.test, file_log_handler)
+        train_all_folds(args.model, args.config, args.config_extends, args.run_folder, args.test, file_log_handler)
     else:
-        fold_trainer = FoldTrainer(args.model, args.config, config_extends)
+        fold_trainer = FoldTrainer(args.model, args.config, args.config_extends)
         fold_trainer.train_fold(args.run_folder, args.fold_name, args.test, file_log_handler)
