@@ -106,12 +106,10 @@ def compare_performance(
             dm_difference["dice_metric"] = test_experiment_explode["dice_metric"].subtract(
                 test_reference_explode["dice_metric"]
             )
-            dm_difference = dm_difference.groupby(["image_name"], as_index=False).agg(
-                {
-                    "dice_metric": lambda x: x.tolist(),
-                    "used_labels": lambda x: x.tolist(),
-                }
-            )
+            dm_difference = dm_difference.groupby(["image_name"], as_index=False).agg({
+                "dice_metric": lambda x: x.tolist(),
+                "used_labels": lambda x: x.tolist(),
+            })
 
             # Aggregate and group with subjects
             config_experiment = Config(directory / "config.json")

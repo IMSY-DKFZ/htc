@@ -136,13 +136,11 @@ def distance_correlation_features(df: pd.DataFrame, device: str = "cuda") -> pd.
             dcors.append(torch.vmap(lambda indices: distance_correlation(x_all[indices], y_all[indices]))(chunk))
         dcors = torch.cat(dcors)
 
-        rows.append(
-            {
-                "label_name": label_name,
-                "dcor": dcors.tolist(),
-                "dcor_mean": dcors.mean().item(),
-                "dcor_std": dcors.std().item(),
-            }
-        )
+        rows.append({
+            "label_name": label_name,
+            "dcor": dcors.tolist(),
+            "dcor_mean": dcors.mean().item(),
+            "dcor_std": dcors.std().item(),
+        })
 
     return pd.DataFrame(rows)

@@ -7,6 +7,7 @@ from typing import Callable, Union
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
+from htc.tivita.DataPathTivita import DataPathTivita
 from htc.tivita.DatasetSettings import DatasetSettings
 
 
@@ -103,37 +104,40 @@ class DataPathSepsis(DataPath):
         filters: list[Callable[["DataPath"], bool]],
         annotation_name: Union[str, list[str]],
     ) -> Iterator["DataPathSepsis"]:
-        dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
-        intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
+        if data_dir.name == "data":
+            dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
+            intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
 
-        study_dir = data_dir / "hand_posture_study"
-        for subject_name_path in sorted((study_dir / "healthy").iterdir()):
-            for location_path in sorted(subject_name_path.iterdir()):
-                for image_dir in sorted(location_path.iterdir()):
-                    path = DataPathSepsis(image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name)
-                    if all(f(path) for f in filters):
-                        yield path
+            study_dir = data_dir / "hand_posture_study"
+            for subject_name_path in sorted((study_dir / "healthy").iterdir()):
+                for location_path in sorted(subject_name_path.iterdir()):
+                    for image_dir in sorted(location_path.iterdir()):
+                        path = DataPathSepsis(image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name)
+                        if all(f(path) for f in filters):
+                            yield path
 
-        study_dir = data_dir / "sepsis_study"
-        for health_status_path in sorted(study_dir.iterdir()):
-            if health_status_path.name in ["annotations", "meta"]:
-                continue
+            study_dir = data_dir / "sepsis_study"
+            for health_status_path in sorted(study_dir.iterdir()):
+                if health_status_path.name in ["annotations", "meta"]:
+                    continue
 
-            for subject_name_path in sorted(health_status_path.iterdir()):
-                if health_status_path.name == "healthy":
-                    for location_path in sorted(subject_name_path.iterdir()):
-                        for image_dir in sorted(location_path.iterdir()):
-                            path = DataPathSepsis(
-                                image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name
-                            )
-                            if all(f(path) for f in filters):
-                                yield path
-                else:
-                    for timepoint_path in sorted(subject_name_path.iterdir()):
-                        for location_path in sorted(timepoint_path.iterdir()):
+                for subject_name_path in sorted(health_status_path.iterdir()):
+                    if health_status_path.name == "healthy":
+                        for location_path in sorted(subject_name_path.iterdir()):
                             for image_dir in sorted(location_path.iterdir()):
                                 path = DataPathSepsis(
                                     image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name
                                 )
                                 if all(f(path) for f in filters):
                                     yield path
+                    else:
+                        for timepoint_path in sorted(subject_name_path.iterdir()):
+                            for location_path in sorted(timepoint_path.iterdir()):
+                                for image_dir in sorted(location_path.iterdir()):
+                                    path = DataPathSepsis(
+                                        image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name
+                                    )
+                                    if all(f(path) for f in filters):
+                                        yield path
+        else:
+            yield from DataPathTivita.iterate(data_dir, filters, annotation_name)

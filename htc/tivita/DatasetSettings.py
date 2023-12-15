@@ -60,7 +60,17 @@ class DatasetSettings:
             return self.data == other.data
 
     def __getitem__(self, key: str) -> Any:
-        assert key in self.data, f"Cannot find {key} in the dataset settings\n{self.settings_path = }\n{self.data = }"
+        if key not in self.data:
+            if self.settings_path is not None and self.settings_path.exists():
+                # Reload the dataset settings
+                self._data = None
+            if key not in self.data:
+                settings_paths_exists = self.settings_path.exists() if self.settings_path is not None else False
+                raise ValueError(
+                    f"Cannot find {key} in the dataset"
+                    f" settings\n{self.settings_path = }\n{settings_paths_exists = }\n{self.data = }\n{self._data = }"
+                )
+
         return self.data[key]
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -105,16 +115,20 @@ class DatasetSettings:
 
         Returns: Data path type or None if no match could be found.
         """
+        known_datasets = {
+            "2020_11_24_Tivita_sepsis_study": "htc.tivita.DataPathSepsis>DataPathSepsis",
+            "2021_02_05_Tivita_multiorgan_masks": "htc.tivita.DataPathMultiorgan>DataPathMultiorgan",
+            "2021_02_05_Tivita_multiorgan_semantic": "htc.tivita.DataPathMultiorgan>DataPathMultiorgan",
+            "2021_07_26_Tivita_multiorgan_human": "htc.tivita.DataPathMultiorgan>DataPathMultiorgan",
+            "2022_08_03_Tivita_unsorted_images": "htc.tivita.DataPathReference>DataPathReference",
+            "2022_10_24_Tivita_sepsis_ICU": "htc.tivita.DataPathSepsisICU>DataPathSepsisICU",
+            "2023_12_07_Tivita_multiorgan_rat": "htc.tivita.DataPathMultiorganCamera>DataPathMultiorganCamera",
+        }
+
         if "data_path_class" in self:
             DataPathClass = type_from_string(self["data_path_class"])
-        elif "multiorgan" in self.get("dataset_name", ""):
-            from htc.tivita.DataPathMultiorgan import DataPathMultiorgan
-
-            DataPathClass = DataPathMultiorgan
-        elif "sepsis" in self.get("dataset_name", ""):
-            from htc.tivita.DataPathSepsis import DataPathSepsis
-
-            DataPathClass = DataPathSepsis
+        elif self.get("dataset_name", "") in known_datasets:
+            DataPathClass = type_from_string(known_datasets[self["dataset_name"]])
         elif self._path is not None:
             # Try to infer the data path class from the files in the directory
             if self._path.is_file() or not self._path.exists():
@@ -123,15 +137,15 @@ class DatasetSettings:
                 dataset_dir = self._path
             assert dataset_dir.exists() and dataset_dir.is_dir(), f"The dataset directory {dataset_dir} does not exist"
 
-            files = sorted(dataset_dir.iterdir())
-            if any(f.name.startswith("Cat") for f in files):
-                from htc.tivita.DataPathTissueAtlas import DataPathTissueAtlas
-
-                DataPathClass = DataPathTissueAtlas
-            elif any(f.name.endswith("subjects") for f in files):
+            files = [f for f in sorted(dataset_dir.iterdir()) if f.is_dir()]
+            if len(files) == 1 and files[0] == "subjects":
                 from htc.tivita.DataPathMultiorgan import DataPathMultiorgan
 
                 DataPathClass = DataPathMultiorgan
+            elif any(f.name.startswith("0") for f in files):
+                from htc.tivita.DataPathMultiorganCamera import DataPathMultiorganCamera
+
+                DataPathClass = DataPathMultiorganCamera
             elif any(f.name == "sepsis_study" for f in files):
                 from htc.tivita.DataPathSepsis import DataPathSepsis
 

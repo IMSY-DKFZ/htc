@@ -33,13 +33,11 @@ class MedianSpectra(DatasetIteration):
             self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True, parents=True)
 
-        config = Config(
-            {
-                "input/n_channels": 100,
-                "label_mapping": None,
-                "input/annotation_name": "all",
-            }
-        )
+        config = Config({
+            "input/n_channels": 100,
+            "label_mapping": None,
+            "input/annotation_name": "all",
+        })
         self.dataset = DatasetImage(paths, train=False, config=config)
 
     def compute(self, i: int) -> list[dict]:

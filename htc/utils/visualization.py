@@ -4,6 +4,7 @@
 import base64
 import gzip
 import json
+import math
 import uuid
 from pathlib import Path
 from typing import Callable, Union
@@ -462,13 +463,11 @@ def create_class_scores_figure(agg: MetricAggregation) -> None:
         n_images += 1
 
     # Same label ordering for bar charts and box plot
-    df_counts = pd.DataFrame(
-        {
-            "label_name": mapping.label_names(),
-            "n_pixels": pixel_counts,
-            "n_images": image_counts,
-        }
-    )
+    df_counts = pd.DataFrame({
+        "label_name": mapping.label_names(),
+        "n_pixels": pixel_counts,
+        "n_images": image_counts,
+    })
     df_counts = sort_labels(df_counts)
     colors = [settings.label_colors[name] for name in df_counts["label_name"]]
 
@@ -648,17 +647,15 @@ def create_confusion_figure(confusion_matrix: np.ndarray, labels: list[str] = No
     annotations = []
     for i, row in enumerate(confusion_matrix):
         for j, value in enumerate(row):
-            annotations.append(
-                {
-                    "x": labels[j],
-                    "y": labels[i],
-                    "font": {"color": "white"},
-                    "text": f"{value:.1f}",
-                    "xref": "x1",
-                    "yref": "y1",
-                    "showarrow": False,
-                }
-            )
+            annotations.append({
+                "x": labels[j],
+                "y": labels[i],
+                "font": {"color": "white"},
+                "text": f"{value:.1f}",
+                "xref": "x1",
+                "yref": "y1",
+                "showarrow": False,
+            })
 
     layout = {"xaxis": {"title": "Predicted value"}, "yaxis": {"title": "Real value"}, "annotations": annotations}
     fig = go.Figure(data=data, layout=layout)
@@ -694,17 +691,15 @@ def create_confusion_figure_comparison(
     annotations = []
     for i, row in enumerate(cm):
         for j, value in enumerate(row):
-            annotations.append(
-                {
-                    "x": labels[j],
-                    "y": labels[i],
-                    "font": {"color": "white"},
-                    "text": f"{value:.4f}",
-                    "xref": "x1",
-                    "yref": "y1",
-                    "showarrow": False,
-                }
-            )
+            annotations.append({
+                "x": labels[j],
+                "y": labels[i],
+                "font": {"color": "white"},
+                "text": f"{value:.4f}",
+                "xref": "x1",
+                "yref": "y1",
+                "showarrow": False,
+            })
     layout = {
         "xaxis": {"title": f"{run_dir_1} (rundir1)"},
         "yaxis": {"title": f"{run_dir_2} (rundir2)"},
@@ -868,6 +863,81 @@ def create_median_spectra_figure(path: DataPath) -> go.Figure:
     return fig
 
 
+def create_median_spectra_comparison_figure(
+    df: pd.DataFrame,
+    group_column: str,
+    color_mapping: dict[str, str],
+    line_dash_mapping: dict[str, str] = None,
+) -> go.Figure:
+    """
+    Compare median spectra for different groups (e.g. cameras) stratified by label.
+
+    Args:
+        df: Dataframe with the median spectra for all groups and labels.
+        group_column: Column name which contains the group names.
+        color_mapping: Mapping from group names to colors.
+        line_dash_mapping: Mapping from group names to line dash styles. If None, all lines will be solid.
+
+    Returns: Plotly figure.
+    """
+    n_cols = 4
+    n_rows = math.ceil(df["label_name"].nunique() / n_cols)
+    labels = df["label_name"].unique()
+    fig = make_subplots(
+        rows=n_rows,
+        cols=n_cols,
+        shared_xaxes="all",
+        shared_yaxes="all",
+        subplot_titles=labels,
+        vertical_spacing=0.05,
+        horizontal_spacing=0.03,
+    )
+
+    for group_name in df[group_column].unique():
+        for i, label in enumerate(labels):
+            df_cam = df[(df["label_name"] == label) & (df[group_column] == group_name)]
+            if len(df_cam) > 0:
+                row = i // n_cols
+                col = i % n_cols
+
+                spec = np.stack(df_cam["median_normalized_spectrum"])  # Spectra from all subjects
+                spec_mean = np.mean(spec, axis=0)
+                spec_std = np.std(spec, axis=0)
+
+                if line_dash_mapping is None:
+                    line_dash = "solid"
+                else:
+                    line_dash = line_dash_mapping[group_name]
+
+                fig = add_std_fill(
+                    fig,
+                    spec_mean,
+                    spec_std,
+                    x=tivita_wavelengths(),
+                    linecolor=color_mapping[group_name],
+                    line_dash=line_dash,
+                    label=group_name,
+                    showlegend=row == 1 and col == 1,
+                    row=row + 1,
+                    col=col + 1,
+                )
+
+                if col == 0:
+                    fig.update_yaxes(title="L1 normalized<br>reflectance", row=row + 1, col=col + 1)
+                if row == n_rows - 1:
+                    fig.update_xaxes(title="wavelength [nm]", row=row + 1, col=col + 1)
+
+    fig.update_layout(
+        title="Spectra for organs and cameras (with inter-pig deviation)",
+        title_x=0.5,
+    )
+    fig.update_layout(margin=dict(l=0, r=0, b=0, t=70))
+    fig.update_layout(height=200 * n_rows, width=1400)
+    fig.update_layout(template="plotly_white")
+
+    return fig
+
+
 def create_overview_document(
     path: DataPath,
     include_tpi: bool = False,
@@ -1006,10 +1076,11 @@ def create_overview_document(
 
                 label_meta = p.meta(f"label_meta/{l}")
                 if label_meta is not None and "situs" in label_meta:
-                    meta = (
-                        f"<br>situs={label_meta['situs']}, angle={label_meta['angle']}°,"
-                        f" repetition={label_meta['repetition']}"
-                    )
+                    meta = f"<br>situs={label_meta['situs']}"
+                    if "angle" in label_meta:
+                        meta += f", angle={label_meta['angle']}°"
+                    if "repetition" in label_meta:
+                        meta += f", repetition={label_meta['repetition']}"
                 else:
                     meta = ""
 
@@ -1537,13 +1608,11 @@ def create_segmentation_overlay(
             for i in indices:
                 visible_state[i] = True
 
-            button_states.append(
-                {
-                    "label": name,
-                    "method": "update",
-                    "args": [{"visible": visible_state}],
-                }
-            )
+            button_states.append({
+                "label": name,
+                "method": "update",
+                "args": [{"visible": visible_state}],
+            })
 
     fig.add_layout_image(
         source=Image.fromarray(rgb_image),
@@ -1888,13 +1957,11 @@ def create_ece_figure(df: pd.DataFrame) -> None:
         fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], name="Optimum", visible=f == 0))
         line_ids.append(f)
 
-        button_states.append(
-            {
-                "label": fold_name,
-                "method": "update",
-                "args": [{"title": f'Confidence histogram ({fold_name}, ece={ece["error"]:0.3f})'}],
-            }
-        )
+        button_states.append({
+            "label": fold_name,
+            "method": "update",
+            "args": [{"title": f'Confidence histogram ({fold_name}, ece={ece["error"]:0.3f})'}],
+        })
 
     # Calculate the visible states (find out which lines have to be activated for which fold)
     line_ids = np.array(line_ids)
@@ -1932,13 +1999,11 @@ def show_utilization(run_dir: Path) -> None:
         visible_state = [False] * len(fold_dirs) * 2  # CPU and GPU plot
         visible_state[2 * f] = True
         visible_state[2 * f + 1] = True
-        button_states.append(
-            {
-                "label": fold_dir.stem,
-                "method": "update",
-                "args": [{"visible": visible_state}, {"title": f'avg_gpuutil = {np.mean(data["gpu_load_mean"]):0.4f}'}],
-            }
-        )
+        button_states.append({
+            "label": fold_dir.stem,
+            "method": "update",
+            "args": [{"visible": visible_state}, {"title": f'avg_gpuutil = {np.mean(data["gpu_load_mean"]):0.4f}'}],
+        })
 
     fig.layout.update(updatemenus=[go.layout.Updatemenu(type="dropdown", active=0, buttons=button_states)])
 

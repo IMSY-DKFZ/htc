@@ -20,18 +20,22 @@ class DataPathCustom(DataPath):
         filters: list[Callable[["DataPath"], bool]],
         annotation_name: Union[str, list[str]],
     ) -> Iterator["DataPathCustom"]:
-        # Optional but recommended (see below)
-        dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
+        if data_dir.name == "data":
+            # Optional but recommended (see below)
+            dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
 
-        # Optional, only if needed/available
-        intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
+            # Optional, only if needed/available
+            intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
 
-        # Adjust looping according to your dataset structure
-        for image_dir in sorted(data_dir.iterdir()):
-            # Add custom attributes as needed
-            path = DataPathCustom(image_dir, data_dir, intermediates_dir=intermediates_dir, dataset_settings=dataset_settings, annotation_name_default=annotation_name)
-            if all([f(path) for f in filters]):
-                yield path
+            # Adjust looping according to your dataset structure
+            for image_dir in sorted(data_dir.iterdir()):
+                # Add custom attributes as needed
+                path = DataPathCustom(image_dir, data_dir, intermediates_dir=intermediates_dir, dataset_settings=dataset_settings, annotation_name_default=annotation_name)
+                if all([f(path) for f in filters]):
+                    yield path
+        else:
+            # Fallback to the default DataPathTivita class if the given data_dir is unknown (e.g. because the user requested a subdirectory and your class cannot handle iteration over subdirectories)
+            yield from DataPathTivita.iterate(data_dir, filters, annotation_name)
 ```
 
 ## Annotations

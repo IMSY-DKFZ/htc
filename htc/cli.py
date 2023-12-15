@@ -26,14 +26,12 @@ def main() -> int:
         else:
             full_name = f"{module_name}.{name}"  # e.g. cameras.data.cam_dataset
 
-        scripts.append(
-            {
-                "name": name,
-                "full_name": full_name,
-                "path": path,
-                "module_path": module_path,
-            }
-        )
+        scripts.append({
+            "name": name,
+            "full_name": full_name,
+            "path": path,
+            "module_path": module_path,
+        })
 
     scripts = sorted(scripts, key=lambda x: x["full_name"])
     assert len(scripts) > 0, "No scripts found in the repository"

@@ -145,17 +145,15 @@ class BootstrapRanking:
             for alg in self.counts.algorithm.unique():
                 df_sel = self.counts.query("task == @task & algorithm == @alg")
                 ranks = np.concatenate([np.repeat(r["rank"], r["count"]) for _, r in df_sel.iterrows()])
-                rows.append(
-                    [
-                        task,
-                        alg,
-                        np.mean(ranks),
-                        np.median(ranks),
-                        np.std(ranks),
-                        np.quantile(ranks, 0.025, method="closest_observation"),
-                        np.quantile(ranks, 0.975, method="closest_observation"),
-                    ]
-                )
+                rows.append([
+                    task,
+                    alg,
+                    np.mean(ranks),
+                    np.median(ranks),
+                    np.std(ranks),
+                    np.quantile(ranks, 0.025, method="closest_observation"),
+                    np.quantile(ranks, 0.975, method="closest_observation"),
+                ])
 
         self._statistics = pd.DataFrame(
             rows, columns=["task", "algorithm", "mean_rank", "median_rank", "std_rank", "min_CI", "max_CI"]

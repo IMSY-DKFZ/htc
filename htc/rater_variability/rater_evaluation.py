@@ -80,16 +80,14 @@ def rater_evaluation(annotation_name: str) -> tuple[pd.DataFrame, dict]:
     rows = []
     for image_name, res in results.items():
         subject_name, timestamp = image_name.split("#")
-        rows.append(
-            {
-                "subject_name": subject_name,
-                "timestamp": timestamp,
-                "dice_metric_image": res["dice_metric_image"],
-                "surface_distance_metric_image": res["surface_distance_metric_image"],
-                settings_seg.nsd_aggregation: res["surface_dice_metric_image"],
-                "confusion_matrix": res["confusion_matrix"].numpy(),
-            }
-        )
+        rows.append({
+            "subject_name": subject_name,
+            "timestamp": timestamp,
+            "dice_metric_image": res["dice_metric_image"],
+            "surface_distance_metric_image": res["surface_distance_metric_image"],
+            settings_seg.nsd_aggregation: res["surface_dice_metric_image"],
+            "confusion_matrix": res["confusion_matrix"].numpy(),
+        })
 
     stats = {
         "additional_labels": additional_labels,

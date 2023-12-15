@@ -44,25 +44,23 @@ def compute_context_tables(runs: list[Path], table_name: str, recalculate: bool 
             )
             if not test_table_real.exists() or recalculate:
                 settings.log.info(f"Computing masks isolation test table for {run_dir}")
-                res = subprocess_run(
-                    [
-                        sys.executable,
-                        run_dataset_tables.__file__,
-                        "--model",
-                        run_dir.parent.name,
-                        "--run-folder",
-                        run_dir.name,
-                        "--metrics",
-                        "DSC",
-                        "ASD",
-                        "NSD",
-                        "--test",
-                        "--dataset-name",
-                        "masks_isolation",
-                        "--output-dir",
-                        str(test_table_real.parent),
-                    ]
-                )
+                res = subprocess_run([
+                    sys.executable,
+                    run_dataset_tables.__file__,
+                    "--model",
+                    run_dir.parent.name,
+                    "--run-folder",
+                    run_dir.name,
+                    "--metrics",
+                    "DSC",
+                    "ASD",
+                    "NSD",
+                    "--test",
+                    "--dataset-name",
+                    "masks_isolation",
+                    "--output-dir",
+                    str(test_table_real.parent),
+                ])
                 assert (
                     res.returncode == 0
                 ), f"Computation of the masks isolation test table for the run folder {run_dir} was not successful"

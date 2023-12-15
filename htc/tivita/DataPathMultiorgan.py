@@ -8,6 +8,7 @@ from typing import Callable, Union
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
+from htc.tivita.DataPathTivita import DataPathTivita
 from htc.tivita.DatasetSettings import DatasetSettings
 
 
@@ -95,12 +96,15 @@ class DataPathMultiorgan(DataPath):
         filters: list[Callable[["DataPath"], bool]],
         annotation_name: Union[str, list[str]],
     ) -> Iterator["DataPathMultiorgan"]:
-        dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
-        intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
+        if (data_dir / "subjects").exists():
+            dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
+            intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
 
-        # Multi-organ data
-        for subject_name_path in sorted(data_dir.glob("subjects/*")):
-            for image_dir in sorted(subject_name_path.iterdir()):
-                path = DataPathMultiorgan(image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name)
-                if all(f(path) for f in filters):
-                    yield path
+            # Multi-organ data
+            for subject_name_path in sorted(data_dir.glob("subjects/*")):
+                for image_dir in sorted(subject_name_path.iterdir()):
+                    path = DataPathMultiorgan(image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name)
+                    if all(f(path) for f in filters):
+                        yield path
+        else:
+            yield from DataPathTivita.iterate(data_dir, filters, annotation_name)

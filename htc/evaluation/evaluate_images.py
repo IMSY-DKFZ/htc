@@ -211,13 +211,11 @@ def calc_surface_distance(predictions_labels: torch.Tensor, labels: torch.Tensor
             # Set nan/inf values (structure to small or class did not occur at all) to the maximum value so that we can calculate a meaningful average value
             distances[invalid_distances] = distances[~invalid_distances].max()
 
-        batch_results.append(
-            {
-                "used_labels": used_labels,
-                "surface_distance_metric": distances,
-                "surface_distance_metric_image": distances.mean().item(),
-            }
-        )
+        batch_results.append({
+            "used_labels": used_labels,
+            "surface_distance_metric": distances,
+            "surface_distance_metric_image": distances.mean().item(),
+        })
 
     return batch_results
 

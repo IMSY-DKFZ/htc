@@ -65,14 +65,12 @@ class ValidationPredictor(Predictor):
                     for image_name in batch["image_name"]:
                         predictions = self.load_predictions(image_name)
                         if predictions is not None:
-                            task_queue.put(
-                                {
-                                    "path": self.name_path_mapping[image_name],
-                                    "fold_name": fold_dir.name,
-                                    "best_epoch_index": best_epoch_index,
-                                    "predictions": predictions,
-                                }
-                            )
+                            task_queue.put({
+                                "path": self.name_path_mapping[image_name],
+                                "fold_name": fold_dir.name,
+                                "best_epoch_index": best_epoch_index,
+                                "predictions": predictions,
+                            })
                         else:
                             remaining_image_names.append(image_name)
 
@@ -118,11 +116,9 @@ class ValidationPredictor(Predictor):
             if image_name in remaining_image_names:
                 predictions = batch_predictions[b, ...]
 
-                task_queue.put(
-                    {
-                        "path": self.name_path_mapping[image_name],
-                        "fold_name": fold_name,
-                        "best_epoch_index": best_epoch_index,
-                        "predictions": predictions,
-                    }
-                )
+                task_queue.put({
+                    "path": self.name_path_mapping[image_name],
+                    "fold_name": fold_name,
+                    "best_epoch_index": best_epoch_index,
+                    "predictions": predictions,
+                })

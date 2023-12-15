@@ -89,13 +89,11 @@ class TestLeaveOneOutPredictor(Predictor):
                     for b, image_name in enumerate(batch["image_name"]):
                         predictions = self.load_predictions(image_name)
                         if predictions is not None:
-                            task_queue.put(
-                                {
-                                    "path": self.name_path_mapping[image_name],
-                                    "fold_name": fold_dir.name,
-                                    "predictions": predictions,
-                                }
-                            )
+                            task_queue.put({
+                                "path": self.name_path_mapping[image_name],
+                                "fold_name": fold_dir.name,
+                                "predictions": predictions,
+                            })
                         else:
                             remaining_image_names.append(image_name)
 

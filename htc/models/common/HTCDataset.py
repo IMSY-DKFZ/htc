@@ -10,8 +10,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from htc.models.common.torch_helpers import str_to_dtype
 from htc.models.common.transforms import HTCTransformation, ToType
+from htc.models.common.utils import dtype_from_config
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.settings_seg import settings_seg
@@ -42,18 +42,7 @@ class HTCDataset(ABC, Dataset):
         self.fold_name = fold_name
         self.image_names = [p.image_name() for p in self.paths]
         self.n_channels_loading = self.config["input/n_channels"]  # Value before any channel selection
-
-        if self.config["input/features_dtype"]:
-            # User sets the dtype to load the features to the GPU explicitly
-            self.features_dtype = str_to_dtype(self.config["input/features_dtype"])
-        else:
-            # If the data is stored as float16, we also load it as float16
-            # As a user, it is possible to convert the data via:
-            # input/test_time_transforms_cpu": [{"class": "ToType", "dtype": "float32"}]
-            default_dtype = torch.float16 if self.config["input/preprocessing"] in ["raw16", "L1"] else torch.float32
-            self.features_dtype = (
-                torch.float16 if self.config["trainer_kwargs/precision"] in [16, "16-mixed"] else default_dtype
-            )
+        self.features_dtype = dtype_from_config(self.config)
 
         # Data transformations
         if self.train and self.config["input/transforms_cpu"]:
@@ -335,9 +324,33 @@ class HTCDataset(ABC, Dataset):
 
     def _load_preprocessed(
         self, image_name: str, folder_name: str, start_pointer: int = None
-    ) -> Union[torch.Tensor, None]:
-        # Load a preprocessed HSI cube
-        files_dir = settings.intermediates_dir_all / "preprocessing" / folder_name
+    ) -> Union[torch.Tensor, int]:
+        """
+        Load preprocessed data for a given image from the specified folder.
+
+        Args:
+            image_name: The name of the image to load.
+            folder_name: The name of the folder where the preprocessed data is stored relative to intermediates/preprocessing, results_dir/preprocessing, results_dir or directly a relative or absolute path.
+            start_pointer: If given, the data will be directly loaded into the memory location specified by this pointer address.
+
+        Returns: The loaded preprocessed data as a PyTorch tensor or the pointer address if start_pointer is not None.
+        """
+        possible_directories = [
+            settings.intermediates_dir_all / "preprocessing" / folder_name,
+            settings.results_dir / "preprocessing" / folder_name,
+            settings.results_dir / folder_name,
+            folder_name,
+        ]
+        files_dir = None
+        for p in possible_directories:
+            if p.exists():
+                files_dir = p
+                break
+
+        assert files_dir is not None, (
+            f"Could not find the intermediates folder {folder_name}. Tried the following"
+            f" locations:\n{possible_directories}"
+        )
 
         extensions = [
             (".blosc", partial(decompress_file, start_pointer=start_pointer)),

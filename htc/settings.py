@@ -151,17 +151,15 @@ class Settings:
                 width=(
                     120 if self.is_interactive else None
                 ),  # Increase the default width in notebooks (unfortunately, rich cannot detect the browser width automatically: https://github.com/Textualize/rich/issues/504)
-                theme=Theme(
-                    {
-                        "var": "dim",
-                        "repr.image_name": "cyan",
-                        "repr.str": "bright_black",
-                        "repr.number": "grey69",
-                        "logging.level.debug": "bright_blue",
-                        "logging.level.info": "green4",
-                        "logging.level.warning": "yellow",
-                    }
-                ),
+                theme=Theme({
+                    "var": "dim",
+                    "repr.image_name": "cyan",
+                    "repr.str": "bright_black",
+                    "repr.number": "grey69",
+                    "logging.level.debug": "bright_blue",
+                    "logging.level.info": "green4",
+                    "logging.level.warning": "yellow",
+                }),
             ),
             highlighter=highlighter,
         )
@@ -288,6 +286,17 @@ class Settings:
             "tag_cauterization": "#9d9e9e",
             "tag_malperfused": "#03ffff",
             "instrument": "#636363",
+            "fur": "#FF7830",
+            "ligament_pat": "#FFB46D",
+            "pleura": "#FFF893",
+            "saliv_gland": "#BC6A00",
+            "skel_muscle": "#26252D",
+            "teeth": "#448801",
+            "tendon": "#89BDFF",
+            "thymus": "#D88CFC",
+            "thyroid": "#B90C00",
+            "trachea": "#00E28D",
+            "vesic_gland": "#00469C",
             "Exterior": "#00000000",  # Unlabeled parts in MITK
             "network_unsure": "#AAAAAA",
         }
@@ -346,21 +355,6 @@ class Settings:
                 network_dir = None
 
             self._datasets = Datasets(network_dir=network_dir)
-            self._datasets.add_dir(
-                "PATH_Tivita_multiorgan_human", "2021_07_26_Tivita_multiorgan_human", shortcut="human"
-            )
-            self._datasets.add_dir("PATH_Tivita_studies", "2021_03_30_Tivita_studies", shortcut="studies")
-            self._datasets.add_dir(
-                "PATH_Tivita_multiorgan_semantic", "2021_02_05_Tivita_multiorgan_semantic", shortcut="semantic"
-            )
-            self._datasets.add_dir(
-                "PATH_Tivita_multiorgan_masks", "2021_02_05_Tivita_multiorgan_masks", shortcut="masks"
-            )
-            self._datasets.add_dir("PATH_Tivita_sepsis_study", "2020_11_24_Tivita_sepsis_study", shortcut="sepsis")
-            self._datasets.add_dir("PATH_Tivita_sepsis_ICU", "2022_10_24_Tivita_sepsis_ICU", shortcut="sepsis_ICU")
-            self._datasets.add_dir(
-                "PATH_Tivita_unsorted_images", "2022_08_03_Tivita_unsorted_images", shortcut="unsorted"
-            )
 
             # Automatically add all additional datasets which start with PATH_Tivita
             for env_name in os.environ.keys():
@@ -375,7 +369,7 @@ class Settings:
                 # Per default, the dataset is accessible via three names. For example, for PATH_Tivita_HeiPorSPECTRAL=/my/dataset_folder_name:
                 # - PATH_Tivita_HeiPorSPECTRAL
                 # - dataset_folder_name
-                # - atlas_pigs
+                # - HeiPorSPECTRAL
                 self._datasets.add_dir(
                     env_name,
                     shortcut=shortcut,

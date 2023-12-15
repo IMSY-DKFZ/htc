@@ -7,6 +7,7 @@ pytest-env
 pytest-xdist
 pytest-console-scripts
 pytest-timeout
+pytest-instafail
 nbval
 line-profiler
 ninja

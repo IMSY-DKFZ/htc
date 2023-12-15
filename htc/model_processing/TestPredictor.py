@@ -3,6 +3,7 @@
 
 import multiprocessing
 from pathlib import Path
+from typing import Union
 
 import torch
 import torch.nn as nn
@@ -20,7 +21,7 @@ from htc.utils.helper_functions import checkpoint_path
 
 
 class TestEnsemble(nn.Module):
-    def __init__(self, model_paths: list[Path], paths: list[DataPath], config: Config):
+    def __init__(self, model_paths: list[Path], paths: Union[list[DataPath], None], config: Config):
         super().__init__()
         self.config = config
 
@@ -30,7 +31,10 @@ class TestEnsemble(nn.Module):
 
             # Load dataset and lightning class based on model name
             LightningClass = HTCLightning.class_from_config(self.config)
-            dataset = LightningClass.dataset(paths=paths, train=False, config=self.config, fold_name=fold_dir.stem)
+            if paths is None:
+                dataset = []
+            else:
+                dataset = LightningClass.dataset(paths=paths, train=False, config=self.config, fold_name=fold_dir.stem)
             model = LightningClass.load_from_checkpoint(
                 ckpt_file, dataset_train=None, datasets_val=[dataset], config=self.config
             )
@@ -103,12 +107,10 @@ class TestPredictor(Predictor):
                 for b, image_name in enumerate(batch["image_name"]):
                     predictions = self.load_predictions(image_name)
                     if predictions is not None:
-                        task_queue.put(
-                            {
-                                "path": self.name_path_mapping[image_name],
-                                "predictions": predictions,
-                            }
-                        )
+                        task_queue.put({
+                            "path": self.name_path_mapping[image_name],
+                            "predictions": predictions,
+                        })
                     else:
                         remaining_image_names.append(image_name)
 
@@ -139,9 +141,7 @@ class TestPredictor(Predictor):
             if image_name in remaining_image_names:
                 predictions = batch_predictions[b, ...]
 
-                task_queue.put(
-                    {
-                        "path": self.name_path_mapping[image_name],
-                        "predictions": predictions,
-                    }
-                )
+                task_queue.put({
+                    "path": self.name_path_mapping[image_name],
+                    "predictions": predictions,
+                })

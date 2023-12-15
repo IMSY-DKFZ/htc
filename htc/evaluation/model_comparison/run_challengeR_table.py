@@ -70,14 +70,12 @@ def challengeR_table(
             else:
                 raise ValueError("Invalid algorithm_group")
 
-            rows.append(
-                {
-                    "metric": metric,
-                    "case_id": case_id,
-                    "algorithm": algorithm,
-                    "metric_value": metric_value,
-                }
-            )
+            rows.append({
+                "metric": metric,
+                "case_id": case_id,
+                "algorithm": algorithm,
+                "metric_value": metric_value,
+            })
 
     df_challenge = pd.DataFrame(rows)
 

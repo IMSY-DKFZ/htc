@@ -259,41 +259,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                 else:
                     pretrained_dir = pretrained_dir / self.config["model/pretrained_model/fold_name"]
 
-            # Choose the model with the highest dice checkpoint
-            checkpoint_paths = sorted(pretrained_dir.rglob("*.ckpt"))
-            if len(checkpoint_paths) == 1:
-                model_path = checkpoint_paths[0]
-            else:
-                table_path = pretrained_dir / "validation_table.pkl.xz"
-                if table_path.exists():
-                    # Best model based on the validation table
-                    df_val = pd.read_pickle(table_path)
-                    df_val = df_val.query("epoch_index == best_epoch_index and dataset_index == 0")
-
-                    # Best model per fold
-                    config = Config(pretrained_dir / "config.json")
-                    agg = MetricAggregation(df_val, config=config)
-                    df_best = agg.grouped_metrics(domains=["fold_name", "epoch_index"])
-                    df_best = df_best.groupby(["fold_name", "epoch_index"], as_index=False)["dice_metric"].mean()
-                    df_best = df_best.sort_values(by=agg.metrics, ascending=False, ignore_index=True)
-
-                    fold_dir = pretrained_dir / df_best.iloc[0].fold_name
-                    checkpoint_paths = sorted(fold_dir.rglob("*.ckpt"))
-                    if len(checkpoint_paths) == 1:
-                        model_path = checkpoint_paths[0]
-                    else:
-                        checkpoint_paths = sorted(fold_dir.rglob(f"epoch={df_best.iloc[0].epoch_index}*.ckpt"))
-                        assert len(checkpoint_paths) == 1, (
-                            f"More than one checkpoint found for the epoch {df_best.iloc[0].epoch_index}:"
-                            f" {checkpoint_paths}"
-                        )
-                        model_path = checkpoint_paths[0]
-                else:
-                    model_path = checkpoint_paths[0]
-                    settings.log.warning(
-                        f"Could not find the validation table at {table_path} but this is required to automatically"
-                        f" determine the best model. The first found checkpoint will be used instead: {model_path}"
-                    )
+            model_path = HTCModel.best_checkpoint(pretrained_dir)
 
         assert model_path is not None, "Could not find the best model"
         pretrained_model = torch.load(model_path, map_location=map_location)
@@ -558,6 +524,53 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                 settings.log.info(f"Successfully downloaded the pretrained run to the local hub dir at {run_dir}")
 
             return run_dir
+
+    @staticmethod
+    def best_checkpoint(run_dir: Path) -> Path:
+        """
+        Searches for the best model checkpoint path within the given run directory across all available folds.
+
+        Args:
+            run_dir: The directory of the training run.
+
+        Returns: The path to the best model checkpoint.
+        """
+        # Choose the model with the highest dice score
+        checkpoint_paths = sorted(run_dir.rglob("*.ckpt"))
+        if len(checkpoint_paths) == 1:
+            model_path = checkpoint_paths[0]
+        else:
+            table_path = run_dir / "validation_table.pkl.xz"
+            if table_path.exists():
+                # Best model based on the validation table
+                df_val = pd.read_pickle(table_path)
+                df_val = df_val.query("epoch_index == best_epoch_index and dataset_index == 0")
+
+                # Best model per fold
+                config = Config(run_dir / "config.json")
+                agg = MetricAggregation(df_val, config=config)
+                df_best = agg.grouped_metrics(domains=["fold_name", "epoch_index"])
+                df_best = df_best.groupby(["fold_name", "epoch_index"], as_index=False)["dice_metric"].mean()
+                df_best = df_best.sort_values(by=agg.metrics, ascending=False, ignore_index=True)
+
+                fold_dir = run_dir / df_best.iloc[0].fold_name
+                checkpoint_paths = sorted(fold_dir.rglob("*.ckpt"))
+                if len(checkpoint_paths) == 1:
+                    model_path = checkpoint_paths[0]
+                else:
+                    checkpoint_paths = sorted(fold_dir.rglob(f"epoch={df_best.iloc[0].epoch_index}*.ckpt"))
+                    assert (
+                        len(checkpoint_paths) == 1
+                    ), f"More than one checkpoint found for the epoch {df_best.iloc[0].epoch_index}: {checkpoint_paths}"
+                    model_path = checkpoint_paths[0]
+            else:
+                model_path = checkpoint_paths[0]
+                settings.log.warning(
+                    f"Could not find the validation table at {table_path} but this is required to automatically"
+                    f" determine the best model. The first found checkpoint will be used instead: {model_path}"
+                )
+
+        return model_path
 
     @staticmethod
     def markdown_table() -> str:

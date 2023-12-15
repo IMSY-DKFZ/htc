@@ -18,6 +18,7 @@ import psutil
 import torch
 import torch.nn as nn
 
+from htc.models.common.torch_helpers import str_to_dtype
 from htc.settings import settings
 from htc.utils.Config import Config
 from htc.utils.import_extra import requires_extra
@@ -89,6 +90,28 @@ def parse_optimizer(config: Config, model: nn.Module) -> Union[tuple[list, list]
         return [optimizer], [scheduler]
     else:
         return optimizer
+
+
+def dtype_from_config(config: Config) -> torch.dtype:
+    """
+    Infer the dtype of the features from the config.
+
+    Args:
+        config: The training configuration.
+
+    Returns: The dtype of the features.
+    """
+    if config["input/features_dtype"]:
+        # User sets the dtype to load the features to the GPU explicitly
+        features_dtype = str_to_dtype(config["input/features_dtype"])
+    else:
+        # If the data is stored as float16, we also load it as float16
+        # As a user, it is possible to convert the data via:
+        # input/test_time_transforms_cpu": [{"class": "ToType", "dtype": "float32"}]
+        default_dtype = torch.float16 if config["input/preprocessing"] in ["raw16", "L1"] else torch.float32
+        features_dtype = torch.float16 if config["trainer_kwargs/precision"] in [16, "16-mixed"] else default_dtype
+
+    return features_dtype
 
 
 def infer_swa_lr(config: Config) -> float:
@@ -287,7 +310,7 @@ def samples_equal(sample1: dict, sample2: dict, **allclose_kwargs) -> bool:
 # Make sure we always have a batch dimension
 def sample_to_batch(func: Callable) -> Callable:
     @functools.wraps(func)
-    def _sample_to_batch(self, sample_or_batch: dict[str, torch.Tensor], *args, **kwargs):
+    def _sample_to_batch(sample_or_batch: dict[str, torch.Tensor], *args, **kwargs):
         was_batch = True
         if sample_or_batch["features"].ndim == 3:
             was_batch = False
@@ -303,7 +326,7 @@ def sample_to_batch(func: Callable) -> Callable:
 
         assert batch["features"].ndim == 4, "Features must be in BHWC format"
 
-        batch = func(self, batch, *args, **kwargs)
+        batch = func(batch, *args, **kwargs)
 
         if not was_batch:
             # Remove batch dimension

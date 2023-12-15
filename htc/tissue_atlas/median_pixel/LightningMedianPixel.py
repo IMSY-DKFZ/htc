@@ -92,16 +92,14 @@ class LightningMedianPixel(HTCLightning):
         rows = []
         for subject_name, cm in cm_pigs.items():
             accuracy = accuracy_from_cm(cm)
-            rows.append(
-                {
-                    "epoch_index": self.current_epoch,
-                    "dataset_index": 0,
-                    "image_name": subject_name,  # We do not store image-level metrics here, only on the subject level
-                    "subject_name": subject_name,
-                    "accuracy": accuracy,
-                    "confusion_matrix": cm.cpu().numpy(),
-                }
-            )
+            rows.append({
+                "epoch_index": self.current_epoch,
+                "dataset_index": 0,
+                "image_name": subject_name,  # We do not store image-level metrics here, only on the subject level
+                "subject_name": subject_name,
+                "accuracy": accuracy,
+                "confusion_matrix": cm.cpu().numpy(),
+            })
 
         df_epoch = pd.DataFrame(rows)
         self.df_validation_results = pd.concat([self.df_validation_results, df_epoch])

@@ -34,12 +34,10 @@ class Raw16(DatasetIteration):
             self.output_dir = output_dir / f"raw{self.precision}"
         self.output_dir.mkdir(exist_ok=True, parents=True)
 
-        config = Config(
-            {
-                "trainer_kwargs/precision": "16-mixed" if self.precision == "16" else "32",
-                "input/no_labels": True,
-            }
-        )
+        config = Config({
+            "trainer_kwargs/precision": "16-mixed" if self.precision == "16" else "32",
+            "input/no_labels": True,
+        })
         self.dataset = DatasetImage(self.paths, train=False, config=config)
 
         if regenerate:

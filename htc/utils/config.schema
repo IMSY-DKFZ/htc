@@ -15,7 +15,7 @@
                     "type": "string"
                 },
                 "preprocessing": {
-                    "description": "Name of the folder inside the intermediates/preprocessing directory which contains preprocessed images (e.g. L1).",
+                    "description": "Name of the folder inside the intermediates/preprocessing directory which contains preprocessed images (e.g. L1). It is also possible to specify the folder relative to the results_dir or results_dir/preprocessing. This may be useful for preprocessed files which are only needed for specific projects or on the cluster. Finally, the relative or absolute path to the folder can be specified as well.",
                     "type": [
                         "string",
                         "null"

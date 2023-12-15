@@ -117,17 +117,15 @@ def aggregated_confidences_table(run_dir: Path, table_name: str) -> pd.DataFrame
     for _, row in df_results.iterrows():
         conf = row["DSC_confidences"]
         for t, v in conf.items():
-            rows.append(
-                {
-                    "image_name": row["image_name"],
-                    "subject_name": row["subject_name"],
-                    "timestamp": row["timestamp"],
-                    "used_labels": row["used_labels"],
-                    "threshold": t,
-                    "areas": v["areas"],
-                    "dice_metric": v["dice_metric"],
-                }
-            )
+            rows.append({
+                "image_name": row["image_name"],
+                "subject_name": row["subject_name"],
+                "timestamp": row["timestamp"],
+                "used_labels": row["used_labels"],
+                "threshold": t,
+                "areas": v["areas"],
+                "dice_metric": v["dice_metric"],
+            })
 
     df_thresh = pd.DataFrame(rows)
     df_agg = MetricAggregation(df_thresh, config=config, metrics=["dice_metric", "areas"]).grouped_metrics(

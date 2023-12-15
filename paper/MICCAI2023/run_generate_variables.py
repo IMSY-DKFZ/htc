@@ -173,24 +173,22 @@ class VariableGeneration:
                 )
 
                 if len(row_baseline) == 1:
-                    performances.append(
-                        {
-                            "modality": modality,
-                            "dataset": dataset,
-                            # Drop for each dataset to the corresponding in-distribution dataset
-                            "drop_DSC": (
-                                row_in_distribution["dice_metric_mean"].item() - row_baseline["dice_metric_mean"].item()
-                            ) / row_in_distribution["dice_metric_mean"].item(),
-                            # Improvement from the baseline to the context model
-                            "improvement_DSC": (
-                                row_context["dice_metric_mean"].item() - row_baseline["dice_metric_mean"].item()
-                            ) / row_baseline["dice_metric_mean"].item(),
-                            "improvement_NSD": (
-                                row_context[f"{settings_seg.nsd_aggregation_short}_mean"].item()
-                                - row_baseline[f"{settings_seg.nsd_aggregation_short}_mean"].item()
-                            ) / row_baseline[f"{settings_seg.nsd_aggregation_short}_mean"].item(),
-                        }
-                    )
+                    performances.append({
+                        "modality": modality,
+                        "dataset": dataset,
+                        # Drop for each dataset to the corresponding in-distribution dataset
+                        "drop_DSC": (
+                            row_in_distribution["dice_metric_mean"].item() - row_baseline["dice_metric_mean"].item()
+                        ) / row_in_distribution["dice_metric_mean"].item(),
+                        # Improvement from the baseline to the context model
+                        "improvement_DSC": (
+                            row_context["dice_metric_mean"].item() - row_baseline["dice_metric_mean"].item()
+                        ) / row_baseline["dice_metric_mean"].item(),
+                        "improvement_NSD": (
+                            row_context[f"{settings_seg.nsd_aggregation_short}_mean"].item()
+                            - row_baseline[f"{settings_seg.nsd_aggregation_short}_mean"].item()
+                        ) / row_baseline[f"{settings_seg.nsd_aggregation_short}_mean"].item(),
+                    })
 
         df_performance = pd.DataFrame(performances)
 
@@ -298,15 +296,12 @@ class VariableGeneration:
         rows = []
         for l, label_name in enumerate(column_names):
             if label_name != "gallbladder":
-                rows.append(
-                    {
-                        "label_name": label_name,
-                        "drop_DSC": (
-                            abs(confusion_matrix[l, gallbladder_index])
-                            / confusion_matrix_baseline[l, gallbladder_index]
-                        ).item(),
-                    }
-                )
+                rows.append({
+                    "label_name": label_name,
+                    "drop_DSC": (
+                        abs(confusion_matrix[l, gallbladder_index]) / confusion_matrix_baseline[l, gallbladder_index]
+                    ).item(),
+                })
 
         df_removal = pd.DataFrame(rows)
         df_removal = df_removal.sort_values(by="drop_DSC", ascending=False).reset_index()
@@ -327,14 +322,12 @@ class VariableGeneration:
         ).reset_index(drop=True)
         assert np.all(df_glove_baseline["label_name"].values == df_glove_context["label_name"].values)
         assert len(df_glove_baseline) == df_glove_baseline["label_name"].nunique()
-        df_glove_best = pd.DataFrame(
-            {
-                "label_name": df_glove_baseline["label_name"],
-                "improvement": (df_glove_context["dice_metric"] - df_glove_baseline["dice_metric"]) / df_glove_baseline[
-                    "dice_metric"
-                ],
-            }
-        )
+        df_glove_best = pd.DataFrame({
+            "label_name": df_glove_baseline["label_name"],
+            "improvement": (df_glove_context["dice_metric"] - df_glove_baseline["dice_metric"]) / df_glove_baseline[
+                "dice_metric"
+            ],
+        })
         df_glove_best.sort_values("improvement", ascending=False, inplace=True)
 
         top_n = 3

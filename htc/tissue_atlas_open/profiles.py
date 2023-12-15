@@ -281,15 +281,13 @@ def profile_pages(file: Path, label_name: str, annotation_name: str, paths: list
         if label_name in p.annotated_labels(annotation_name):
             assert annotation_name in p.meta("annotation_name")
             label_meta = p.meta(f"label_meta/{label_name}")
-            rows.append(
-                {
-                    "annotation_name": annotation_name,
-                    "situs": label_meta["situs"],
-                    "angle": label_meta["angle"],
-                    "repetition": label_meta["repetition"],
-                    "path": p,
-                }
-            )
+            rows.append({
+                "annotation_name": annotation_name,
+                "situs": label_meta["situs"],
+                "angle": label_meta["angle"],
+                "repetition": label_meta["repetition"],
+                "path": p,
+            })
 
     # Sort the dataframe which determines the order of the pages in the resulting PDF
     df = pd.DataFrame(rows)

@@ -30,44 +30,40 @@ def compute_test_tables(runs: list[Path], recalculate: bool = False) -> None:
         test_table = run_dir / "test_table.pkl.xz"
         if not test_table.exists() or recalculate:
             settings.log.info(f"Computing test table for {run_dir}")
-            res = subprocess_run(
-                [
-                    sys.executable,
-                    run_tables.__file__,
-                    "--model",
-                    run_dir.parent.name,
-                    "--run-folder",
-                    run_dir.name,
-                    "--metrics",
-                    "DSC",
-                    "ASD",
-                    "NSD",
-                    "--test",
-                ]
-            )
+            res = subprocess_run([
+                sys.executable,
+                run_tables.__file__,
+                "--model",
+                run_dir.parent.name,
+                "--run-folder",
+                run_dir.name,
+                "--metrics",
+                "DSC",
+                "ASD",
+                "NSD",
+                "--test",
+            ])
             assert res.returncode == 0, f"Computation of the test table for the run folder {run_dir} was not successful"
             assert test_table.exists()
 
         test_table_real = run_dir / "test_table_masks_isolation.pkl.xz"
         if not test_table_real.exists() or recalculate:
             settings.log.info(f"Computing masks isolation test table for {run_dir}")
-            res = subprocess_run(
-                [
-                    sys.executable,
-                    run_dataset_tables.__file__,
-                    "--model",
-                    run_dir.parent.name,
-                    "--run-folder",
-                    run_dir.name,
-                    "--metrics",
-                    "DSC",
-                    "ASD",
-                    "NSD",
-                    "--test",
-                    "--dataset-name",
-                    "masks_isolation",
-                ]
-            )
+            res = subprocess_run([
+                sys.executable,
+                run_dataset_tables.__file__,
+                "--model",
+                run_dir.parent.name,
+                "--run-folder",
+                run_dir.name,
+                "--metrics",
+                "DSC",
+                "ASD",
+                "NSD",
+                "--test",
+                "--dataset-name",
+                "masks_isolation",
+            ])
             assert (
                 res.returncode == 0
             ), f"Computation of the masks isolation test table for the run folder {run_dir} was not successful"
@@ -78,19 +74,17 @@ def compute_test_tables(runs: list[Path], recalculate: bool = False) -> None:
         missing = [d for d in simulated_datasets if not (run_dir / f"test_table_{d}.pkl.xz").exists() or recalculate]
         if len(missing) > 0:
             settings.log.info(f"Computing test results on the simulated datasets {missing} for {run_dir}")
-            res = subprocess_run(
-                [
-                    sys.executable,
-                    run_context_evaluation_table.__file__,
-                    "--model",
-                    run_dir.parent.name,
-                    "--run-folder",
-                    run_dir.name,
-                    "--test",
-                    "--transformation-name",
-                    *missing,
-                ]
-            )
+            res = subprocess_run([
+                sys.executable,
+                run_context_evaluation_table.__file__,
+                "--model",
+                run_dir.parent.name,
+                "--run-folder",
+                run_dir.name,
+                "--test",
+                "--transformation-name",
+                *missing,
+            ])
             assert (
                 res.returncode == 0
             ), f"Computation of the context test table for the run folder {run_dir} was not successful"
@@ -116,21 +110,19 @@ def compute_glove_test_tables(runs: list[Path], recalculate: bool = False) -> No
         test_table = run_dir / "test_table.pkl.xz"
         if not test_table.exists() or recalculate:
             settings.log.info(f"Computing glove test results for {run_dir}")
-            res = subprocess_run(
-                [
-                    sys.executable,
-                    run_tables.__file__,
-                    "--model",
-                    run_dir.parent.name,
-                    "--run-folder",
-                    run_dir.name,
-                    "--metrics",
-                    "DSC",
-                    "ASD",
-                    "NSD",
-                    "--test",
-                ]
-            )
+            res = subprocess_run([
+                sys.executable,
+                run_tables.__file__,
+                "--model",
+                run_dir.parent.name,
+                "--run-folder",
+                run_dir.name,
+                "--metrics",
+                "DSC",
+                "ASD",
+                "NSD",
+                "--test",
+            ])
             assert res.returncode == 0, f"Computation of the test table for the run folder {run_dir} was not successful"
             assert test_table.exists()
 

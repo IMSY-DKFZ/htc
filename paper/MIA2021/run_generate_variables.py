@@ -350,17 +350,15 @@ model & \\# pixels & epoch size & batch size \\\\
                 df_test["subject_name"], df_test["timestamp"] = zip(*df_test["image_name"].map(lambda x: x.split("#")))
 
                 for j, row_test in df_test.iterrows():
-                    rows.append(
-                        [
-                            row_runs["name"],
-                            model_type,
-                            row_test["subject_name"],
-                            row_test["timestamp"],
-                            row_test["dice_metric_image"],
-                            row_test["surface_distance_metric_image"],
-                            row_test[settings_seg.nsd_aggregation],
-                        ]
-                    )
+                    rows.append([
+                        row_runs["name"],
+                        model_type,
+                        row_test["subject_name"],
+                        row_test["timestamp"],
+                        row_test["dice_metric_image"],
+                        row_test["surface_distance_metric_image"],
+                        row_test[settings_seg.nsd_aggregation],
+                    ])
 
         df = pd.DataFrame(rows, columns=["name", "model_type", "subject_name", "timestamp", "dice", "asd", "nsd"])
 

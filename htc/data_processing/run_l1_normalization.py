@@ -26,12 +26,10 @@ class L1Normalization(DatasetIteration):
             self.output_dir = output_dir / "L1"
         self.output_dir.mkdir(exist_ok=True, parents=True)
 
-        config = Config(
-            {
-                "input/normalization": "L1",
-                "input/no_labels": True,
-            }
-        )
+        config = Config({
+            "input/normalization": "L1",
+            "input/no_labels": True,
+        })
         self.dataset = DatasetImage(self.paths, train=False, config=config)
 
         if regenerate:
