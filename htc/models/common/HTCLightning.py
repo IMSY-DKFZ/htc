@@ -122,7 +122,7 @@ class HTCLightning(EvaluationMixin, LightningModule):
 
         Returns: Dictionary with model predictions (output of ._predict_images()).
         """
-        assert torch.is_autocast_enabled(), "Please enable autocast"
+        assert torch.is_autocast_enabled() or torch.is_autocast_cpu_enabled(), "Please enable autocast"
         assert not torch.is_grad_enabled(), "Please disable gradients"
         assert not self.training, "Please put your model in .eval() mode"
 

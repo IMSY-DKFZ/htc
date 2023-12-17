@@ -526,34 +526,34 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
             return run_dir
 
     @staticmethod
-    def best_checkpoint(run_dir: Path) -> Path:
+    def best_checkpoint(path: Path) -> Path:
         """
         Searches for the best model checkpoint path within the given run directory across all available folds.
 
         Args:
-            run_dir: The directory of the training run.
+            path: The path to the training run or to a specific fold.
 
         Returns: The path to the best model checkpoint.
         """
         # Choose the model with the highest dice score
-        checkpoint_paths = sorted(run_dir.rglob("*.ckpt"))
+        checkpoint_paths = sorted(path.rglob("*.ckpt"))
         if len(checkpoint_paths) == 1:
             model_path = checkpoint_paths[0]
         else:
-            table_path = run_dir / "validation_table.pkl.xz"
+            table_path = path / "validation_table.pkl.xz"
             if table_path.exists():
                 # Best model based on the validation table
                 df_val = pd.read_pickle(table_path)
                 df_val = df_val.query("epoch_index == best_epoch_index and dataset_index == 0")
 
                 # Best model per fold
-                config = Config(run_dir / "config.json")
+                config = Config(path / "config.json")
                 agg = MetricAggregation(df_val, config=config)
                 df_best = agg.grouped_metrics(domains=["fold_name", "epoch_index"])
                 df_best = df_best.groupby(["fold_name", "epoch_index"], as_index=False)["dice_metric"].mean()
                 df_best = df_best.sort_values(by=agg.metrics, ascending=False, ignore_index=True)
 
-                fold_dir = run_dir / df_best.iloc[0].fold_name
+                fold_dir = path / df_best.iloc[0].fold_name
                 checkpoint_paths = sorted(fold_dir.rglob("*.ckpt"))
                 if len(checkpoint_paths) == 1:
                     model_path = checkpoint_paths[0]

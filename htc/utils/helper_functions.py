@@ -95,6 +95,7 @@ def basic_statistics(
 
 def median_table(
     dataset_name: str = None,
+    table_name: str = "",
     paths: list[DataPath] = None,
     image_names: list[str] = None,
     label_mapping: LabelMapping = None,
@@ -126,7 +127,8 @@ def median_table(
     Note: In the original table, one row denotes one label of one image from one annotator which also corresponds to the default of this function since the default annotation is used (similar to DataPath.read_segmentation()). If more than one annotation name is requested, a row is unique by its image_name, label_name and annotation_name.
 
     Args:
-        dataset_name: Name of the dataset from which you want to have the median spectra table.
+        dataset_name: Name of the dataset from which you want to have the median spectra table. The name may include a # to specify a subdataset, e.g. `2021_02_05_Tivita_multiorgan_semantic#context_experiments` for the context_experiments folder inside the semantic data directory.
+        table_name: For each dataset, there may be multiple tables for different purposes (e.g. tables with recalibrated data). With this switch, you specify which table should be loaded. The format of these tables on disk is `dataset_name@table_name@median_spectra@annotation_name.feather`. Per default, the normal table with the original data is loaded corresponding to tables on disk with the format `dataset_name@median_spectra@annotation_name.feather`, i.e. without the optional `@table_name`. Requested image names (`image_names` argument) are only considered from the tables matching the given `table_name`. It is not possible to select images from tables with different table names with this function since they may contain the same images.
         paths: List of DataPath objects from which you want to have the median spectra. If annotation names are specified with a data path object, those names will be used. If specified, image_names must be None.
         image_names: List of image ids to search for (similar to the paths parameter). Image names may also include annotation names (e.g. subject#timestamp@name1&name2). It is not ensured that the resulting table contains all requested images because some images may lack annotations or are filtered out by the label_mapping. If specified, paths must be None.
         label_mapping: The target label mapping. There will be a new label_index_mapped column (and a new label_name_mapped column with the new names defined by the mapping) and the old label_index column will be removed (since the label_index is not unique across datasets). If set to None, then mapping is not carried out.
@@ -138,25 +140,36 @@ def median_table(
     tables = {}
     for path in sorted((settings.intermediates_dir_all / "tables").glob("*median_spectra*.feather")):
         parts = path.stem.split("@")
-        assert 2 <= len(parts) <= 3, (
+        assert 2 <= len(parts) <= 4, (
             "Invalid file format for median spectra table (it should be"
-            f" dataset_name@median_spectra@annotation_name.feather): {path}"
+            f" dataset_name@table_name@median_spectra@annotation_name.feather with @table_name being optional): {path}"
         )
         if len(parts) == 2:
             _dataset_name, _table_type = path.stem.split("@")
             _annotation_name = None
-        else:
+            _table_name = ""
+        elif len(parts) == 3:
             _dataset_name, _table_type, _annotation_name = path.stem.split("@")
+            _table_name = ""
+        elif len(parts) == 4:
+            _dataset_name, _table_name, _table_type, _annotation_name = path.stem.split("@")
+        else:
+            raise ValueError(f"Invalid file format for median spectra table: {path}")
+
         assert _table_type == "median_spectra", (
             f"Invalid table name for median spectra table ({_table_type} instead of median_spectra, the general format"
             f" should be dataset_name@median_spectra@annotation_name.feather): {path}"
         )
 
-        if _dataset_name not in tables:
-            tables[_dataset_name] = {}
-        tables[_dataset_name][_annotation_name] = path
+        _table_identifier = (_dataset_name, _table_name)
 
-    def read_table(dataset_name: str, annotation_name: Union[str, list[str], None]) -> pd.DataFrame:
+        if _table_identifier not in tables:
+            tables[_table_identifier] = {}
+        tables[_table_identifier][_annotation_name] = path
+
+    def read_table(dataset_name: str, table_name: str, annotation_name: Union[str, list[str], None]) -> pd.DataFrame:
+        table_identifier = (dataset_name, table_name)
+
         # Find the default annotation_name
         if annotation_name is None:
             data_dir = settings.data_dirs[dataset_name]
@@ -165,14 +178,14 @@ def median_table(
                 annotation_name = dsettings.get("annotation_name_default")
 
         if annotation_name is None or annotation_name == "all":
-            annotation_name = list(tables[dataset_name].keys())
+            annotation_name = list(tables[table_identifier].keys())
 
         if type(annotation_name) == str:
             annotation_name = [annotation_name]
 
         df = []
         for name in annotation_name:
-            df_a = pd.read_feather(tables[dataset_name][name])
+            df_a = pd.read_feather(tables[table_identifier][name])
             if name is not None:
                 df_a["annotation_name"] = name
             else:
@@ -201,7 +214,7 @@ def median_table(
         return df.reset_index(drop=True)
 
     if dataset_name is not None:
-        return read_table(dataset_name, annotation_name)
+        return read_table(dataset_name, table_name, annotation_name)
 
     def parse_paths(paths: list[DataPath]) -> tuple[list[str], dict[str, list[str]], list[str]]:
         image_names_ordering = []
@@ -258,15 +271,18 @@ def median_table(
     # First all the images without annotation name requirements
     dfs = []
     remaining_images = set(image_names_only)
-    considered_tables = set()
-    for dataset_name in tables.keys():
-        df = read_table(dataset_name, annotation_name)
+    considered_datasets = set()
+    for _dataset_name, _table_name in tables.keys():
+        if _table_name != table_name:
+            continue
+
+        df = read_table(_dataset_name, _table_name, annotation_name)
         df = df.query("image_name in @remaining_images")
 
         if len(df) > 0:
             dfs.append(df)
             remaining_images = remaining_images - set(df["image_name"].values)
-            considered_tables.add(dataset_name)
+            considered_datasets.add(_dataset_name)
 
             if len(remaining_images) == 0:
                 # We already have all image_names, we can stop looping over the tables
@@ -276,16 +292,18 @@ def median_table(
     if len(annotation_images) > 0:
         remaining_images = {name: set(images) for name, images in annotation_images.items()}
         is_done = False
-        for dataset_name in tables.keys():
+        for _dataset_name, _table_name in tables.keys():
+            if _table_name != table_name:
+                continue
             if is_done:
                 break
 
-            for table_annotation_name in tables[dataset_name].keys():
+            for table_annotation_name in tables[(_dataset_name, _table_name)].keys():
                 if table_annotation_name not in annotation_images.keys():
                     # If the table does not contain any of the requested annotations, we can skip it
                     continue
 
-                df = read_table(dataset_name, table_annotation_name)
+                df = read_table(_dataset_name, _table_name, table_annotation_name)
                 df = df.query("image_name in @remaining_images[@table_annotation_name]")
 
                 if len(df) > 0:
@@ -293,7 +311,7 @@ def median_table(
                     remaining_images[table_annotation_name] = remaining_images[table_annotation_name] - set(
                         df["image_name"].values
                     )
-                    considered_tables.add(dataset_name)
+                    considered_datasets.add(_dataset_name)
 
                     if all(len(r) == 0 for r in remaining_images.values()):
                         is_done = True
@@ -303,8 +321,8 @@ def median_table(
     # We cannot assert that there are no remaining images anymore because some images may get excluded due to the label mapping or some images maybe don't even have annotations (so they can't be included)
     assert len(dfs) > 0, (
         f"Could not find any of the requested images ({image_names = }, {annotation_images = }) in the tables"
-        f" ({considered_tables = }). This could mean that some of the intermediate files are missing or that you do not"
-        " have access to them (e.g. human data)"
+        f" ({considered_datasets = }). This could mean that some of the intermediate files are missing or that you do"
+        " not have access to them (e.g. human data)"
     )
 
     with warnings.catch_warnings():
@@ -334,7 +352,7 @@ def median_table(
     if len(image_names_df) < len(image_names):
         settings.log.warning(
             f"{len(image_names) - len(image_names_df)} image_names are not used because they were filtered out (e.g. by"
-            f" the label mapping). The following tables were considered: {considered_tables}"
+            f" the label mapping). The following tables were considered: {considered_datasets}"
         )
 
     return df

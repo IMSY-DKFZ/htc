@@ -25,9 +25,9 @@ class DatasetImageBatch(SharedMemoryDatasetMixin, DatasetImage):
         ...     'dataloader_kwargs/batch_size': 1,
         ... })
         >>> dataloader = DatasetImageBatch.batched_iteration(paths, config)
-        >>> for sample in dataloader:
-        ...     print(sample['features'].shape)
-        ...     print(sample['labels'].shape)
+        >>> for batch in dataloader:
+        ...     print(batch['features'].shape)
+        ...     print(batch['labels'].shape)
         torch.Size([1, 480, 640, 100])
         torch.Size([1, 480, 640])
         """
