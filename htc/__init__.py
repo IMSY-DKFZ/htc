@@ -30,13 +30,14 @@ _import_structure = {
     "evaluation.analyze_tfevents": ["read_tfevent_losses"],
     "evaluation.evaluate_images": ["calc_dice_metric", "calc_surface_dice", "calc_surface_distance", "evaluate_images"],
     "evaluation.evaluate_superpixels": ["EvaluateSuperpixelImage"],
-    "evaluation.metrics.ECELoss": ["ECELoss"],
+    "evaluation.metrics.ECE": ["ECE"],
     "evaluation.metrics.scores": ["normalize_grouped_cm"],
     "fonts": ["fonts"],
     "fonts.set_font": ["set_font"],
     "model_processing": ["model_processing"],
     "model_processing.ImageConsumer": ["ImageConsumer"],
     "model_processing.Runner": ["Runner"],
+    "model_processing.SinglePredictor": ["SinglePredictor"],
     "model_processing.TestLeaveOneOutPredictor": ["TestLeaveOneOutPredictor"],
     "model_processing.TestPredictor": ["TestPredictor"],
     "model_processing.ValidationPredictor": ["ValidationPredictor"],
@@ -60,6 +61,7 @@ _import_structure = {
         "smooth_one_hot",
         "str_to_dtype",
     ],
+    "models.common.transforms": ["Normalization"],
     "models.common.utils": ["get_n_classes", "infer_swa_lr", "samples_equal"],
     "models.data.DataSpecification": ["DataSpecification"],
     "models.data.SpecsGeneration": ["SpecsGeneration"],
@@ -98,7 +100,7 @@ _import_structure = {
     "utils.ColoredFileLog": ["ColoredFileLog"],
     "utils.colors": ["generate_distinct_colors"],
     "utils.Config": ["Config"],
-    "utils.DatasetDir": ["DatasetDir"],
+    "utils.Datasets": ["Datasets"],
     "utils.DelayedFileHandler": ["DelayedFileHandler"],
     "utils.DomainMapper": ["DomainMapper"],
     "utils.DuplicateFilter": ["DuplicateFilter"],
@@ -163,7 +165,7 @@ if TYPE_CHECKING:
         evaluate_images,
     )
     from htc.evaluation.evaluate_superpixels import EvaluateSuperpixelImage
-    from htc.evaluation.metrics.ECELoss import ECELoss
+    from htc.evaluation.metrics.ECE import ECE
     from htc.evaluation.metrics.scores import normalize_grouped_cm
     from htc.fonts.set_font import set_font
     from htc.model_processing.ImageConsumer import ImageConsumer
@@ -225,7 +227,7 @@ if TYPE_CHECKING:
     from htc.utils.ColoredFileLog import ColoredFileLog
     from htc.utils.colors import generate_distinct_colors
     from htc.utils.Config import Config
-    from htc.utils.DatasetDir import DatasetDir
+    from htc.utils.Datasets import Datasets
     from htc.utils.DelayedFileHandler import DelayedFileHandler
     from htc.utils.DomainMapper import DomainMapper
     from htc.utils.DuplicateFilter import DuplicateFilter
