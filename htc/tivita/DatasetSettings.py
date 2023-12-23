@@ -115,15 +115,7 @@ class DatasetSettings:
 
         Returns: Data path type or None if no match could be found.
         """
-        known_datasets = {
-            "2020_11_24_Tivita_sepsis_study": "htc.tivita.DataPathSepsis>DataPathSepsis",
-            "2021_02_05_Tivita_multiorgan_masks": "htc.tivita.DataPathMultiorgan>DataPathMultiorgan",
-            "2021_02_05_Tivita_multiorgan_semantic": "htc.tivita.DataPathMultiorgan>DataPathMultiorgan",
-            "2021_07_26_Tivita_multiorgan_human": "htc.tivita.DataPathMultiorgan>DataPathMultiorgan",
-            "2022_08_03_Tivita_unsorted_images": "htc.tivita.DataPathReference>DataPathReference",
-            "2022_10_24_Tivita_sepsis_ICU": "htc.tivita.DataPathSepsisICU>DataPathSepsisICU",
-            "2023_12_07_Tivita_multiorgan_rat": "htc.tivita.DataPathMultiorganCamera>DataPathMultiorganCamera",
-        }
+        known_datasets = {}
 
         if "data_path_class" in self:
             DataPathClass = type_from_string(self["data_path_class"])
