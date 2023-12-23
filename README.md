@@ -71,6 +71,7 @@ We cannot provide wheels for all PyTorch versions. Hence, a version of `imsy-htc
 | 0.0.11 | 2.0 |
 | 0.0.12 | 2.0 |
 | 0.0.13 | 2.1 |
+| 0.0.14 | 2.1 |
 
 However, we do not make explicit version constraints in the dependencies of the `imsy-htc` package because a future version of PyTorch may still work and we don't want to break the installation if it is not necessary.
 
