@@ -27,22 +27,20 @@ This framework is designed to work on HSI data from the [Tivita](https://diaspec
 - Use our pretrained models to initialize the weights for your own training.
 - Use our pretrained models to generate predictions for your own data.
 
-If you use the `htc` framework, please cite our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488).
+If you use the `htc` framework, please consider citing the [corresponding papers](./README.md#papers). You can also cite this repository directly via:
 
 <details closed>
 <summary>Cite via BibTeX</summary>
 
 ```bibtex
-@article{SEIDLITZ2022102488,
-    title = {Robust deep learning-based semantic organ segmentation in hyperspectral images},
-    journal = {Medical Image Analysis},
-    volume = {80},
-    pages = {102488},
-    year = {2022},
-    issn = {1361-8415},
-    doi = {10.1016/j.media.2022.102488},
-    url = {https://www.sciencedirect.com/science/article/pii/S1361841522001359},
-    author = {Silvia Seidlitz and Jan Sellner and Jan Odenthal and Berkin Özdemir and Alexander Studier-Fischer and Samuel Knödler and Leonardo Ayala and Tim J. Adler and Hannes G. Kenngott and Minu Tizabi and Martin Wagner and Felix Nickel and Beat P. Müller-Stich and Lena Maier-Hein}
+@software{sellner_htc_2023,
+  author    = {Sellner, Jan and Seidlitz, Silvia},
+  publisher = {Zenodo},
+  url       = {https://github.com/IMSY-DKFZ/htc},
+  date      = {2023-12-23},
+  doi       = {10.5281/zenodo.6577614},
+  title     = {Hyperspectral Tissue Classification},
+  version   = {v0.0.14},
 }
 ```
 </details>
@@ -253,8 +251,8 @@ In this paper, we tackled fully automatic organ segmentation and compared deep l
 ```bibtex
 @article{seidlitz_seg_2022,
   author       = {Seidlitz, Silvia and Sellner, Jan and Odenthal, Jan and Özdemir, Berkin and Studier-Fischer, Alexander and Knödler, Samuel and Ayala, Leonardo and Adler, Tim J. and Kenngott, Hannes G. and Tizabi, Minu and Wagner, Martin and Nickel, Felix and Müller-Stich, Beat P. and Maier-Hein, Lena},
-  language     = {en},
   date         = {2022-08},
+  doi          = {10.1016/j.media.2022.102488},
   issn         = {1361-8415},
   journaltitle = {Medical Image Analysis},
   keywords     = {Hyperspectral imaging,Surgical data science,Deep learning,Open surgery,Organ segmentation,Semantic scene segmentation},
@@ -288,6 +286,7 @@ This MICCAI2023 paper is the direct successor of our MIA2021 paper. We analyzed 
   publisher = {Springer Nature Switzerland},
   booktitle = {Medical Image Computing and Computer Assisted Intervention -- MICCAI 2023},
   date      = {2023},
+  doi       = {10.1007/978-3-031-43996-4_59},
   isbn      = {978-3-031-43996-4},
   pages     = {618--627},
   title     = {Semantic Segmentation of Surgical Hyperspectral Images Under Geometric Domain Shifts},
@@ -329,7 +328,6 @@ In this paper, we trained a classification model based on median spectra from HS
 ```bibtex
 @article{studierfischer_atlas_2022,
   author       = {Studier-Fischer, Alexander and Seidlitz, Silvia and Sellner, Jan and Özdemir, Berkin and Wiesenfarth, Manuel and Ayala, Leonardo and Odenthal, Jan and Knödler, Samuel and Kowalewski, Karl Friedrich and Haney, Caelan Max and Camplisson, Isabella and Dietrich, Maximilian and Schmidt, Karsten and Salg, Gabriel Alexander and Kenngott, Hannes Götz and Adler, Tim Julian and Schreck, Nicholas and Kopp-Schneider, Annette and Maier-Hein, Klaus and Maier-Hein, Lena and Müller-Stich, Beat Peter and Nickel, Felix},
-  url          = {https://doi.org/10.1038/s41598-022-15040-w},
   date         = {2022-06-30},
   doi          = {10.1038/s41598-022-15040-w},
   issn         = {2045-2322},
@@ -356,7 +354,7 @@ If you want to learn more about the [HeiPorSPECTRAL](https://heiporspectral.org/
 ```bibtex
 @article{studierfischer_open_2023,
   author       = {Studier-Fischer, Alexander and Seidlitz, Silvia and Sellner, Jan and Bressan, Marc and Özdemir, Berkin and Ayala, Leonardo and Odenthal, Jan and Knoedler, Samuel and Kowalewski, Karl-Friedrich and Haney, Caelan Max and Salg, Gabriel and Dietrich, Maximilian and Kenngott, Hannes and Gockel, Ines and Hackert, Thilo and Müller-Stich, Beat Peter and Maier-Hein, Lena and Nickel, Felix},
-  url          = {https://doi.org/10.1038/s41597-023-02315-8},
+  url          = {https://heiporspectral.org/},
   date         = {2023-06-24},
   doi          = {10.1038/s41597-023-02315-8},
   issn         = {2052-4463},
@@ -381,7 +379,6 @@ This paper presents several applications of intraoperative HSI, including our or
 ```bibtex
 @article{chalopin_chirurgie_2022,
   author       = {Chalopin, Claire and Nickel, Felix and Pfahl, Annekatrin and Köhler, Hannes and Maktabi, Marianne and Thieme, René and Sucher, Robert and Jansen-Winkeln, Boris and Studier-Fischer, Alexander and Seidlitz, Silvia and Maier-Hein, Lena and Neumuth, Thomas and Melzer, Andreas and Müller-Stich, Beat Peter and Gockel, Ines},
-  url          = {https://doi.org/10.1007/s00104-022-01677-w},
   date         = {2022-10-01},
   doi          = {10.1007/s00104-022-01677-w},
   issn         = {2731-698X},
