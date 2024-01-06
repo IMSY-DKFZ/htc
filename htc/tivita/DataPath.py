@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Union
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 import numpy as np
 import pandas as pd
@@ -20,6 +20,9 @@ from htc.utils.blosc_compression import decompress_file
 from htc.utils.Config import Config
 from htc.utils.JSONSchemaMeta import JSONSchemaMeta
 from htc.utils.LabelMapping import LabelMapping
+
+if TYPE_CHECKING:
+    from htc.cameras.calibration.CalibrationSwap import CalibrationFiles
 
 
 class DataPath:
@@ -88,7 +91,7 @@ class DataPath:
             image_dir: Path (or string) to the image directory (timestamp folder).
             data_dir: Path (or string) to the data directory of the dataset (it should contain a dataset_settings.json file).
             intermediates_dir: Path (or string) to the intermediates directory of the dataset.
-            dataset_settings: Reference to the settings of the dataset. If None and no settings could be found in the data directory, the data path gets an empty dataset settings assigned.
+            dataset_settings: Reference to the settings of the dataset. If None and no settings could be found in the image directory, the parents of the image directory are searched. If available, the closest dataset_settings.json is used. Otherwise, the data path gets an empty dataset settings assigned.
             annotation_name_default: Default annotation_name(s) which will be used when reading the segmentation with read_segmentation() with no arguments.
         """
         if isinstance(image_dir, str):
@@ -101,6 +104,7 @@ class DataPath:
         self.image_dir = image_dir
         self.data_dir = data_dir
         self.intermediates_dir = intermediates_dir
+        self._dataset_settings = dataset_settings
         if self.image_dir is not None:
             self.timestamp = self.image_dir.name
         self.annotation_name_default = annotation_name_default
@@ -113,14 +117,6 @@ class DataPath:
                     self.data_dir = entry["path_data"]
                 if intermediates_dir is None:
                     self.intermediates_dir = entry["path_intermediates"]
-
-        if dataset_settings is None:
-            if self.data_dir is not None and (path := self.data_dir / "dataset_settings.json").exists():
-                self.dataset_settings = DatasetSettings(path)
-            else:
-                self.dataset_settings = DatasetSettings(path_or_data={})
-        else:
-            self.dataset_settings = dataset_settings
 
     def __call__(self, *args, **kwargs) -> Path:
         """
@@ -149,6 +145,21 @@ class DataPath:
     def __lt__(self, other: Self) -> bool:
         return self.image_name_annotations() < other.image_name_annotations()
 
+    @property
+    def dataset_settings(self) -> DatasetSettings:
+        if self._dataset_settings is None:
+            if self.image_dir is not None and (path := self.image_dir / "dataset_settings.json").exists():
+                self._dataset_settings = DatasetSettings(path)
+            else:
+                self._dataset_settings = DatasetSettings(path_or_data={})
+                parent_paths = list(self.image_dir.parents)
+                for p in parent_paths:
+                    if (path := p / "dataset_settings.json").exists():
+                        self._dataset_settings = DatasetSettings(path)
+                        break
+
+        return self._dataset_settings
+
     def cube_path(self) -> Path:
         """
         Path to the HSI data cube (*.dat file) for this image.
@@ -175,6 +186,37 @@ class DataPath:
 
         cube_path = self.cube_path()
         return read_tivita_hsi(cube_path, *reading_args, **reading_kwargs)
+
+    def read_cube_raw(self, calibration_original: Union["CalibrationFiles", None] = None) -> np.ndarray:
+        """
+        Compute the raw Tivita HSI cube by multiplying the stored HSI cube with the corresponding white calibration matrix and adding the corresponding dark current measurement.
+
+        Args:
+            calibration_original: Calibration files to use. If None, the closest calibration files are searched based on the timestamp.
+
+        Returns: HSI data cube.
+        """
+        cube = self.read_cube()
+
+        # find matching white calibration file
+        if calibration_original is None:
+            from htc.cameras.calibration.CalibrationSwap import CalibrationSwap
+
+            t = CalibrationSwap()
+            calibration_original = t.original_calibration_files(self)
+        return cube * calibration_original.white_image.numpy() + calibration_original.dark_image.numpy()
+
+    def compute_oversaturation_mask(self, threshold: int = 1000) -> np.ndarray:
+        """
+        Calculates the oversaturation mask for the image. All pixels with at least one channel with a count above a given threshold are considered oversaturated.
+
+        Args:
+            threshold: Threshold to consider a camera count being oversaturated. The maximum count of the camera is 1023, therefore a value of 1000 is chosen as default to account for noise and slight miscalibrations (e.g. due to the corresponding calibration files not being available).
+
+        Returns: Oversaturation mask of the image.
+        """
+        cube_raw = self.read_cube_raw()
+        return np.any(cube_raw > threshold, axis=-1)
 
     def is_cube_valid(self) -> bool:
         """

@@ -35,22 +35,29 @@ class DataPathTivita(DataPath):
         annotation_name: Union[str, list[str]],
     ) -> Iterator["DataPathTivita"]:
         # Settings of the dataset (shapes etc.) can be referenced by the DataPaths
-        path_settings = None
-        possible_paths = [data_dir] + list(data_dir.parents)
-        for p in possible_paths:
-            if (p / "dataset_settings.json").exists():
-                path_settings = p / "dataset_settings.json"
-                break
-
-        dataset_settings = DatasetSettings(path_settings)
         intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
+
+        dataset_settings_dict = {}
+        parent_paths = list(data_dir.parents)
+        parent_paths.reverse()
+        for p in parent_paths:
+            if (p / "dataset_settings.json").exists():
+                dataset_settings_dict[p] = DatasetSettings(p / "dataset_settings.json")
 
         # Keep a list of used image folders in case a folder contains both a cube file and a tiv archive
         used_folders = set()
         for root, dirs, files in os.walk(data_dir):
             dirs.sort()  # Recurse in sorted order
+            if "dataset_settings.json" in files:
+                dataset_settings_dict[root] = DatasetSettings(Path(root) / "dataset_settings.json")
             for f in sorted(files):
                 if f.endswith(("SpecCube.dat", ".tiv")) and root not in used_folders:
+                    if len(dataset_settings_dict) == 0:
+                        dataset_settings = None
+                    else:
+                        dataset_settings = list(dataset_settings_dict.values())[
+                            -1
+                        ]  # last dict item should be closest to path
                     path = DataPathTivita(Path(root), data_dir, intermediates_dir, dataset_settings, annotation_name)
                     if all(f(path) for f in filters):
                         yield path
