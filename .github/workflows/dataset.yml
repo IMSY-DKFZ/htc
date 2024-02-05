@@ -14,7 +14,7 @@ jobs:
         run: |
           wget --no-verbose https://heiporspectral.org/example.zip
           unzip -q example.zip
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: HeiPorSPECTRAL_example
           key: dataset
@@ -32,7 +32,7 @@ jobs:
         python-version: ['3.9', '3.10', '3.11']
 
     steps:
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: HeiPorSPECTRAL_example
           enableCrossOsArchive: true
