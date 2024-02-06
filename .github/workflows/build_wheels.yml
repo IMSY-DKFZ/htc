@@ -21,7 +21,7 @@ jobs:
         uses: pypa/cibuildwheel@v2.16.5
         env:
           # Otherwise PyTorch builds may fail on MacOS: https://cibuildwheel.readthedocs.io/en/stable/cpp_standards/#macos-and-deployment-target-versions
-          CIBW_ENVIRONMENT: CI_COMMIT_TAG="${{  github.ref_name }} MACOSX_DEPLOYMENT_TARGET='10.14'"
+          CIBW_ENVIRONMENT: CI_COMMIT_TAG="${{  github.ref_name }}" MACOSX_DEPLOYMENT_TARGET="10.14"
           # Force UTF-8 mode (especially for Windows)
           PYTHONUTF8: 1
 
