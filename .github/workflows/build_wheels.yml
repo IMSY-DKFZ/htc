@@ -28,6 +28,7 @@ jobs:
       - name: upload_artifacts
         uses: actions/upload-artifact@v4
         with:
+          name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
   upload_pypi:
@@ -36,8 +37,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: artifact
           path: dist
+          pattern: wheels-*
+          merge-multiple: true
 
       - name: upload_pypi
         uses: pypa/gh-action-pypi-publish@release/v1
