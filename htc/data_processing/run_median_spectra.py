@@ -20,7 +20,14 @@ from htc.utils.paths import ParserPreprocessing, filter_min_labels
 
 
 class MedianSpectra(DatasetIteration):
-    def __init__(self, paths: list[DataPath], dataset_name: str, output_dir: Path = None):
+    def __init__(
+        self,
+        paths: list[DataPath],
+        dataset_name: str,
+        table_name: str = "",
+        output_dir: Path = None,
+        oversaturation_threshold: int = None,
+    ):
         # It does not make any sense to load images where we don't have any labels as we then also can't compute any median spectra
         paths = [p for p in paths if filter_min_labels(p)]
         assert len(paths) > 0, "No paths left for median spectra computation"
@@ -39,6 +46,8 @@ class MedianSpectra(DatasetIteration):
             "input/annotation_name": "all",
         })
         self.dataset = DatasetImage(paths, train=False, config=config)
+        self.oversaturation_threshold = oversaturation_threshold
+        self.table_name = table_name
 
     def compute(self, i: int) -> list[dict]:
         sample = self.dataset[i]
@@ -80,6 +89,15 @@ class MedianSpectra(DatasetIteration):
                         selection = selection[valid_dim].squeeze(dim=0)
                     else:
                         selection = sample[label_key] == label_index
+
+                    # in case of a given oversaturation threshold, we want to exclude all pixels that are oversaturated from the selection.
+                    if self.oversaturation_threshold is not None:
+                        selection = selection & torch.from_numpy(
+                            ~path.compute_oversaturation_mask(threshold=self.oversaturation_threshold)
+                        )
+
+                    if torch.sum(selection) == 0:
+                        continue
 
                     spectra = sample["features"][selection]
                     spectra_normalized = features_normalized[selection]
@@ -156,14 +174,22 @@ class MedianSpectra(DatasetIteration):
                 df_name = sort_labels(df_name)
                 df_name = df_name.reset_index(drop=True)
 
-                target_file = self.output_dir / f"{self.dataset_name}@median_spectra@{name}.feather"
+                if self.table_name == "":
+                    target_file = self.output_dir / f"{self.dataset_name}@median_spectra@{name}.feather"
+                else:
+                    target_file = (
+                        self.output_dir / f"{self.dataset_name}@{self.table_name}@median_spectra@{name}.feather"
+                    )
                 df_name.to_feather(target_file)
                 settings.log.info(f"Wrote median table to {target_file}")
         else:
             # Already sort the table by label name so that the default order is automatically used in plots
             df = sort_labels(df)
 
-            target_file = self.output_dir / f"{self.dataset_name}@median_spectra.feather"
+            if self.table_name == "":
+                target_file = self.output_dir / f"{self.dataset_name}@median_spectra.feather"
+            else:
+                target_file = self.output_dir / f"{self.dataset_name}@{self.table_name}@median_spectra.feather"
             df.to_feather(target_file)
             settings.log.info(f"Wrote median table to {target_file}")
 

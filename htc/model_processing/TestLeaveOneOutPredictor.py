@@ -98,37 +98,51 @@ class TestLeaveOneOutPredictor(Predictor):
                             remaining_image_names.append(image_name)
 
                     if len(remaining_image_names) > 0:
-                        if not batch["labels"].is_cuda:
+                        if not batch["features"].is_cuda:
                             batch = move_batch_gpu(batch)
 
-                        with ExitStack() as stack:
-                            promises = {
-                                name: stack.enter_context(model.model.features(name)) for name in self.feature_names
-                            }
-                            batch_predictions = model.predict_step(batch)["class"]
-                            features = {name: promises[name].data() for name in self.feature_names}
-
-                        batch_outputs = {}
-                        if "predictions" in self.outputs:
-                            batch_outputs["predictions"] = batch_predictions.softmax(dim=1).cpu().numpy()
-                        else:
-                            # Ensure that we only read the features after the inference finished
-                            torch.cuda.synchronize()
-
-                        for name in self.feature_names:
-                            batch_outputs[name] = features[name].cpu().numpy()
-
-                        for b in range(batch["features"].size(0)):
-                            image_name = batch["image_name"][b]
-                            if image_name in remaining_image_names:
-                                data = {
-                                    "path": self.name_path_mapping[image_name],
-                                    "fold_name": fold_dir.name,
-                                }
-                                for name in self.outputs:
-                                    data[name] = batch_outputs[name][b, ...]
-
-                                task_queue.put(data)
+                        self.produce_predictions(
+                            task_queue=task_queue,
+                            model=model,
+                            batch=batch,
+                            remaining_image_names=remaining_image_names,
+                            fold_name=fold_dir.name,
+                        )
 
                     progress.advance(task_loader)
                 progress.advance(task_models)
+
+    def produce_predictions(
+        self,
+        task_queue: multiprocessing.JoinableQueue,
+        model: HTCLightning,
+        batch: dict[str, torch.Tensor],
+        remaining_image_names: list[str],
+        fold_name: str,
+    ) -> None:
+        with ExitStack() as stack:
+            promises = {name: stack.enter_context(model.model.features(name)) for name in self.feature_names}
+            batch_predictions = model.predict_step(batch)["class"]
+            features = {name: promises[name].data() for name in self.feature_names}
+
+        batch_outputs = {}
+        if "predictions" in self.outputs:
+            batch_outputs["predictions"] = batch_predictions.softmax(dim=1).cpu().numpy()
+        else:
+            # Ensure that we only read the features after the inference finished
+            torch.cuda.synchronize()
+
+        for name in self.feature_names:
+            batch_outputs[name] = features[name].cpu().numpy()
+
+        for b in range(batch["features"].size(0)):
+            image_name = batch["image_name"][b]
+            if image_name in remaining_image_names:
+                data = {
+                    "path": self.name_path_mapping[image_name],
+                    "fold_name": fold_name,
+                }
+                for name in self.outputs:
+                    data[name] = batch_outputs[name][b, ...]
+
+                task_queue.put(data)

@@ -8,6 +8,7 @@ Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) accordin
 Further, the following hardware was used for reproducing (different setups will yield different runtimes and hence different results):
 >* GPU: NVIDIA GeForce RTX 4090
 >* CPU: AMD Ryzen 9 7950X
+>* SSD: Seagate FireCuda 530 4 TB
 >* Storage space requirements for the dataset: at least 250 GiB
 
 You need the semantic datasets for this poster. Please copy it from the network drive to your computer, for example via: [≈ 1–2 hours]

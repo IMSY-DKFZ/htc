@@ -64,6 +64,13 @@ def main() -> int:
             candidates = [s for s in scripts if s["full_name"].endswith(needle)]
 
         if len(candidates) == 0:
+            # Try if only part of the module path matches (e.g. tissue_atlas.test_table_generation even though the script is in htc.tissue_atlas.model_processing)
+            parts = needle.split(".")
+            name = parts[-1]
+            module_path = ".".join(parts[:-1])
+            candidates = [s for s in scripts if module_path in s["full_name"] and name == s["name"]]
+
+        if len(candidates) == 0:
             print(f"Could not find a matching script for {needle}")
             exitcode = 1
         elif len(candidates) == 1:

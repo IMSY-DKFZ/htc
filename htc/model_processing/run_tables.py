@@ -111,11 +111,16 @@ def _save_test_table(
     tolerance_name: Union[str, None],
     test_table_name: str,
 ) -> None:
-    # For the test table it is easier, as we create it from scratch (and overwrite an existing one, if available)
-    assert len(df_results) == len(df_results["image_name"].unique()), "There must be exactly one row per image"
+    if "fold_name" in df_results:
+        for fold_name in df_results["fold_name"].unique():
+            df_fold = df_results[df_results["fold_name"] == fold_name]
+            assert len(df_fold) == len(
+                df_fold["image_name"].unique()
+            ), "There must be exactly one row per image and fold"
+    else:
+        assert len(df_results) == len(df_results["image_name"].unique()), "There must be exactly one row per image"
 
     # Add the distance aggregation of the nsd to the key
-
     if "NSD" in metrics:
         key_nsd = f"surface_dice_metric_{tolerance_name}"
         key_nsd_image = f"surface_dice_metric_image_{tolerance_name}"
@@ -123,6 +128,7 @@ def _save_test_table(
             columns={"surface_dice_metric": key_nsd, "surface_dice_metric_image": key_nsd_image}, inplace=True
         )
 
+    # For the test table it is easier, as we create it from scratch (and overwrite an existing one, if available)
     df_results.to_pickle(target_dir / f"{test_table_name}.pkl.xz")
 
 

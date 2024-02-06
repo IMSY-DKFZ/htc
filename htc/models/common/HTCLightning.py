@@ -122,7 +122,11 @@ class HTCLightning(EvaluationMixin, LightningModule):
 
         Returns: Dictionary with model predictions (output of ._predict_images()).
         """
-        assert torch.is_autocast_enabled() or torch.is_autocast_cpu_enabled(), "Please enable autocast"
+        assert (
+            torch.is_autocast_enabled()
+            or torch.is_autocast_cpu_enabled()
+            or self.config["trainer_kwargs/precision"] == "32-true"
+        ), "Please enable autocast"
         assert not torch.is_grad_enabled(), "Please disable gradients"
         assert not self.training, "Please put your model in .eval() mode"
 
@@ -183,7 +187,7 @@ class HTCLightning(EvaluationMixin, LightningModule):
         self.checkpoint_metric_logged[self.current_epoch] = True
 
     def on_train_epoch_start(self) -> None:
-        if self.current_epoch == self.trainer.max_epochs - 1:
+        if self.config["swa_kwargs"] and self.current_epoch == self.trainer.max_epochs - 1:
             settings.log.info("Changed check_val_every_n_epoch to 1 and switched to manual optimization")
 
             # Workaround to always save the last epoch until the bug is fixed in lightning (https://github.com/Lightning-AI/lightning/issues/4539)

@@ -27,10 +27,12 @@ from htc.utils.LabelMapping import LabelMapping
 
 
 def basic_statistics(
-    dataset_name: str,
+    dataset_name: str = None,
     specs_name: str = None,
     label_mapping: LabelMapping = None,
     annotation_name: Union[str, list[str]] = None,
+    paths: list[DataPath] = None,
+    image_names: list[str] = None,
 ) -> pd.DataFrame:
     """
     Basic statistics about a dataset.
@@ -49,11 +51,19 @@ def basic_statistics(
         specs_name: Name or path to a data specification file. A set_type column will be added indicating for each image whether it is part of the train, test set or not part of the specification. Please note that the specification is not used to select images.
         label_mapping: Optional label mapping which is applied to the statistics table. It will rename all labels, remove invalid labels and give the sum of pixels for the new labels (in case multiple labels like blue_cloth or metal map to the same name like background).
         annotation_name: Optional parameter. If not None, the table will only include the annotations corresponding zu the given annotation_name. Otherwise, all available annotations will be included.
+        paths: List of DataPath objects which should be included in the table. Passed on to the `median_table()` function.
+        image_names: List of image names which should be included in the table. Passed on to the `median_table()` function.
 
     Returns: Statistics in table format.
     """
-    df = median_table(dataset_name=dataset_name, annotation_name=annotation_name)
-    df = df[["image_name", "subject_name", "timestamp", "label_name", "n_pixels"]]
+    df_median = median_table(
+        dataset_name=dataset_name,
+        paths=paths,
+        image_names=image_names,
+        label_mapping=label_mapping,
+        annotation_name=annotation_name,
+    )
+    df = df_median[["image_name", "subject_name", "timestamp", "label_name", "n_pixels"]].copy()
 
     # Add a set_type column based on the data specification file
     if specs_name is not None:
@@ -78,16 +88,17 @@ def basic_statistics(
     df["set_type"] = set_types
 
     if label_mapping is not None:
-        # Apply label mapping and group together labels with the same name (n_pixels will be summed up)
-        mapping_dataset = LabelMapping.from_data_dir(settings.data_dirs[dataset_name])
-        df["label_index"] = [mapping_dataset.name_to_index(l) for l in df["label_name"]]
-        df["label_index"] = label_mapping.map_tensor(df["label_index"].values, mapping_dataset)
-
+        df["label_index"] = df_median["label_index_mapped"]
+        df["label_name"] = df_median["label_name_mapped"]
         df["label_valid"] = [label_mapping.is_index_valid(i) for i in df["label_index"]]
-        df["label_name"] = [label_mapping.index_to_name(i) for i in df["label_index"]]
 
+        # Only include valid labels in the statistics
         df = df[df["label_valid"]]
-        df = df.groupby(sorted(set(df.columns.to_list()) - {"n_pixels"}), as_index=False)["n_pixels"].sum()
+
+        # Sum together the pixels for labels with the same name
+        df = df.groupby(sorted(set(df.columns.to_list()) - {"n_pixels"}), as_index=False, observed=True)[
+            "n_pixels"
+        ].sum()
         df = df.sort_values(by=["image_name", "label_index"])
 
     return df.reset_index(drop=True)
@@ -130,7 +141,7 @@ def median_table(
         dataset_name: Name of the dataset from which you want to have the median spectra table. The name may include a # to specify a subdataset, e.g. `2021_02_05_Tivita_multiorgan_semantic#context_experiments` for the context_experiments folder inside the semantic data directory.
         table_name: For each dataset, there may be multiple tables for different purposes (e.g. tables with recalibrated data). With this switch, you specify which table should be loaded. The format of these tables on disk is `dataset_name@table_name@median_spectra@annotation_name.feather`. Per default, the normal table with the original data is loaded corresponding to tables on disk with the format `dataset_name@median_spectra@annotation_name.feather`, i.e. without the optional `@table_name`. Requested image names (`image_names` argument) are only considered from the tables matching the given `table_name`. It is not possible to select images from tables with different table names with this function since they may contain the same images.
         paths: List of DataPath objects from which you want to have the median spectra. If annotation names are specified with a data path object, those names will be used. If specified, image_names must be None.
-        image_names: List of image ids to search for (similar to the paths parameter). Image names may also include annotation names (e.g. subject#timestamp@name1&name2). It is not ensured that the resulting table contains all requested images because some images may lack annotations or are filtered out by the label_mapping. If specified, paths must be None.
+        image_names: List of image names to search for (similar to the paths parameter). Image names may also include annotation names (e.g. subject#timestamp@name1&name2). It is not ensured that the resulting table contains all requested images because some images may lack annotations or are filtered out by the label_mapping. If specified, paths must be None.
         label_mapping: The target label mapping. There will be a new label_index_mapped column (and a new label_name_mapped column with the new names defined by the mapping) and the old label_index column will be removed (since the label_index is not unique across datasets). If set to None, then mapping is not carried out.
         annotation_name: Unique name of the annotation(s) for cases where multiple annotations exist (e.g. inter-rater variability). If None, will use the default from the dataset. If the dataset does not have a default (i.e. the annotation_name_default is missing in the dataset_settings.json file), all annotations are returned. It is also possible to explicitly retrieve all annotations by setting this parameter to 'all'.
 
@@ -672,6 +683,9 @@ def get_valid_run_dirs(training_dir: Path = None) -> list[Path]:
     # The dataset size experiment is very special and does not have all the required files
     excluded_prefixes = ("running", "test", "special", "error", settings_seg.dataset_size_timestamp)
 
+    # The benchmarking runs are also special and don't need aggregated tables
+    excluded_names = ("benchmarking",)
+
     run_dirs = []
     if training_dir is None:
         training_dir = settings.training_dir
@@ -681,6 +695,8 @@ def get_valid_run_dirs(training_dir: Path = None) -> list[Path]:
         if not run_dir.is_dir():
             continue
         if run_dir.stem.startswith(excluded_prefixes):
+            continue
+        if any(n in run_dir.name for n in excluded_names):
             continue
 
         run_dirs.append(run_dir)

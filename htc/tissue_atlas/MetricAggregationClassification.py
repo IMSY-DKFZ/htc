@@ -9,6 +9,7 @@ import pandas as pd
 import torch
 import torchmetrics.functional as metrics
 
+from htc.evaluation.metrics.scores import confusion_matrix_to_predictions
 from htc.models.common.utils import get_n_classes
 from htc.utils.Config import Config
 
@@ -19,7 +20,7 @@ class MetricAggregationClassification:
         Class for calculating classification metrics for the tissue atlas.
 
         Args:
-            path_or_df: The path or dataframe of the test table.
+            path_or_df: The path or dataframe of the test or validation table.
             config: The configuration of the training run.
             metrics: Name of the metrics to compute. Must be part of the torchmetrics.functional module.
         """
@@ -35,17 +36,45 @@ class MetricAggregationClassification:
         else:
             raise ValueError("Neither a dataframe nor path given")
 
-    def subject_metrics(self, ensemble: str = "logits", **metric_kwargs) -> pd.DataFrame:
+    def subject_metrics(
+        self,
+        ensemble: str = "logits",
+        dataset_index: Union[int, None] = 0,
+        best_epoch_only: bool = True,
+        **metric_kwargs,
+    ) -> pd.DataFrame:
+        """
+        Calculates the metrics for each subject.
+
+        Args:
+            ensemble: The ensemble approach to use. Can be "mode", "logits" or "softmax".
+            dataset_index: The index of the dataset which is selected in the table (if available). If None, no selection is carried out.
+            best_epoch_only: If True, only results from the best epoch are considered (if available). If False, no selection is carried out and you will get aggregated results per epoch_index (which will also be a column in the resulting table).
+            **metric_kwargs: Additional keyword arguments for the metrics (passed on to the torchmetrics function).
+
+            Returns: Table with the metrics for each subject.
+        """
         assert ensemble in ["mode", "logits", "softmax"], f"Invalid ensemble approach {ensemble}"
 
+        df = self.df
+        if dataset_index is not None and "dataset_index" in df:
+            df = df[df["dataset_index"] == dataset_index]
+        if best_epoch_only and "epoch_index" in df and "best_epoch_index" in df:
+            df = df[df["epoch_index"] == df["best_epoch_index"]]
+
         rows = []
-        for subject_name in self.df["subject_name"].unique():
-            predictions = np.stack(
-                self.df[f"ensemble_{ensemble}"].values[self.df["subject_name"].values == subject_name]
-            )
-            predictions = torch.from_numpy(predictions)
-            labels = self.df["label"].values[self.df["subject_name"].values == subject_name]
-            labels = torch.from_numpy(labels)
+        for subject_name in df["subject_name"].unique():
+            if f"ensemble_{ensemble}" not in df and "confusion_matrix" in df:
+                # The predictions are not available so we infer them from the confusion matrix
+                cm = df["confusion_matrix"].values[df["subject_name"].values == subject_name].item()
+                predictions, labels = confusion_matrix_to_predictions(cm)
+                predictions = torch.from_numpy(predictions)
+                labels = torch.from_numpy(labels)
+            else:
+                predictions = np.stack(df[f"ensemble_{ensemble}"].values[df["subject_name"].values == subject_name])
+                predictions = torch.from_numpy(predictions)
+                labels = df["label"].values[df["subject_name"].values == subject_name]
+                labels = torch.from_numpy(labels)
 
             current_row = {"subject_name": subject_name}
 

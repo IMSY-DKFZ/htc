@@ -133,3 +133,6 @@ class LightningMedianPixel(HTCLightning):
 
         np.savez_compressed(Path(self.logger.save_dir) / "test_results.npz", **results)
         self.test_results_epoch = {"labels": [], "logits": [], "image_names": []}
+
+    def _predict_images(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        return {"class": self(batch["features"])}

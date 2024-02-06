@@ -1,0 +1,7 @@
+{
+    "inherits": "htc/tissue_atlas/median_pixel/configs/default.json",
+    "label_mapping": "htc.rat.settings_rat>label_mapping",
+    "validation": {
+        "checkpoint_saving": "last"
+    }
+}

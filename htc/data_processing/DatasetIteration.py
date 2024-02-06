@@ -17,9 +17,9 @@ class DatasetIteration(ABC):
         """Computations for the i-th path."""
         pass
 
-    def run(self) -> Any:
+    def run(self, **p_map_kwargs) -> Any:
         indices = list(range(len(self.paths)))
-        results = p_map(self.compute, indices, task_name=self.__class__.__name__)
+        results = p_map(self.compute, indices, task_name=self.__class__.__name__, **p_map_kwargs)
 
         self.finished(results)
 

@@ -50,7 +50,10 @@ class FoldTrainer:
         self.data_specs = DataSpecification.from_config(self.config)
         self.LightningClass = HTCLightning.class_from_config(self.config)
 
-    def train_fold(self, run_folder: str, fold_name: str, *args) -> None:
+    def train_fold(self, run_folder: Union[str, None], fold_name: str, *args) -> None:
+        if run_folder is None:
+            run_folder = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_{self.config["config_name"]}')
+
         with MeasureTime("training_fold", silent=True) as mt:
             fold_name_tmp = (  # The results are first written to a temporary directory and later renamed back. This helps to easily detect incomplete runs
                 f"running_{fold_name}"
@@ -293,7 +296,7 @@ def train_all_folds(
             if test:
                 command += " --test"
             if config_extends is not None:
-                command += f' --config-extends "{config_extends}"'
+                command += f""" --config-extends '{config_extends}'"""
 
             settings.log.info(f"Starting training of the fold {fold_name} [{i + 1}/{len(data_specs.fold_names())}]")
             ret = subprocess.run(command, shell=True)

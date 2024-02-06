@@ -143,6 +143,7 @@ class ColorcheckerReader:
         self,
         img_dir: DataPath,
         cc_board: str,
+        scaling_factor: float = 1.0,
         flipped: bool = False,
         rot_angle: float = None,
         square_size: int = None,
@@ -173,6 +174,7 @@ class ColorcheckerReader:
         Args:
             img_dir: DataPath to the image directory (timestamp folder).
             cc_board: String describing the type of colorchecker board which is either the[colorchecker classic](https://www.xrite.com/de/categories/calibration-profiling/colorchecker-classic), referred to as "cc_classic" or a combination of the [colorchecker classic mini](https://www.xrite.com/categories/calibration-profiling/colorchecker-classic-family/colorchecker-classic-mini) and the video color chips of the [colorchecker passport video](https://www.xrite.com/categories/calibration-profiling/colorchecker-passport-video), referred to as "cc_passport".
+            scaling_factor: For the Tivita Halogen camera, the lens can be exchanged, leading to a different field of view (FOV). The scaling factor compensates for this by down- or upscaling the colorchecker mask accordingly. The default value of 1.0 is ideal for the Tivita Surgery camera. A value of about 0.88 works well for the Tivita Halogen camera with the 25 mm lens.
             rot_angle: The rotation of the colorchecker board is corrected. The rotation angle is automatically determined by default, but if the determined rotation angle is not satisfying, a custom rotation angle rot_angle (in degrees) can be input.
             flipped: If the colorchecker board is upside-down, set flipped to True. The orientation of the mask will then be corrected.
             square_size: The size of the squares of the colorchecker mask. Provide a custom value if the default is not satisfying.
@@ -208,16 +210,24 @@ class ColorcheckerReader:
         self.cc_board = cc_board
 
         if self.cc_board == "cc_passport":
-            self.square_size = 26 if square_size is None else square_size
-            self.safety_margin = 12 if safety_margin is None else safety_margin
-            self.square_dist_horizontal = 36 if square_dist_horizontal is None else square_dist_horizontal
-            self.square_dist_vertical = 35 if square_dist_vertical is None else square_dist_vertical
+            self.square_size = int(26 * scaling_factor) if square_size is None else square_size
+            self.safety_margin = int(12 * scaling_factor) if safety_margin is None else safety_margin
+            self.square_dist_horizontal = (
+                int(36 * scaling_factor) if square_dist_horizontal is None else square_dist_horizontal
+            )
+            self.square_dist_vertical = (
+                int(35 * scaling_factor) if square_dist_vertical is None else square_dist_vertical
+            )
 
         if self.cc_board == "cc_classic":
-            self.square_size = 64 if square_size is None else square_size
-            self.safety_margin = 15 if safety_margin is None else safety_margin
-            self.square_dist_horizontal = 40 if square_dist_horizontal is None else square_dist_horizontal
-            self.square_dist_vertical = 36 if square_dist_vertical is None else square_dist_vertical
+            self.square_size = int(64 * scaling_factor) if square_size is None else square_size
+            self.safety_margin = int(15 * scaling_factor) if safety_margin is None else safety_margin
+            self.square_dist_horizontal = (
+                int(40 * scaling_factor) if square_dist_horizontal is None else square_dist_horizontal
+            )
+            self.square_dist_vertical = (
+                int(36 * scaling_factor) if square_dist_vertical is None else square_dist_vertical
+            )
 
         # The safety margin ensures that a solution more close to the center of the color chips is found
         self.square_dist_horizontal -= self.safety_margin

@@ -64,7 +64,11 @@ class DataSpecification:
             specs = json.load(path_or_file)
             self.path = None
         else:
-            possible_paths = [path_or_file, settings.htc_package_dir / path_or_file]
+            # Add .json extension if the user forgot it
+            if not path_or_file.name.endswith(".json"):
+                path_or_file = path_or_file.with_name(path_or_file.name + ".json")
+
+            possible_paths = [path_or_file, settings.htc_package_dir / path_or_file, settings.src_dir / path_or_file]
 
             # Check all data and model directories in this repo per default
             for data_dir in sorted(settings.htc_package_dir.rglob("data")):

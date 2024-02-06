@@ -136,3 +136,37 @@ def accuracy_from_cm(cm: Union[np.ndarray, torch.Tensor]) -> float:
         return (cm.trace() / cm.sum()).item()
     else:
         raise ValueError("Invalid type")
+
+
+def confusion_matrix_to_predictions(cm: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Converts a confusion matrix to a list of predictions and labels.
+
+    This is useful for calculating metrics with torchmetrics which require predictions and labels as input. Please not that the order of the samples cannot be recovered since only the total number of samples per class is known.
+
+    >>> cm = np.array([[1, 2], [3, 4]])
+    >>> predictions, labels = confusion_matrix_to_predictions(cm)
+    >>> predictions
+    array([0, 1, 1, 0, 0, 0, 1, 1, 1, 1])
+    >>> labels
+    array([0, 0, 0, 1, 1, 1, 1, 1, 1, 1])
+
+    Args:
+        cm: Confusion matrix. The rows must denote the targets (original classes) and the columns the predictions.
+
+    Returns: Predictions and labels.
+    """
+    assert len(cm.shape) == 2, "The confusion matrix must be two-dimensional"
+    assert cm.shape[0] == cm.shape[1], "The confusion matrix must be square"
+
+    total_samples = cm.sum()
+    predictions = np.empty(total_samples, dtype=np.int64)
+    labels = np.empty(total_samples, dtype=np.int64)
+    row_start = 0
+    for row in range(cm.shape[0]):
+        row_samples = cm[row, :].sum()
+        predictions[row_start : row_start + row_samples] = np.repeat(np.arange(cm.shape[1]), repeats=cm[row, :])
+        labels[row_start : row_start + row_samples] = np.repeat(row, row_samples)
+        row_start += row_samples
+
+    return predictions, labels
