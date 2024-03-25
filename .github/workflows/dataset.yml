@@ -39,10 +39,13 @@ jobs:
           key: dataset
 
       - name: Checkout files
-        uses: Bhacaz/checkout-files@v2
+        uses: actions/checkout@v4
         with:
-         # Include requirements.txt so that the caching works
-         files: requirements.txt tutorials/website_example.py
+          # Include requirements.txt so that the caching works
+          sparse-checkout: |
+            requirements.txt
+            tutorials/website_example.py
+          sparse-checkout-cone-mode: false
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
