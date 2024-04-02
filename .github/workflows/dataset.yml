@@ -32,12 +32,6 @@ jobs:
         python-version: ['3.9', '3.10', '3.11']
 
     steps:
-      - uses: actions/cache@v4
-        with:
-          path: HeiPorSPECTRAL_example
-          enableCrossOsArchive: true
-          key: dataset
-
       - name: Checkout files
         uses: actions/checkout@v4
         with:
@@ -46,6 +40,12 @@ jobs:
             requirements.txt
             tutorials/website_example.py
           sparse-checkout-cone-mode: false
+
+      - uses: actions/cache@v4
+        with:
+          path: HeiPorSPECTRAL_example
+          enableCrossOsArchive: true
+          key: dataset
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
