@@ -28,7 +28,7 @@ def generate_configs(
 
     if params is None:
         params = {
-            "seed": [settings.default_seed],
+            "seed": [0, 1, 2, 3, 4],
             # 'model/architecture_name': ["Model3D2DSeg", "DynUNet"],
             # 'dataloader_kwargs/batch_size': [8],
             # 'dataloader_kwargs/num_workers': [8],

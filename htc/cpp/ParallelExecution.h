@@ -16,7 +16,7 @@ class ParallelExecution
 public:
     /**
      * @brief Provides simple methods to parallelize for loops including helper functions for critical sections.
-     * 
+     *
      * @param numbThreads specifies the number of threads used for parallelization (if not specified otherwise). Defaults to the number of cores available on the system (virtual + real cores)
      */
     explicit ParallelExecution(const size_t numbThreads = std::thread::hardware_concurrency())
@@ -27,9 +27,9 @@ public:
 
     /**
      * @brief Stores results in a thread-safe way.
-     * 
+     *
      * A mutex will automatically be locked on entry and unlocked on exit of this function. This is useful after the parallel computation when a common variable is accessed containing all the results.
-     * 
+     *
      * @param callback includes the code which should be executed in a thread-safe way
      */
     void setResult(const std::function<void()>& callback)
@@ -41,9 +41,9 @@ public:
 
     /**
      * @brief Writes messages to the console in a thread-safe way.
-     * 
+     *
      * Same mutex behaviour as in ParallelExecution::setResult(). Useful if you don't want your console output get messed up.
-     * 
+     *
      * @param message to print to the console
      */
     void write(const std::string& message)
@@ -55,9 +55,9 @@ public:
 
     /**
      * @brief Executes index-based containers in parallel.
-     * 
+     *
      * It is save to throw exceptions from inside the threads. They are catched and re-thrown later in the main thread.
-     * 
+     *
      * @param idxBegin first index to start (including), e.g. <code>0</code>
      * @param idxEnd last index to start (including), e.g. <code>container.size()</code>
      * @param callback this function will be called from each thread multiple times. Each time an associated index will be passed to the function
@@ -95,7 +95,7 @@ public:
         }
 
         std::deque<std::thread> threads(sizeThreads);
-        
+
         /* Calculate the index ranges */
         const size_t n = idxEnd - idxBegin + 1;    // Both are inclusive
         const size_t nEqual = n / sizeThreads;     // 38 / 12 = 3
@@ -103,7 +103,7 @@ public:
         size_t d = 0;                              // The last part should be portioned equally between all threads
 
         /*
-        
+
         # Thread 0
         d = 0 -> d = 1
         0*3, ..., 1*3-1 (+1)

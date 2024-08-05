@@ -112,13 +112,16 @@ class MedianSpectra(DatasetIteration):
                     current_row = {"image_name": path.image_name()}
                     current_row |= path.image_name_typed()
 
+                    # Avoid std nan values for single-element spectra
+                    correction = 0 if spectra.size(0) == 1 else 1
+
                     current_row |= {
                         "label_index": label_index,
                         "label_name": label_name,
                         "median_spectrum": spectra.quantile(q=0.5, dim=0).numpy(),  # Same as np.median
-                        "std_spectrum": spectra.std(dim=0).numpy(),
+                        "std_spectrum": spectra.std(dim=0, correction=correction).numpy(),
                         "median_normalized_spectrum": spectra_normalized.quantile(q=0.5, dim=0).numpy(),
-                        "std_normalized_spectrum": spectra_normalized.std(dim=0).numpy(),
+                        "std_normalized_spectrum": spectra_normalized.std(dim=0, correction=correction).numpy(),
                         "n_pixels": counts.item(),
                         "median_sto2": np.median(selected_sto2.data),
                         "std_sto2": np.std(selected_sto2.data),

@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import importlib
 import itertools
-import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
@@ -15,6 +13,8 @@ from htc.cpp import automatic_numpy_conversion, tensor_mapping
 from htc.settings import settings
 from htc.tivita.DatasetSettings import DatasetSettings
 from htc.utils.Config import Config
+from htc.utils.Task import Task
+from htc.utils.type_from_string import variable_from_string
 
 if TYPE_CHECKING:
     from htc.tivita.DataPath import DataPath
@@ -243,22 +243,22 @@ class LabelMapping:
 
         return tensor_mapping(tensor, old_new_mapping)
 
-    def rename(self, rename_dict: dict[str, str]) -> None:
+    def rename(self, rename_mapping: dict[str, str]) -> None:
         """
         Rename existing label names to new label names.
 
         Args:
-            rename_dict: dict with key being what label should be renamed and value being the new label name.
+            rename_mapping: Mapping with key being what label should be renamed and value being the new label name.
         """
         self.mapping_name_index = {
-            rename_dict.get(label_name, label_name): label_index
+            rename_mapping.get(label_name, label_name): label_index
             for label_name, label_index in self.mapping_name_index.items()
         }
         self.label_colors = {
-            rename_dict.get(label_name, label_name): color for label_name, color in self.label_colors.items()
+            rename_mapping.get(label_name, label_name): color for label_name, color in self.label_colors.items()
         }
         self.mapping_index_name = {
-            label_index: rename_dict.get(label_name, label_name)
+            label_index: rename_mapping.get(label_name, label_name)
             for label_index, label_name in self.mapping_index_name.items()
         }
 
@@ -315,6 +315,9 @@ class LabelMapping:
         Constructs a label mapping based on the default labels of the dataset accessed via the path object.
 
         These are the labels as defined by the clinicians.
+
+        Args:
+            path: Data path to the image.
         """
         label_colors = path.dataset_settings["label_colors"] if "label_colors" in path.dataset_settings else None
         return cls(
@@ -335,31 +338,34 @@ class LabelMapping:
         return cls(dsettings["label_mapping"], dsettings["last_valid_label_index"])
 
     @classmethod
-    def from_config(cls, config: Config) -> Self:
+    def from_config(cls, config: Config, task: Task = None, image_label_entry_index: int = 0) -> Self:
         """
-        Constructs a label mapping as defined in the config file. config['label_mapping'] can be defined as:
+        Constructs a label mapping as defined in the config file. For example, `config['label_mapping']` can be defined as:
 
         * a LabelMapping instance.
-        * a config definition string in the format module>variable (e.g. htc.settings_seg>label_mapping). module must be importable and variable must exist in the module.
-        * a dict from a JSON file (as saved via to_class_dict()).
-        * a dict with label_name:label_index definitions (like settings_seg.label_mapping) in which case settings.label_index_thresh will be used to determine invalid labels.
+        * a config definition string in the format module>variable (e.g. `htc.settings_seg>label_mapping`). module must be importable and variable must exist in the module.
+        * a dict from a JSON file (as saved via `to_class_dict()`).
+        * a dict with label_name:label_index definitions (like `settings_seg.label_mapping`) in which case `settings.label_index_thresh` will be used to determine invalid labels.
+
+        Args:
+            config: The config object.
+            task: The task for which the mapping should be constructed. For segmentation tasks, the mapping must be defined in `config['label_mapping']` and for classification tasks it must be defined in `config['input/image_labels'][image_label_entry_index]['image_label_mapping']`. If None, the task will be determined from the config.
+            image_label_entry_index: The index of the config['input/image_labels'] list in the config file (used only for classification tasks).
         """
-        assert "label_mapping" in config, "There is no label mapping in the config file"
-        mapping = config["label_mapping"]
+        if task is None:
+            task = Task.from_config(config)
+
+        if task == Task.SEGMENTATION:
+            assert "label_mapping" in config, "There is no label mapping in the config file"
+            mapping = config["label_mapping"]
+        elif task == Task.CLASSIFICATION:
+            assert "input/image_labels" in config, "There must be image labels defined for classification tasks"
+            mapping = config["input/image_labels"][image_label_entry_index]["image_label_mapping"]
+        else:
+            raise ValueError(f"Invalid task: {task}")
 
         if type(mapping) == str:
-            match = re.search(r"^([\w.]+)>(\w+)$", mapping)
-            assert match is not None, (
-                f"Could not parse the string {mapping} as a valid config definition. It must be in the format"
-                " module>variable (e.g. htc.settings_seg>label_mapping) and must refer to a valid Python script"
-            )
-
-            module = importlib.import_module(match.group(1))
-            if not hasattr(module, match.group(2)):
-                # In case settings is an object
-                module = getattr(module, match.group(1).split(".")[-1])
-            mapping = getattr(module, match.group(2))
-            # Now load as usual
+            mapping = variable_from_string(mapping)
 
         if isinstance(mapping, LabelMapping):
             mapping_obj = mapping
@@ -389,5 +395,12 @@ class LabelMapping:
 
             mapping_obj = cls(label_mapping)
 
-        config["label_mapping"] = mapping_obj  # Cache for future use
+        # Cache for future use
+        if task == Task.SEGMENTATION:
+            config["label_mapping"] = mapping_obj
+        elif task == Task.CLASSIFICATION:
+            config["input/image_labels"][image_label_entry_index]["image_label_mapping"] = mapping_obj
+        else:
+            raise ValueError(f"Invalid task: {task}")
+
         return mapping_obj

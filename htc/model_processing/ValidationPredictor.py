@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 import gc
-import multiprocessing
 
 import torch
+import torch.multiprocessing as multiprocessing
 from rich.progress import Progress, TimeElapsedColumn
 
 from htc.model_processing.Predictor import Predictor
@@ -53,7 +53,7 @@ class ValidationPredictor(Predictor):
 
                 # Load dataset and lightning class based on model name
                 model = LightningClass.load_from_checkpoint(
-                    ckpt_file, dataset_train=None, datasets_val=[dataset], config=self.config
+                    ckpt_file, dataset_train=None, datasets_val=[dataset], config=self.config, fold_name=fold_dir.stem
                 )
                 model.eval()
                 model.cuda()
@@ -105,11 +105,14 @@ class ValidationPredictor(Predictor):
         fold_name: str,
         best_epoch_index: int,
     ) -> None:
-        batch_predictions = model.predict_step(batch)["class"]
+        batch_predictions_gpu = model.predict_step(batch)["class"]
         if self.config["model/activations"] != "sigmoid":
             # For the sigmoid activation, we need to pass the logits
-            batch_predictions = batch_predictions.softmax(dim=1)
-        batch_predictions = batch_predictions.cpu().numpy()
+            batch_predictions_gpu = batch_predictions_gpu.softmax(dim=1)
+
+        batch_predictions = torch.empty(dtype=batch_predictions_gpu.dtype, size=batch_predictions_gpu.size())
+        batch_predictions.share_memory_()
+        batch_predictions.copy_(batch_predictions_gpu)
 
         for b in range(batch_predictions.shape[0]):
             image_name = batch["image_name"][b]

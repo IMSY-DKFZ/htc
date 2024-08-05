@@ -31,3 +31,15 @@ class DatasetIteration(ABC):
             results: Results from the computation step (one entry per path).
         """
         pass
+
+    def _compute_necessary(self, image_name: str) -> bool:
+        """
+        Check if the computation for the given image is necessary.
+
+        Args:
+            image_name: Name of the image.
+
+        Returns: True if the computation is necessary (file does not exists or has no valid size), False otherwise.
+        """
+        target_path = self.output_dir / f"{image_name}.{self.file_type}"
+        return not (target_path.is_file() and target_path.stat().st_size > 0)

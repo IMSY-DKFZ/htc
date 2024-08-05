@@ -1,15 +1,18 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import multiprocessing
 from abc import abstractmethod
 from pathlib import Path
+from typing import Union
 
 import numpy as np
+import torch
+import torch.multiprocessing as multiprocessing
 
 from htc.settings import settings
 from htc.utils.blosc_compression import decompress_file
 from htc.utils.Config import Config
+from htc.utils.LabelMapping import LabelMapping
 
 
 class Predictor:
@@ -18,7 +21,8 @@ class Predictor:
         run_dir: Path,
         use_predictions: bool = False,
         store_predictions: bool = False,
-        config: Config = None,
+        num_workers: int = 1,
+        config: Union[Config, str] = None,
         mode: str = "predictions",
         **kwargs,
     ):
@@ -26,12 +30,21 @@ class Predictor:
         self.use_predictions = use_predictions
         self.store_predictions = store_predictions
         self.mode = mode
-        self.config = Config(self.run_dir / "config.json") if config is None else config
-        self.config["dataloader_kwargs/num_workers"] = 1  # One worker process is usually enough for inference tasks
+        if config is None:
+            self.config = Config(self.run_dir / "config.json")
+        else:
+            self.config = config if type(config) == Config else Config(self.run_dir / config)
+        self.config["dataloader_kwargs/num_workers"] = num_workers
+
+        # Avoid problems if this script is applied to new data with different labels (everything which the model does not know of will be ignored)
+        mapping = LabelMapping.from_config(self.config)
+        mapping.unknown_invalid = True
+
         self.name_path_mapping = {}
 
-        # We usually don't need labels for the prediction
-        self.config["input/no_labels"] = True
+        # If not explicitly stated otherwise, we usually don't need labels for the prediction
+        if "input/no_labels" not in self.config:
+            self.config["input/no_labels"] = True
 
         if self.mode == "activations" or self.mode == "reconstructions":
             assert self.fold_name is not None, (
@@ -62,7 +75,7 @@ class Predictor:
         for name, value in kwargs.items():
             setattr(self, name, value)
 
-    def load_predictions(self, image_name: str) -> np.array:
+    def load_predictions(self, image_name: str) -> torch.Tensor:
         if image_name not in self.existing_predictions:
             return None
 
@@ -76,7 +89,7 @@ class Predictor:
         else:
             raise ValueError(f"Cannot read the predictions from {path}")
 
-        return data
+        return torch.from_numpy(data).share_memory_()
 
     @abstractmethod
     def start(self, task_queue: multiprocessing.JoinableQueue, hide_progressbar: bool) -> None:

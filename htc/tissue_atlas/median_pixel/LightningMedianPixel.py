@@ -18,6 +18,7 @@ from htc.models.common.HTCLightning import HTCLightning
 from htc.models.common.utils import get_n_classes
 from htc.models.pixel.ModelPixel import ModelPixel
 from htc.tissue_atlas.median_pixel.DatasetMedianPixel import DatasetMedianPixel
+from htc.utils.Task import Task
 
 
 class LightningMedianPixel(HTCLightning):
@@ -48,7 +49,8 @@ class LightningMedianPixel(HTCLightning):
             )
 
             weights = calculate_class_weights(config, *self.dataset_train.label_counts())
-            sample_weights = weights[self.dataset_train.labels]
+            task = Task.from_config(self.config)
+            sample_weights = weights[getattr(self.dataset_train, task.labels_name())]
             sampler = WeightedRandomSampler(sample_weights, num_samples=self.config["input/epoch_size"])
         else:
             sampler = RandomSampler(self.dataset_train, replacement=True, num_samples=self.config["input/epoch_size"])
@@ -57,14 +59,13 @@ class LightningMedianPixel(HTCLightning):
             self.dataset_train, sampler=sampler, persistent_workers=True, **self.config["dataloader_kwargs"]
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model(x)["class"]
+    def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
+        return self.model(batch["features"])["class"]
 
     def training_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> dict:
+        predictions = self(batch)
         labels = batch["labels"]
-        features = batch["features"]
 
-        predictions = self(features)
         ce_loss = self.ce_loss_weighted(predictions, labels)
         self.log("train/ce_loss", ce_loss, on_epoch=True)
 
@@ -76,7 +77,7 @@ class LightningMedianPixel(HTCLightning):
                 len(values) == 0 for values in self.validation_results_epoch.values()
             ), "Validation results are not properly cleared"
 
-        predictions = self(batch["features"]).argmax(dim=1)
+        predictions = self(batch).argmax(dim=1)
 
         self.validation_results_epoch["labels"].append(batch["labels"])
         self.validation_results_epoch["predictions"].append(predictions)
@@ -116,10 +117,9 @@ class LightningMedianPixel(HTCLightning):
             ), "Test results are not properly cleared"
 
         labels = batch["labels"]
-        features = batch["features"]
         image_names = batch["image_name"]
 
-        logits = self(features)
+        logits = self(batch)
 
         self.test_results_epoch["labels"].append(labels)
         self.test_results_epoch["logits"].append(logits)
@@ -133,6 +133,3 @@ class LightningMedianPixel(HTCLightning):
 
         np.savez_compressed(Path(self.logger.save_dir) / "test_results.npz", **results)
         self.test_results_epoch = {"labels": [], "logits": [], "image_names": []}
-
-    def _predict_images(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        return {"class": self(batch["features"])}

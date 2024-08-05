@@ -29,8 +29,8 @@ class DelayedFileHandler(logging.Handler):
         self.file_handler = logging.FileHandler(filename, **kwargs)
 
         # Apply existing settings to the new file handler
-        for filter in self.filters:
-            self.file_handler.addFilter(filter)
+        for f in self.filters:
+            self.file_handler.addFilter(f)
         self.file_handler.setFormatter(self.formatter)
         self.file_handler.setLevel(self.level)
 
@@ -39,11 +39,11 @@ class DelayedFileHandler(logging.Handler):
             self.file_handler.emit(record)
         self.cached_records = []
 
-    def addFilter(self, filter: Union[logging.Filter, Callable]) -> None:
+    def addFilter(self, filter_func: Union[logging.Filter, Callable]) -> None:
         if self.file_handler is None:
-            super().addFilter(filter)
+            super().addFilter(filter_func)
         else:
-            self.file_handler.addFilter(filter)
+            self.file_handler.addFilter(filter_func)
 
     def setFormatter(self, fmt: str) -> None:
         if self.file_handler is None:

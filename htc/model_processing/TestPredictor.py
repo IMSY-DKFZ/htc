@@ -1,75 +1,16 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import multiprocessing
-from pathlib import Path
-from typing import Union
-
 import torch
-import torch.nn as nn
+import torch.multiprocessing as multiprocessing
 from rich.progress import Progress, TimeElapsedColumn
-from torch.utils.data import DataLoader
-from typing_extensions import Self
 
 from htc.model_processing.Predictor import Predictor
+from htc.model_processing.TestEnsemble import TestEnsemble
 from htc.models.common.HTCLightning import HTCLightning
 from htc.models.common.torch_helpers import move_batch_gpu
 from htc.models.data.DataSpecification import DataSpecification
 from htc.tivita.DataPath import DataPath
-from htc.utils.Config import Config
-from htc.utils.helper_functions import checkpoint_path
-
-
-class TestEnsemble(nn.Module):
-    def __init__(self, model_paths: list[Path], paths: Union[list[DataPath], None], config: Config):
-        super().__init__()
-        self.config = config
-
-        self.models: dict[Path, HTCLightning] = {}
-        for fold_dir in model_paths:
-            ckpt_file, _ = checkpoint_path(fold_dir)
-
-            # Load dataset and lightning class based on model name
-            LightningClass = HTCLightning.class_from_config(self.config)
-            if paths is None:
-                dataset = []
-            else:
-                dataset = LightningClass.dataset(paths=paths, train=False, config=self.config, fold_name=fold_dir.stem)
-            model = LightningClass.load_from_checkpoint(
-                ckpt_file, dataset_train=None, datasets_val=[dataset], config=self.config
-            )
-
-            self.models[fold_dir] = model
-
-    def eval(self) -> Self:
-        for model in self.models.values():
-            model.eval()
-        return self
-
-    def cuda(self, *args, **kwargs) -> Self:
-        for model in self.models.values():
-            model.cuda(*args, **kwargs)
-        return self
-
-    def to(self, *args, **kwargs) -> Self:
-        for model in self.models.values():
-            model.to(*args, **kwargs)
-        return self
-
-    def dataloader(self) -> DataLoader:
-        # All models have the same dataset, so we just take the first dataloader and use the data for all models
-        return next(iter(self.models.values())).val_dataloader()[0]
-
-    def predict_step(self, batch: dict[str, torch.Tensor], batch_idx: int = None) -> dict[str, torch.Tensor]:
-        fold_predictions = []
-        for model in self.models.values():
-            out = model.predict_step(batch)["class"]
-            if self.config["model/activations"] != "sigmoid":
-                out = out.softmax(dim=1)
-            fold_predictions.append(out)
-
-        # Ensembling over the softmax values (or logits in case of sigmoid)
-        return {"class": torch.stack(fold_predictions).mean(dim=0)}
 
 
 class TestPredictor(Predictor):
@@ -97,7 +38,7 @@ class TestPredictor(Predictor):
 
     @torch.no_grad()
     def start(self, task_queue: multiprocessing.JoinableQueue, hide_progressbar: bool) -> None:
-        dataloader = self.model.dataloader()
+        dataloader = self.model.val_dataloader()[0]
 
         with Progress(*Progress.get_default_columns(), TimeElapsedColumn(), disable=hide_progressbar) as progress:
             task_loader = progress.add_task("Dataloader", total=len(dataloader))
@@ -134,7 +75,14 @@ class TestPredictor(Predictor):
         batch: dict[str, torch.Tensor],
         remaining_image_names: list[str],
     ) -> None:
-        batch_predictions = model.predict_step(batch)["class"].cpu().numpy()
+        batch_predictions_gpu = model.predict_step(batch)["class"]
+
+        # The following approach of creating an empty tensor first, making it shared (which includes copying the data) and then transferring the data from the GPU to the CPU is slightly advantageous compared to .cpu().share_memory_() because the copying can happen while the GPU is still doing the inference (since CUDA is asynchronous)
+        # .cpu() has an implicit synchronization point so the copy process introduced by share_memory_() would always happens after the inference
+        batch_predictions = torch.empty(dtype=batch_predictions_gpu.dtype, size=batch_predictions_gpu.size())
+        # Unfortunately, this involves an unnecessary copy but there is no direct way to create an empty, shared tensor in Pytorch
+        batch_predictions.share_memory_()
+        batch_predictions.copy_(batch_predictions_gpu)
 
         for b in range(batch_predictions.shape[0]):
             image_name = batch["image_name"][b]

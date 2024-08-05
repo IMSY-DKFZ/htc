@@ -6,6 +6,7 @@ import torch.nn as nn
 
 import htc.models.common.functions
 from htc.models.common.ChannelWeights import ChannelWeights
+from htc.models.common.utils import model_input_channels
 from htc.utils.Config import Config
 
 
@@ -75,11 +76,11 @@ class HSI3dChannel(nn.Module):
 
             self.layers = nn.Sequential(conv1, conv1_norm, pool1, conv2, conv2_norm, conv3, conv3_norm)
         elif remaining_channels == 38:
-            conv1 = nn.Conv3d(1, 10, (10, 3, 3), padding=(0, 1, 1), padding_mode="circular", stride=(2, 1, 1))
+            conv1 = nn.Conv3d(1, 5, (10, 3, 3), padding=(0, 1, 1), padding_mode="circular", stride=(2, 1, 1))
             conv1_norm = NormalizationLayer(num_features=conv1.out_channels)
 
             conv2 = nn.Conv3d(
-                conv1.out_channels, 5, (5, 3, 3), padding=(0, 1, 1), padding_mode="circular", stride=(1, 1, 1)
+                conv1.out_channels, 2, (5, 3, 3), padding=(0, 1, 1), padding_mode="circular", stride=(1, 1, 1)
             )
             conv2_norm = NormalizationLayer(num_features=conv2.out_channels)
 
@@ -88,7 +89,17 @@ class HSI3dChannel(nn.Module):
             )
             conv3_norm = NormalizationLayer(num_features=conv3.out_channels)
 
-            self.layers = nn.Sequential(conv1, conv1_norm, conv2, conv2_norm, conv3, conv3_norm)
+            self.layers = nn.Sequential(
+                conv1,
+                conv1_norm,
+                self.F(inplace=True),
+                conv2,
+                conv2_norm,
+                self.F(inplace=True),
+                conv3,
+                conv3_norm,
+                self.F(inplace=True),
+            )
         elif remaining_channels == 40:
             layer_sizes = [1, 10, 5, 1]
             strides = [None, 2, 1, 1]
@@ -107,7 +118,7 @@ class HSI3dChannel(nn.Module):
         Returns: Number of output channels which remain after the 3D convolution.
         """
         with torch.no_grad():
-            return self(torch.rand(2, self.config["input/n_channels"], 2, 2)).shape[1]
+            return self(torch.rand(2, model_input_channels(self.config), 2, 2)).shape[1]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x.shape = [3, 100, 480, 640]

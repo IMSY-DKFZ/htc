@@ -74,9 +74,9 @@ def LDA(data: np.ndarray, labels: np.ndarray) -> tuple[np.ndarray, np.ndarray, n
     )  # Using the pseudo-inverse matrix gives stabler results
 
     # Sort the eigenvalues descendingly (https://stackoverflow.com/questions/8092920/sort-eigenvalues-and-associated-eigenvectors-after-using-numpy-linalg-eig-in-pyt)
-    eval, evec = np.linalg.eig(scatter)
-    idx = eval.argsort()[::-1]
-    eval = eval[idx]
-    evec = evec[:, idx]
+    eigenvalues, eigenvectors = np.linalg.eig(scatter)
+    idx = eigenvalues.argsort()[::-1]
+    eigenvalues = eigenvalues[idx]
+    eigenvectors = eigenvectors[:, idx]
 
-    return evec, np.matmul(data, evec), eval
+    return eigenvectors, np.matmul(data, eigenvectors), eigenvalues

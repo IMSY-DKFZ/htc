@@ -3,15 +3,15 @@
 
 import argparse
 import copy
-import multiprocessing
 import queue
 import sys
-from functools import cached_property
+from functools import cached_property, partial
 from pathlib import Path
 from typing import Union
 
 import psutil
 import torch
+import torch.multiprocessing as multiprocessing
 
 from htc.model_processing.ImageConsumer import ImageConsumer
 from htc.model_processing.Predictor import Predictor
@@ -19,6 +19,7 @@ from htc.models.common.HTCModel import HTCModel
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
+from htc.utils.type_from_string import variable_from_string
 
 
 class Runner:
@@ -32,19 +33,19 @@ class Runner:
         >>> import re
         >>> runner = Runner(description="My inference script")
         >>> re.sub(r'\s+', ' ', runner.parser.format_usage())  # doctest: +ELLIPSIS
-        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--num-consumers NUM_CONSUMERS] [--store-predictions] [--use-predictions] [--hide-progressbar] '
+        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--num-consumers NUM_CONSUMERS] [--num-workers NUM_WORKERS] [--store-predictions] [--use-predictions] [--hide-progressbar] '
 
         Adding a custom argument with default options:
         >>> runner.add_argument("--input-dir")
         >>> re.sub(r'\s+', ' ', runner.parser.format_usage())  # doctest: +ELLIPSIS
-        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--num-consumers NUM_CONSUMERS] [--store-predictions] [--use-predictions] [--hide-progressbar] [--input-dir INPUT_DIR] '
+        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--num-consumers NUM_CONSUMERS] [--num-workers NUM_WORKERS] [--store-predictions] [--use-predictions] [--hide-progressbar] [--input-dir INPUT_DIR] '
 
         Custom argument with a different option (note that --input-dir is now a required argument):
         >>> runner = Runner(description="My inference script")
         >>> runner.parser.formatter_class = argparse.RawDescriptionHelpFormatter
         >>> runner.add_argument("--input-dir", required=True)
         >>> re.sub(r'\s+', ' ', runner.parser.format_usage())  # doctest: +ELLIPSIS
-        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--num-consumers NUM_CONSUMERS] [--store-predictions] [--use-predictions] [--hide-progressbar] --input-dir INPUT_DIR '
+        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--num-consumers NUM_CONSUMERS] [--num-workers NUM_WORKERS] [--store-predictions] [--use-predictions] [--hide-progressbar] --input-dir INPUT_DIR '
 
         All custom arguments are automatically passed to the producer and the consumers, i.e. self.input_dir contains the path which the user submitted as command line argument.
 
@@ -81,6 +82,16 @@ class Runner:
                 "Number of consumers/processes to spawn which work on the predicted images. Defaults to n_physical_cpus"
                 " - 1 to have at least one free CPU for the inference. Note that sometimes less is more and using fewer"
                 " consumers may speed up the program time (e.g. if your consumer code uses many threads)."
+            ),
+        )
+        self.parser.add_argument(
+            "--num-workers",
+            type=int,
+            default=1,
+            help=(
+                "Number of workers for the dataloader to load the data (dataloader_kwargs/num_workers argument)."
+                " Defaults to 1 since this is usually enough for inference tasks if no special processing of the data"
+                " is required."
             ),
         )
         self.parser.add_argument(
@@ -143,6 +154,8 @@ class Runner:
                 return spec.fold_paths(dargs.get("spec_fold"), dargs.get("spec_split"))
             else:
                 return spec.paths(dargs.get("spec_split"))
+        elif dargs.get("paths_variable") is not None:
+            return variable_from_string(dargs.get("paths_variable"))
         else:
             return None
 
@@ -187,6 +200,14 @@ class Runner:
                 "The name of the fold for which the activations have to be calculated. Currently activations"
                 " plotting is only implemented for the hyper_diva model.",
             )
+        elif name == "--config":
+            kwargs.setdefault("type", str)
+            kwargs.setdefault("default", "config.json")
+            kwargs.setdefault(
+                "help",
+                "Name of the config file to load (relative to the run directory). This can be useful to load the same"
+                " training run but with a different configuration file.",
+            )
         elif name == "--target-domain":
             kwargs.setdefault("type", str)
             kwargs.setdefault("default", None)
@@ -224,6 +245,14 @@ class Runner:
                 " be used for inference. This argument can only be used if inference-spec has been set."
                 " This argument overrides the --input-dir argument.",
             )
+        elif name == "--paths-variable":
+            kwargs.setdefault("type", str)
+            kwargs.setdefault("default", None)
+            kwargs.setdefault(
+                "help",
+                "Parsable variable string (cf. htc.utils.type_from_string.variable_from_string() function) which points"
+                " to a list of DataPath objects.",
+            )
         elif name == "--annotation-name":
             kwargs.setdefault("type", str)
             kwargs.setdefault("default", None)
@@ -243,7 +272,7 @@ class Runner:
                 "The threshold which will be used for the NSD computation. In the resulting table, a column with"
                 " the name surface_dice_metric_VALUE will be inserted. If a float is given, the same threshold for"
                 " all classes will be used. May also be a name denoting the name of a set of threshold values, e.g."
-                " semantic for the thresholds which we used in the MIA2021 paper. The threshold values are expected"
+                " semantic for the thresholds which we used in the MIA2022 paper. The threshold values are expected"
                 " to be stored in the results directory at rater_variability/nsd_thresholds_<name>.csv or in"
                 " models/nsd_thresholds_<name>.csv on the S3 storage.",
             )
@@ -274,8 +303,18 @@ class Runner:
 
             # All arguments added via add_argument will be passed to the producer and the consumer
             additional_kwargs = {name: getattr(self.args, name) for name in self._used_args}
+            additional_kwargs["paths"] = self.paths
 
-            # specify all arguments with explicit names for ConsumerClass to avoid errors due to partial class initialization
+            # In principle, we give every argument to the consumers and producer
+            # However, we need to make sure that we do not override arguments which the user passes directly (via partial) to the consumers or producer
+            consumer_kwargs = {}
+            for key, value in additional_kwargs.items():
+                if isinstance(ConsumerClass, partial) and key in ConsumerClass.keywords:
+                    continue
+
+                consumer_kwargs[key] = value
+
+            # Specify all arguments with explicit names for ConsumerClass to avoid errors due to partial class initialization
             consumer = ConsumerClass(
                 task_queue=task_queue,
                 task_queue_errors=task_queue_errors,
@@ -283,21 +322,27 @@ class Runner:
                 results_dict=results_dict,
                 run_dir=self.run_dir,
                 store_predictions=self.args.store_predictions,
-                **additional_kwargs,
+                **consumer_kwargs,
             )
-            consumers = [
-                copy.copy(consumer) for _ in range(num_consumers)
-            ]  # A copy is much cheaper if __init__ is expensive
+            # A copy is much cheaper if __init__ is expensive
+            consumers = [copy.copy(consumer) for _ in range(num_consumers)]
             for w in consumers:
                 w.start()
 
+            predictor_kwargs = {}
+            for key, value in additional_kwargs.items():
+                if isinstance(PredictorClass, partial) and key in PredictorClass.keywords:
+                    continue
+
+                predictor_kwargs[key] = value
+
             # The producer creates the predictions (only the main process since we use only 1 GPU)
             predictor = PredictorClass(
-                self.run_dir,
-                self.args.use_predictions,
-                self.args.store_predictions,
-                paths=self.paths,
-                **additional_kwargs,
+                run_dir=self.run_dir,
+                use_predictions=self.args.use_predictions,
+                store_predictions=self.args.store_predictions,
+                num_workers=self.args.num_workers,
+                **predictor_kwargs,
             )
 
             exit_code = 0

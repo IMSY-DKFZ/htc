@@ -2,8 +2,6 @@
     {
         "fold_name": "fold_P041,P060,P069",
         "train_semantic": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P044#2020_02_01_09_51_15",
                 "P044#2020_02_01_09_51_31",
@@ -262,8 +260,6 @@
             ]
         },
         "val_semantic_unknown": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P041#2019_12_14_12_00_16",
                 "P041#2019_12_14_12_01_09",
@@ -342,8 +338,6 @@
             ]
         },
         "val_semantic_known": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P044#2020_02_01_09_57_47",
                 "P045#2020_02_05_11_01_20",
@@ -360,8 +354,6 @@
             ]
         },
         "test": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P043#2019_12_20_10_05_27",
                 "P043#2019_12_20_10_05_48",
@@ -535,8 +527,6 @@
     {
         "fold_name": "fold_P044,P050,P059",
         "train_semantic": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P041#2019_12_14_12_00_16",
                 "P041#2019_12_14_12_01_39",
@@ -819,8 +809,6 @@
             ]
         },
         "val_semantic_unknown": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P044#2020_02_01_09_51_15",
                 "P044#2020_02_01_09_51_31",
@@ -875,8 +863,6 @@
             ]
         },
         "val_semantic_known": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P041#2019_12_14_12_01_09",
                 "P045#2020_02_05_10_59_32",
@@ -893,8 +879,6 @@
             ]
         },
         "test": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P043#2019_12_20_10_05_27",
                 "P043#2019_12_20_10_05_48",
@@ -1068,8 +1052,6 @@
     {
         "fold_name": "fold_P045,P061,P071",
         "train_semantic": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P041#2019_12_14_12_01_09",
                 "P041#2019_12_14_12_01_39",
@@ -1343,8 +1325,6 @@
             ]
         },
         "val_semantic_unknown": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P045#2020_02_05_10_54_19",
                 "P045#2020_02_05_10_55_07",
@@ -1408,8 +1388,6 @@
             ]
         },
         "val_semantic_known": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P041#2019_12_14_12_00_16",
                 "P044#2020_02_01_09_58_48",
@@ -1426,8 +1404,6 @@
             ]
         },
         "test": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P043#2019_12_20_10_05_27",
                 "P043#2019_12_20_10_05_48",
@@ -1601,8 +1577,6 @@
     {
         "fold_name": "fold_P047,P049,P070",
         "train_semantic": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P041#2019_12_14_12_00_16",
                 "P041#2019_12_14_12_01_09",
@@ -1870,8 +1844,6 @@
             ]
         },
         "val_semantic_unknown": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P047#2020_02_07_17_28_15",
                 "P047#2020_02_07_17_28_38",
@@ -1941,8 +1913,6 @@
             ]
         },
         "val_semantic_known": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P041#2019_12_14_12_01_39",
                 "P044#2020_02_01_09_52_12",
@@ -1959,8 +1929,6 @@
             ]
         },
         "test": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P043#2019_12_20_10_05_27",
                 "P043#2019_12_20_10_05_48",
@@ -2134,8 +2102,6 @@
     {
         "fold_name": "fold_P048,P057,P058",
         "train_semantic": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P041#2019_12_14_12_00_16",
                 "P041#2019_12_14_12_01_09",
@@ -2376,8 +2342,6 @@
             ]
         },
         "val_semantic_unknown": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P048#2020_02_08_10_34_35",
                 "P048#2020_02_08_10_35_01",
@@ -2474,8 +2438,6 @@
             ]
         },
         "val_semantic_known": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P041#2019_12_14_12_01_39",
                 "P044#2020_02_01_09_58_31",
@@ -2492,8 +2454,6 @@
             ]
         },
         "test": {
-            "data_path_module": "htc.tivita.DataPath",
-            "data_path_class": "DataPath",
             "image_names": [
                 "P043#2019_12_20_10_05_27",
                 "P043#2019_12_20_10_05_48",

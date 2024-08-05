@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import torch
-
 from htc.models.common.SharedMemoryDatasetMixin import SharedMemoryDatasetMixin
 from htc.models.image.DatasetImage import DatasetImage
 
@@ -74,24 +72,3 @@ class DatasetImageBatch(SharedMemoryDatasetMixin, DatasetImage):
     @property
     def buffer_size(self) -> int:
         return self.worker_buffer_size * self.config["dataloader_kwargs/num_workers"]
-
-    def _add_shared_resources(self) -> None:
-        self._add_image_index_shared()
-        spatial_shape = self.paths[0].dataset_settings["spatial_shape"]
-
-        if not self.config["input/no_features"]:
-            self._add_tensor_shared("features", self.features_dtype, *spatial_shape, self.config["input/n_channels"])
-        if not self.config["input/no_labels"]:
-            if self.config["input/annotation_name"] and not self.config["input/merge_annotations"]:
-                for name in self._possible_annotation_names():
-                    self._add_tensor_shared(f"labels_{name}", torch.int64, *spatial_shape)
-                    self._add_tensor_shared(f"valid_pixels_{name}", torch.bool, *spatial_shape)
-            else:
-                self._add_tensor_shared("labels", torch.int64, *spatial_shape)
-                self._add_tensor_shared("valid_pixels", torch.bool, *spatial_shape)
-
-        if self.config["input/superpixels"]:
-            self._add_tensor_shared("spxs", torch.int64, *spatial_shape)
-
-        for domain in self.target_domains:
-            self._add_tensor_shared(domain, torch.int64)

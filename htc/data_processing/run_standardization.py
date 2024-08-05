@@ -38,16 +38,16 @@ class RunningStats:
     def pixel_params(self) -> np.ndarray:
         # Pixel params based on the channel sums
         total_elements = self.total_elements * np.prod(self.sum.shape)
-        sum = np.sum(self.sum)
+        total = np.sum(self.sum)
         sum_squarred = np.sum(self.sum_squarred)
 
-        mean = sum / total_elements
-        std = np.sqrt((sum_squarred - sum**2 / total_elements) / total_elements)
+        mean = total / total_elements
+        std = np.sqrt((sum_squarred - total**2 / total_elements) / total_elements)
 
         return mean, std
 
 
-def calc_standardization(datasets: dict[str, DataPath]) -> dict[str, float]:
+def calc_standardization(datasets: dict[str, list[DataPath]]) -> dict[str, float]:
     rs_hsi = RunningStats(channels=100)
     rs_tpi = RunningStats(channels=4)
     rs_rgb = RunningStats(channels=3)
@@ -87,7 +87,7 @@ def calc_standardization_folds(specs: DataSpecification) -> dict[str, dict[str, 
 
 
 if __name__ == "__main__":
-    prep = ParserPreprocessing(description="Precomputes a filter for all images")
+    prep = ParserPreprocessing(description="Precomputes standardization statistics for each fold")
     paths = prep.get_paths()  # Must always be called
     assert (
         prep.args.spec is not None

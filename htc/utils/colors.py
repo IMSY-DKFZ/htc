@@ -5,12 +5,33 @@ import colorsys
 from pprint import pprint
 
 import numpy as np
-from matplotlib.colors import to_hex, to_rgb
+from matplotlib.colors import LinearSegmentedColormap, to_hex, to_rgb
 from scipy.spatial import distance
 
 from htc.settings import settings
 from htc.tivita.DatasetSettings import DatasetSettings
 from htc.utils.helper_functions import sort_labels
+
+
+def lighten_color(color: str, amount: float) -> str:
+    """
+    Lightens the given color by the specified amount.
+
+    The color is interpolated with white so that this function has a similar effect as if a transparency is added to the color on a white background.
+
+    >>> lighten_color("#FF0000", 0.5)
+    '#ff8080'
+
+    Args:
+        color: The color to be lightened as hex string.
+        amount: The amount by which to lighten the color. Must be between 0 and 1.
+
+    Returns: The lightened color as hex string.
+    """
+    assert 0 <= amount <= 1, "Amount must be between 0 and 1"
+    cmap = LinearSegmentedColormap.from_list("lighten", [color, (1, 1, 1)])
+
+    return to_hex(cmap(amount))
 
 
 def generate_distinct_colors(n_colors: int, existing_colors: list[tuple] = None) -> list[tuple]:

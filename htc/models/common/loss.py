@@ -19,8 +19,8 @@ class KLDivLossWeighted(nn.KLDivLoss):
             "weight", weight
         )  # See _WeightedLoss in PyTorch; ensures that weights get transferred to the GPU if necessary
 
-    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        loss = super().forward(input, target)
+    def forward(self, x: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        loss = super().forward(x, target)
 
         # Weight both, the loss and the target
         loss = loss * self.weight

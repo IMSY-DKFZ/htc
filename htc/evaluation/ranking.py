@@ -79,12 +79,16 @@ class BootstrapRanking:
         for task_name in df_selection[self.task].unique():
             df_task = df_selection[df_selection[self.task] == task_name]
 
-            # Number of cases for this task
-            n_cases = df_task[self.case].nunique()
-            cases_per_algorithm = df_task.groupby(self.algorithm, as_index=False)[self.case].count()
-            assert (cases_per_algorithm[self.case] == n_cases).all(), "The same cases must be used for all algorithms"
+            cases_per_algorithm = df_task.groupby(self.algorithm, as_index=False)[self.case].agg(
+                unique_cases=lambda x: np.unique(x).tolist()
+            )
+            assert all(
+                cases_per_algorithm.unique_cases[0] == cases_per_algorithm.unique_cases[i]
+                for i in range(len(cases_per_algorithm.unique_cases))
+            ), "The same cases must be used for all algorithms"
 
             # Select the sample indices for all bootstrap (the same samples will be used for all algorithms)
+            n_cases = df_task[self.case].nunique()
             bootstrap_indices = np.random.randint(0, n_cases, (n_cases, self.n_bootstraps))
 
             algorithms = df_task[self.algorithm].unique()
@@ -161,3 +165,99 @@ class BootstrapRanking:
         self._statistics.sort_values(["task", "mean_rank"], inplace=True)
 
         return self._statistics
+
+
+class BootstrapRankingSubjects(BootstrapRanking):
+    def __init__(self, *args, subject_column: str, **kwargs):
+        """
+        Compared to BootstrapRanking, this class expects a table with subject-level scores per organ (e.g. obtained via the `keep_subjects=True` parameter of the MetricAggregation class). The bootstraps will be performed on the subject-level per organ. That is, if there are 5 subjects with scores for the label stomach, these five scores will be sampled 1000 times and then averaged across subjects. In total, there will be 1000 scores for each label and the ranking is performed across labels for each bootstrap.
+
+        This allows to capture the sampling variability of the organ scores across subjects (and not across the already-averaged organ scores) which is more sound for class-level aggregated scores.
+        """
+        super().__init__(*args, **kwargs)
+        self.subject_column = subject_column
+
+    @property
+    def bootstraps(self) -> pd.DataFrame:
+        """
+        Returns: Table with the bootstrap results (columns bootstrap, task, algorithm and rank).
+        """
+        if self._bootstraps is not None:
+            return self._bootstraps
+
+        df_selection = self.data[
+            [self.task, self.algorithm, self.case, self.value, self.subject_column]
+        ].drop_duplicates()
+        assert len(df_selection) == len(self.data), (
+            f"The dataframe after selecting the columns has a different number of unique rows ({len(df_selection)}) as"
+            f" before ({len(self.data)}). Please make sure that every row in the dataframe is unique"
+        )
+        assert not df_selection[self.value].isna().any(), "There must not be any nan values for the value column"
+        assert df_selection[self.algorithm].nunique() >= 2, "There must be at least two algorithms"
+
+        rows = {
+            "bootstrap": [],
+            "task": [],
+            "algorithm": [],
+            "rank": [],
+        }
+
+        max_value = df_selection[self.value].max()
+
+        for task_name in df_selection[self.task].unique():
+            df_task = df_selection[df_selection[self.task] == task_name]
+
+            cases_per_algorithm = df_task.groupby(self.algorithm, as_index=False)[self.case].agg(
+                unique_cases=lambda x: np.unique(x).tolist()
+            )
+            assert all(
+                cases_per_algorithm.unique_cases[0] == cases_per_algorithm.unique_cases[i]
+                for i in range(len(cases_per_algorithm.unique_cases))
+            ), "The same cases must be used for all algorithms"
+
+            algorithms = df_task[self.algorithm].unique()
+            case_data = np.empty((len(algorithms), self.n_bootstraps, df_task[self.case].nunique()))
+            for c, case in enumerate(df_task[self.case].unique()):
+                df_case = df_task[df_task[self.case] == case]
+
+                # We sample the current available number of subjects multiple times
+                n_subjects = df_case[self.subject_column].nunique()
+                subjects_per_algorithm = df_case.groupby(self.algorithm, as_index=False)[self.subject_column].agg(
+                    unique_subjects=lambda x: np.unique(x).tolist()
+                )
+                assert all(
+                    subjects_per_algorithm.unique_subjects[0] == subjects_per_algorithm.unique_subjects[i]
+                    for i in range(len(subjects_per_algorithm.unique_subjects))
+                ), "The same subjects must be used for all algorithms"
+
+                # Select the sample indices for all bootstrap (the same samples will be used for all algorithms)
+                bootstrap_indices = np.random.randint(0, n_subjects, (n_subjects, self.n_bootstraps))
+
+                for a, algorithm_name in enumerate(algorithms):
+                    df_a = df_case[df_case[self.algorithm] == algorithm_name]
+
+                    # All sample values
+                    values = df_a[self.value].values
+                    if not self.smaller_better:
+                        values = max_value - values
+
+                    # Bootstrap selection of the sample values and mean score per bootstrap (here: mean score across subjects)
+                    means = np.mean(values[bootstrap_indices], axis=0)
+                    case_data[a, :, c] = means
+
+            # Aggregate back to the case level (e.g. ranking still based on the average organ scores)
+            case_data = np.mean(case_data, axis=-1)
+
+            # Rankings for this task
+            rankings = rankdata(case_data, axis=0, method="min")
+
+            rows["bootstrap"] += list(range(1, self.n_bootstraps + 1))
+            rows["task"] += [task_name] * self.n_bootstraps
+            rows["algorithm"] += [algorithms.tolist()] * self.n_bootstraps
+            rows["rank"] += rankings.T.tolist()
+
+        df_bootstraps = pd.DataFrame(rows)
+        df_bootstraps = df_bootstraps.explode(["algorithm", "rank"])
+
+        self._bootstraps = df_bootstraps
+        return self._bootstraps

@@ -40,7 +40,6 @@
         "annealing_epochs": 0
     },
     "validation": {
-        "checkpoint_metric": "accuracy",
-        "dataset_index": 0
+        "checkpoint_metric": "accuracy"
     }
 }

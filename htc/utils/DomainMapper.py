@@ -75,7 +75,7 @@ class DomainMapper:
         elif "subject_index" == self.target_domain:
             domains, domain_mapping = self._pig_domains(dataset, paths)
         elif "species_index" == self.target_domain:
-            domains, domain_mapping = self._species_domains(["Pig", "Human"], paths)
+            domains, domain_mapping = self._species_domains(paths)
             try:
                 from htc.human.settings_human import settings_human
 
@@ -124,8 +124,23 @@ class DomainMapper:
         return dataset, {x.image_name(): x.subject_name for x in paths}
 
     @staticmethod
-    def _species_domains(domains: list, paths: list[DataPath]) -> tuple[list, dict]:
-        return domains, {x.image_name(): domains[1] if "SPACE_" in x.subject_name else domains[0] for x in paths}
+    def _species_domains(paths: list[DataPath]) -> tuple[list, dict]:
+        domains = set()
+        domain_mapping = {}
+        for p in paths:
+            if p.subject_name.startswith("SPACE_"):
+                domain_mapping[p.image_name()] = "human"
+                domains.add("human")
+            elif p.subject_name.startswith("P"):
+                domain_mapping[p.image_name()] = "pig"
+                domains.add("pig")
+            elif p.subject_name.startswith("R"):
+                domain_mapping[p.image_name()] = "rat"
+                domains.add("rat")
+            else:
+                raise ValueError(f"Unknown species for path: {p}")
+
+        return sorted(domains), domain_mapping
 
     def domain_name(self, image_name: str) -> str:
         """

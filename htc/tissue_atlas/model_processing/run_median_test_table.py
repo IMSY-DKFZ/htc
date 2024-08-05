@@ -11,7 +11,7 @@ from htc.model_processing.SinglePredictor import SinglePredictor
 from htc.tissue_atlas.median_pixel.DatasetMedianPixel import DatasetMedianPixel
 
 if __name__ == "__main__":
-    # htc median_test_table --model median_pixel --run-folder 2024-01-10_15-45-57_median_18classes --spec tissue-atlas_loocv_test-8_seed-0_cam-118.json --table-name test_table_pigs
+    # htc median_test_table --model median_pixel --run-folder 2024-02-23_14-08-16_median_18classes --spec tissue-atlas_loocv_test-8_seed-0_cam-118.json --table-name test_table_pigs
     runner = Runner(description="Create a test table based on a trained median spectra model for a new set of paths.")
     runner.add_argument("--input-dir")
     runner.add_argument("--spec")

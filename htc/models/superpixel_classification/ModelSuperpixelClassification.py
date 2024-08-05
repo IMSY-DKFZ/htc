@@ -7,7 +7,7 @@ import torch.nn as nn
 
 from htc.models.common.HSI3dChannel import HSI3dChannel
 from htc.models.common.HTCModel import HTCModel
-from htc.models.common.utils import get_n_classes
+from htc.models.common.utils import get_n_classes, model_input_channels
 from htc.utils.Config import Config
 
 
@@ -27,16 +27,17 @@ class UNetClassification(smp.Unet):
 
 
 class ModelSuperpixelClassification(HTCModel):
-    def __init__(self, config: Config):
-        super().__init__(config)
-        n_classes = get_n_classes(self.config)
+    def __init__(self, config: Config, n_classes: int = None, **kwargs):
+        super().__init__(config, **kwargs)
+        if n_classes is None:
+            n_classes = get_n_classes(self.config)
 
         if self.config["model/channel_preprocessing"]:
             self.channel_preprocessing = HSI3dChannel(self.config)
             channels = self.channel_preprocessing.output_channels()
         else:
             self.channel_preprocessing = nn.Identity()
-            channels = self.config["input/n_channels"]
+            channels = model_input_channels(self.config)
 
         self.architecture = UNetClassification(
             self.config["model/encoder"],

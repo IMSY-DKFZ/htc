@@ -12,5 +12,5 @@ identifiers:
     value: 10.5281/zenodo.6577614
 repository-code: "https://github.com/IMSY-DKFZ/htc"
 license: MIT
-version: v0.0.15
-date-released: "2024-02-05"
+version: v0.0.16
+date-released: "2024-08-05"

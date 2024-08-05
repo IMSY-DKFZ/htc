@@ -46,18 +46,12 @@ class SpecsGenerationTissueAtlas(SpecsGeneration):
             fold_specs = {
                 "fold_name": f"fold_{subject_name}",
                 "train": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": sorted(imgs_train),
                 },
                 "val": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": sorted(imgs_val),
                 },
                 "test": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": sorted(imgs_test),
                 },
             }

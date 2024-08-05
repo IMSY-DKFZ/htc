@@ -5,6 +5,7 @@ import base64
 import gzip
 import json
 import math
+import re
 import uuid
 from pathlib import Path
 from typing import Callable, Union
@@ -14,12 +15,9 @@ import pandas as pd
 import plotly
 import plotly.express as px
 import plotly.graph_objects as go
-import torch
-import torch.nn.functional as F
 from IPython.display import HTML, display
 from matplotlib.colors import to_rgba
 from PIL import Image
-from plotly.colors import n_colors as generate_n_colors
 from plotly.subplots import make_subplots
 from scipy import stats
 
@@ -38,9 +36,10 @@ from htc.utils.AdvancedJSONEncoder import AdvancedJSONEncoder
 from htc.utils.ColorcheckerReader import ColorcheckerReader
 from htc.utils.colors import generate_distinct_colors
 from htc.utils.Config import Config
-from htc.utils.helper_functions import median_table, sort_labels
+from htc.utils.helper_functions import basic_statistics, median_table, sort_labels
 from htc.utils.JSONSchemaMeta import JSONSchemaMeta
 from htc.utils.LabelMapping import LabelMapping
+from htc.utils.Task import Task
 
 
 def compress_html(file: Union[Path, None], fig_or_html: Union[go.Figure, str]) -> Union[str, None]:
@@ -358,89 +357,6 @@ def show_loss_chart(df_train: pd.DataFrame, df_val: pd.DataFrame = None) -> None
     fig.show()
 
 
-def show_activation_image(df: pd.DataFrame, hist_config: dict, dataset_index: int, epoch: int = None) -> None:
-    # Combine activations from all images
-    if epoch is None:
-        activations = df[(df["dataset_index"] == dataset_index)]["val/activations"].values
-    else:
-        activations = df[(df["epoch_index"] == epoch - 1) & (df["dataset_index"] == dataset_index)][
-            "val/activations"
-        ].values
-    layer_counts = {}
-
-    for key in activations[0].keys():
-        layer_counts[key] = np.sum(
-            [a[key]["counts"] for a in activations], axis=0
-        )  # Sum over the activations from all images
-
-    fig = make_subplots(
-        rows=2,
-        cols=1,
-        subplot_titles=("Activation Distribution", r"$\mu \pm \sigma$"),
-        row_heights=[0.7, 0.3],
-        vertical_spacing=0.1,
-    )
-
-    values_range = np.arange(hist_config["min"], hist_config["max"], hist_config["step"]) + (
-        hist_config["step"] / 2
-    )  # The values of the histogram are predefined in the training config
-    colors = generate_n_colors("rgb(5, 200, 200)", "rgb(200, 10, 10)", 16, colortype="rgb")
-
-    # Calculate mean and std during the sample process (not perfect and this information could also be calculated from the histogram, but it is simple ;-)
-    layer_mean = {}
-    layer_std = {}
-
-    for (name, counts), color in zip(layer_counts.items(), colors):
-        # It is a bit stupid but in order to generate the Violin plots we need the original activations instead of the counts
-        # The approach here is to use the counts and sample n values according to the distribution and then generate the Violin plot (of course, this is only an approximation)
-        counts = counts / np.sum(counts)  # Normalize to probabilities
-        samples = np.repeat(
-            values_range, np.ceil(counts * 5000).astype(np.int)
-        )  # ceil ensures that every value with a probability > 0 gets sampled at least once
-        layer_mean[name] = np.mean(samples)
-        layer_std[name] = np.std(samples)
-
-        fig.add_trace(go.Violin(x=samples, line_color=color, bandwidth=hist_config["step"], name=name), row=1, col=1)
-
-        if all(excluded not in name for excluded in ["pool", "logits", "input", "Model"]):
-            samples = F.elu(torch.from_numpy(samples))
-            fig.add_trace(go.Violin(x=samples, line_color=color, name=f"elu({name})"), row=1, col=1)
-
-    fig.update_traces(orientation="h", side="positive", width=3, points=False, row=1, col=1)
-    fig.update_xaxes(title_text="Activations", row=1, col=1)
-    fig.update_yaxes(title_text="Layer", row=1, col=1)
-
-    # Mean/Std graph
-    means = np.array(list(layer_mean.values()))
-    stds = np.array(list(layer_std.values()))
-    line = {"color": plotly.colors.DEFAULT_PLOTLY_COLORS[0]}
-    x = list(layer_mean.keys())
-    fig.add_trace(
-        go.Scatter(x=x, y=means, mode="lines+markers", line=line, legendgroup="stat", name="stats"), row=2, col=1
-    )
-    fig.add_trace(
-        go.Scatter(x=x, y=means + stds, mode="lines+markers", line=line, legendgroup="stat", showlegend=False),
-        row=2,
-        col=1,
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=x, y=means - stds, mode="lines+markers", line=line, legendgroup="stat", showlegend=False, fill="tonexty"
-        ),
-        row=2,
-        col=1,
-    )
-
-    fig.update_xaxes(title_text="Layer", row=2, col=1)
-    fig.update_yaxes(title_text="Mean/Std", row=2, col=1)
-
-    # General settings
-    fig.layout.title = f"Activation distribution throughout the network (epoch {epoch})"
-    fig.update_layout(xaxis_showgrid=False, xaxis_zeroline=False, title_x=0.5)
-    fig.layout.height = 1200
-    fig.show()
-
-
 def create_class_scores_figure(agg: MetricAggregation) -> None:
     df = agg.df
     mapping = LabelMapping.from_config(agg.config)
@@ -604,9 +520,11 @@ def show_class_scores_epoch(df: pd.DataFrame, mapping: LabelMapping) -> None:
 
             line_ids.append(f)
 
-        button_states.append(
-            {"label": fold_name, "method": "update", "args": [{"title": f"Dice over training time ({fold_name})"}]}
-        )
+        button_states.append({
+            "label": fold_name,
+            "method": "update",
+            "args": [{"title": f"Statistics for the validation set ({fold_name})"}],
+        })
 
     # Calculate the visible states (find out which lines have to be activated for which fold)
     line_ids = np.array(line_ids)
@@ -642,6 +560,8 @@ def create_confusion_figure(confusion_matrix: np.ndarray, labels: list[str] = No
         y=labels,
         x=labels,
         text=hover_text,
+        colorscale="Teal",
+        colorbar={"title": "%", "thickness": 10},
         hovertemplate="true: %{y}<br>predicted: %{x}<br>row-ratio: %{z:.3f} %<br>pixels: %{text}",
     )
     annotations = []
@@ -650,8 +570,8 @@ def create_confusion_figure(confusion_matrix: np.ndarray, labels: list[str] = No
             annotations.append({
                 "x": labels[j],
                 "y": labels[i],
-                "font": {"color": "white"},
-                "text": f"{value:.1f}",
+                "font": {"color": "black" if value < 0.5 else "white"},
+                "text": f"{value*100:.1f}",
                 "xref": "x1",
                 "yref": "y1",
                 "showarrow": False,
@@ -659,8 +579,9 @@ def create_confusion_figure(confusion_matrix: np.ndarray, labels: list[str] = No
 
     layout = {"xaxis": {"title": "Predicted value"}, "yaxis": {"title": "Real value"}, "annotations": annotations}
     fig = go.Figure(data=data, layout=layout)
+    fig.update_yaxes(autorange="reversed")
     fig.update_layout(height=max(len(confusion_matrix) * 50, 300), width=max(len(confusion_matrix) * 50, 300) + 100)
-    fig.update_layout(title_x=0.5, title_text="Confusion matrix of misclassification<br>(row-wise normalized)")
+    fig.update_layout(title_x=0.5, title_text="Confusion matrix<br>(row-wise normalized)")
 
     return fig
 
@@ -838,7 +759,7 @@ def create_median_spectra_figure(path: DataPath) -> go.Figure:
     df = median_table(image_names=[path.image_name()], annotation_name="all")
     df = sort_labels(df)
     df = df.query("label_name in @path.annotated_labels('all')")
-    line_options = ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
+    line_options = ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot", "5, 10, 5", "2, 10, 2", "5, 2, 5"]
     annotator_mapping = {a: line_options[i] for i, a in enumerate(df["annotation_name"].unique())}
 
     fig = go.Figure()
@@ -882,11 +803,12 @@ def create_median_spectra_comparison_figure(
     """
     n_cols = 4
     n_rows = math.ceil(df["label_name"].nunique() / n_cols)
+    n_missing = n_cols * n_rows - df["label_name"].nunique()
     labels = df["label_name"].unique()
     fig = make_subplots(
         rows=n_rows,
         cols=n_cols,
-        shared_xaxes="all",
+        shared_xaxes="all" if n_missing == 0 else False,
         shared_yaxes="all",
         subplot_titles=labels,
         vertical_spacing=0.05,
@@ -923,9 +845,59 @@ def create_median_spectra_comparison_figure(
                 )
 
                 if col == 0:
-                    fig.update_yaxes(title="L1 normalized<br>reflectance", row=row + 1, col=col + 1)
+                    fig.update_yaxes(title="<b>L1 normalized<br>reflectance [a.u.]</b>", row=row + 1, col=col + 1)
                 if row == n_rows - 1:
                     fig.update_xaxes(title="wavelength [nm]", row=row + 1, col=col + 1)
+
+    if n_missing != 0:
+        # Manually add the x-axis ticks to the plots in the last rows
+        fig.update_xaxes(showticklabels=False)
+        ticks = [600, 700, 800, 900]
+        for i in range(n_missing):
+            fig.update_xaxes(
+                tickmode="array",
+                tickvals=ticks,
+                ticktext=ticks,
+                showticklabels=True,
+                title="<b>wavelength [nm]</b>",
+                row=n_rows - 1,
+                col=n_cols - i,
+            )
+        for i in range(n_cols - n_missing):
+            fig.update_xaxes(
+                tickmode="array",
+                tickvals=ticks,
+                ticktext=ticks,
+                showticklabels=True,
+                title="<b>wavelength [nm]</b>",
+                row=n_rows,
+                col=i + 1,
+            )
+
+    if n_missing != 0:
+        # Manually add the x-axis ticks to the plots in the last rows
+        fig.update_xaxes(showticklabels=False)
+        ticks = [600, 700, 800, 900]
+        for i in range(n_missing):
+            fig.update_xaxes(
+                tickmode="array",
+                tickvals=ticks,
+                ticktext=ticks,
+                showticklabels=True,
+                title="<b>wavelength [nm]</b>",
+                row=n_rows - 1,
+                col=n_cols - i,
+            )
+        for i in range(n_cols - n_missing):
+            fig.update_xaxes(
+                tickmode="array",
+                tickvals=ticks,
+                ticktext=ticks,
+                showticklabels=True,
+                title="<b>wavelength [nm]</b>",
+                row=n_rows,
+                col=i + 1,
+            )
 
     fig.update_layout(
         title="Spectra for organs and cameras (with inter-pig deviation)",
@@ -944,6 +916,7 @@ def create_overview_document(
     navigation_paths: list[DataPath] = None,
     navigation_link_callback: Callable[[str, str, DataPath], str] = None,
     nav_width: str = "23em",
+    searchable_meta_attributes: list[str] = None,
 ) -> str:
     """
     Create an overview figure for the given image. It will show the RGB image with all the available annotations plus the tissue parameter images.
@@ -954,9 +927,13 @@ def create_overview_document(
         navigation_paths: If not None, will add a navigation bar with all links sorted by organ. The user can use this navigation bar to easily switch between images.
         navigation_link_callback: Callback which receives the label name, number and data path of the target image and should create a relative link where the corresponding local html file for the target image can be found. If parts of the link contain invalid URL characters (e.g. # in image name), then please wrap it in quote_plus before (e.g. quote_plus(p.image_name())). For example, ('spleen', '08', DataPath) --> '../08_spleen/P086%232021_04_15_09_22_20.html'.
         nav_width: Width of the navigation bar (in CSS units).
+        searchable_meta_attributes: List of meta attributes which should be searchable. If None, the annotation_name will be searchable per default. You need to include the annotation_name yourself if you change this parameter.
 
     Returns: HTML string which is best saved with the `compress_html()` function.
     """
+    if searchable_meta_attributes is None:
+        searchable_meta_attributes = ["annotation_name"]
+
     seg = path.read_segmentation(annotation_name="all")
     if seg is None or len(path.annotated_labels(annotation_name="all")) == 0:
         # No annotations available, only show the RGB image
@@ -965,14 +942,16 @@ def create_overview_document(
 
         # Similar size as create_segmentation_overlay()
         img_height, img_width = rgb_image.shape[:2]
-        fig_seg.update_layout(
-            height=img_height * 1.5, width=img_width * 1.53, template="plotly_white", margin=dict(t=40)
-        )
+        fig_seg.update_layout(height=img_height * 1.5, width=img_width * 1.53, template="plotly_white")
         fig_seg.update_layout(title_x=0.5, title_text=path.image_name())
         fig_median = None
     else:
         fig_seg = create_segmentation_overlay(seg, path)
         fig_median = create_median_spectra_figure(path)
+
+    # Remove the Plotly title because it cannot be selected
+    # We'll add the title manually via HTML below
+    fig_seg.update_layout(margin=dict(t=0), title=None)
 
     if include_tpi:
         images = [path.compute_sto2().data, path.compute_nir().data, path.compute_ohi().data, path.compute_twi().data]
@@ -1002,10 +981,11 @@ def create_overview_document(
         fig_tpi.update_layout(yaxis_autorange="reversed")
         fig_tpi.update_layout(width=1000, height=800)
 
-    annotation_meta = path.read_annotation_meta()
-    if annotation_meta is not None:
-        meta_html = "<h3>Meta annotation for this image:</h3>\n"
-        meta_html += dict_to_html_list(annotation_meta, schema=path.annotation_meta_schema())
+    skip_keys = {"dsettings", "dataset_env_name", "data_dir", "intermediates_dir"}
+    image_meta = {k: v for k, v in path.meta().items() if k not in skip_keys}
+    if len(image_meta) > 0:
+        meta_html = f"<h3>Meta annotation for the image {path.image_name()}:</h3>\n"
+        meta_html += dict_to_html_list(image_meta, schema=path.annotation_meta_schema())
     else:
         meta_html = ""
 
@@ -1084,12 +1064,13 @@ def create_overview_document(
                 else:
                     meta = ""
 
-                invisible_meta = p.meta("annotation_name")
-                if invisible_meta is not None:
-                    invisible_meta = " ".join(invisible_meta)
-                    invisible_meta = f'<span class="invisible">{invisible_meta}</span>'
-                else:
-                    invisible_meta = ""
+                invisible_meta = ""
+                for attribute in searchable_meta_attributes:
+                    attribute_meta = p.meta(attribute)
+                    if attribute_meta is not None:
+                        if type(attribute_meta) == list:
+                            attribute_meta = " ".join(attribute_meta)
+                        invisible_meta += f'<span class="invisible">{attribute}={attribute_meta} </span>'
 
                 link = navigation_link_callback(l, label_number, p) + f"?nav=show&link_index={link_index}"
                 paths_html += (
@@ -1099,10 +1080,17 @@ def create_overview_document(
                 link_index += 1
 
             # Add an image for the current label if available
-            if (path.data_dir / "extra_label_symbols").exists():
-                svg_path = path.data_dir / "extra_label_symbols" / f"Cat_{label_number}_{l}.svg"
-            else:
+            svg_path = path.data_dir / "extra_label_symbols" / f"Cat_{label_number}_{l}.svg"
+            if not svg_path.exists():
+                # Try to find the label symbol in the masks dataset
                 svg_path = settings.data_dirs.masks / "extra_label_symbols" / f"Cat_{label_ordering.get(l, '')}_{l}.svg"
+            if not svg_path.exists():
+                # In case the label ordering is different, try to find the symbol by name in the masks dataset
+                svg_files = sorted((settings.data_dirs.masks / "extra_label_symbols").glob("*.svg"))
+                for f in svg_files:
+                    if re.search(r"Cat_\d+_" + l, f.stem) is not None:
+                        svg_path = f
+                        break
 
             if svg_path.exists():
                 with svg_path.open("r") as f:
@@ -1199,19 +1187,19 @@ function searchAll() {
     }
 }
 """
-        nav_html = """
-<span id="nav_link" onclick="openNav()">&#9776; Image selection</span>{}{}
+        nav_html = f"""
+<span id="nav_link" onclick="openNav()">&#9776; Image selection</span>{prev_link}{next_link}
 
 <nav id="image_navigation">
   <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-  <input type="text" id="nav_search" onkeyup="searchAll()" placeholder="Search all.." title="Search for everything which is visible in the navigation panel plus the following invisible attributes: annotation_name">
+  <input type="text" id="nav_search" onkeyup="searchAll()" placeholder="Search all.." title="Search for everything which is visible in the navigation panel plus the following invisible attributes: {', '.join(searchable_meta_attributes)}">
   <p id="search_count"></p>
-  {}
+  {details_html}
 </nav>
 <script>
-{}
+{search_function}
 function openNav() {{
-  document.getElementById("image_navigation").style.width = "{}";
+  document.getElementById("image_navigation").style.width = "{nav_width}";
 }}
 
 function closeNav() {{
@@ -1283,7 +1271,7 @@ document.addEventListener('DOMContentLoaded', function() {{
   }}
 }});
 </script>
-""".format(prev_link, next_link, details_html, search_function, nav_width)
+"""
 
         nav_css = """
 <style>
@@ -1423,6 +1411,17 @@ body {
     fill: rgb(42, 63, 95);
     fill-opacity: 1;
 }
+
+#image_container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+#image_container > h2 {
+    margin-bottom: 0;
+    text-align: center;
+}
 </style>
     """
 
@@ -1437,7 +1436,10 @@ body {
     </head>
     <body>
         {nav_html}
-        {fig_seg.to_html(full_html=False, include_plotlyjs='cdn', div_id='segmentation')}
+        <div id="image_container">
+            <h2>{path.image_name()}</h2>
+            {fig_seg.to_html(full_html=False, include_plotlyjs='cdn', div_id='segmentation')}
+        </div>
         {fig_median.to_html(full_html=False, include_plotlyjs='cdn', div_id='median_spectra') if fig_median is not None else ""}
         {meta_html}
         {fig_tpi.to_html(full_html=False, include_plotlyjs='cdn', div_id='tpi_images') if include_tpi else ""}
@@ -2296,5 +2298,122 @@ def colorchecker_fig_styling(fig: go.Figure, yaxis_title: str = "L1-normalized<b
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5, font=dict(size=15)),
     )
     fig.update_layout(annotations=annotations)
+
+    return fig
+
+
+def create_spec_labels_figure(config: Config) -> go.Figure:
+    spec = DataSpecification.from_config(config)
+    mapping = LabelMapping.from_config(config)
+
+    subject_matrix = np.zeros((len(spec), len(mapping)), dtype=np.int64)
+    image_matrix = np.zeros((len(spec), len(mapping)), dtype=np.int64)
+
+    for fold_index, fold_name in enumerate(spec.fold_names()):
+        df = basic_statistics(paths=spec.fold_paths(fold_name, "train"), label_mapping=mapping)
+
+        subject_stats = df.groupby(["label_index"], as_index=False)["subject_name"].agg("nunique")
+        for _, row in subject_stats.iterrows():
+            subject_matrix[fold_index, row["label_index"]] = row["subject_name"]
+
+        image_stats = df.groupby(["label_index"], as_index=False)["image_name"].agg("nunique")
+        for _, row in image_stats.iterrows():
+            image_matrix[fold_index, row["label_index"]] = row["image_name"]
+
+    fig = make_subplots(rows=2, cols=1, subplot_titles=["subjects", "images"], shared_xaxes=True, vertical_spacing=0.09)
+    common_settings = {
+        "x": mapping.label_names(),
+        "y": spec.fold_names(),
+        "texttemplate": "%{text}",
+        "colorscale": "Teal",
+    }
+    fig.add_trace(
+        go.Heatmap(
+            z=subject_matrix,
+            text=subject_matrix,
+            hovertemplate="label: %{x}<br>fold: %{y}<br># subjects: %{z}",
+            colorbar_len=0.5,
+            colorbar_y=0.77,
+            colorbar_title="# subjects",
+            **common_settings,
+        ),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Heatmap(
+            z=image_matrix,
+            text=image_matrix,
+            hovertemplate="label: %{x}<br>fold: %{y}<br># images: %{z}",
+            colorbar_len=0.5,
+            colorbar_y=0.23,
+            colorbar_title="# images",
+            **common_settings,
+        ),
+        row=2,
+        col=1,
+    )
+
+    fig.update_layout(title_x=0.5, title_text="Number of unique subjects and images per label in the training sets")
+    fig.update_layout(height=600, width=800, margin=dict(l=0, r=0, b=0, t=80))
+
+    return fig
+
+
+def create_training_stats_label_figure(run_dir: Path) -> go.Figure:
+    config = Config(run_dir / "config.json")
+    spec = DataSpecification.from_config(config)
+    mapping = LabelMapping.from_config(config)
+
+    image_matrix = np.zeros((len(spec), len(mapping)), dtype=np.int64)
+
+    for fold_index, fold_name in enumerate(spec.fold_names()):
+        train_stats = np.load(run_dir / fold_name / "trainings_stats.npz", allow_pickle=True)["data"]
+        paths = spec.fold_paths(fold_name, "train")
+        image_names = [p.image_name() for p in paths]
+
+        task = Task.from_config(config)
+        if task == Task.SEGMENTATION:
+            label_column = "label_index_mapped"
+        elif task == Task.CLASSIFICATION:
+            label_column = "image_labels"
+        else:
+            raise ValueError(f"Unknown task: {task}")
+
+        # We are using the median table to retrieve the label indices for each image
+        df = median_table(paths=spec.fold_paths(fold_name, "train"), config=config)
+
+        # There may be more than one entry for one image and one label due to the label mapping
+        # We are not interested in the duplicates here because each target label (as defined by the label mapping) counts only once per image
+        df = df[["image_name", label_column]].drop_duplicates()
+
+        # The training stats only store the index of the image in the training set so we need to add this information to the table (based on the specs which is also used during training)
+        df["image_index"] = [image_names.index(n) for n in df["image_name"]]
+        df.set_index("image_index", inplace=True)
+
+        for stats_epoch in train_stats:
+            # An image appears multiple times in the selection table if the same index appears more than once
+            df_epoch = df.loc[stats_epoch["img_indices"]]
+
+            image_stats = df_epoch.groupby([label_column], as_index=False)["image_name"].agg("count")
+            for _, row in image_stats.iterrows():
+                image_matrix[fold_index, row[label_column]] += row["image_name"]
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Heatmap(
+            z=image_matrix,
+            x=mapping.label_names(),
+            y=spec.fold_names(),
+            text=image_matrix,
+            texttemplate="%{text}",
+            hovertemplate="label: %{x}<br>fold: %{y}<br># images: %{z}",
+            colorscale="Teal",
+            colorbar_title="# images",
+        )
+    )
+
+    fig.update_layout(title_x=0.5, title_text="Total number of images seen per label during training")
+    fig.update_layout(height=400, width=len(mapping) * 50 + 200, margin=dict(l=0, r=0, b=0, t=40))
 
     return fig

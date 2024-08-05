@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: MIT
 
 from functools import partial
+from typing import Union
 
-import numpy as np
+import torch
 
 from htc.model_processing.ImageConsumer import ImageConsumer
 from htc.model_processing.Runner import Runner
 from htc.model_processing.TestPredictor import TestPredictor
 from htc.settings import settings
+from htc.tivita.DataPath import DataPath
 from htc.utils.blosc_compression import compress_file
 from htc.utils.Config import Config
 from htc.utils.visualization import compress_html, prediction_figure_html
@@ -26,11 +28,12 @@ class InferenceConsumer(ImageConsumer):
 
         self.config.save_config(self.target_dir / "config.json")
 
-    def handle_image_data(self, image_data: dict) -> None:
+    def handle_image_data(self, image_data: dict[str, Union[torch.Tensor, DataPath, str]]) -> None:
         path = image_data["path"]
 
-        confidence = np.max(image_data["predictions"], axis=0)
-        predictions = np.argmax(image_data["predictions"], axis=0)
+        confidence, predictions = image_data["predictions"].max(dim=0)
+        confidence = confidence.numpy()
+        predictions = predictions.numpy()
         predictions_save = predictions if self.predictions_type == "labels" else image_data["predictions"]
         compress_file(self.target_dir / f"{path.image_name()}.blosc", predictions_save)
 
@@ -63,6 +66,7 @@ if __name__ == "__main__":
     runner.add_argument("--spec")
     runner.add_argument("--spec-fold")
     runner.add_argument("--spec-split")
+    runner.add_argument("--paths-variable")
     runner.add_argument("--predictions-type", type=str, choices=["softmax", "labels"], default="labels")
 
     paths = runner.paths

@@ -53,7 +53,7 @@ class LightningImage(HTCLightning):
         if hasattr(self.dice_loss, "class_weight"):
             # MONAI >=1.3.0 uses a class weight buffer which breaks loading of old checkpoints
             # Since we have our own class weighting anyway, we simple remove the buffer
-            del self.dice_loss.class_weight
+            self.dice_loss.class_weight = None
 
         if "optimization/spx_loss_weight" in self.config:
             assert (

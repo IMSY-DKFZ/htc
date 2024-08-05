@@ -36,7 +36,15 @@ def all_masks_paths() -> list[DataPath]:
 
 
 class ParserPreprocessing:
-    def __init__(self, description: str):
+    def __init__(self, description: str, inplace: bool = False):
+        """
+        Helper class for the preprocessing scripts.
+
+        Args:
+            description: A short description of what the preprocessing script does.
+            inplace: Set this to true if your preprocessing scripts operates in-place and hence does not need an output path.
+        """
+        self.inplace = inplace
         self.parser = argparse.ArgumentParser(
             description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
@@ -121,7 +129,7 @@ class ParserPreprocessing:
             # From now on, we write to the intermediates directory of the selected dataset
             settings.intermediates_dir_all.set_default_location(self.args.dataset_name)
         else:
-            assert self.args.output_path is not None, (
+            assert self.inplace or self.args.output_path is not None, (
                 "Either --dataset-name or --output-path must be given (we need to know where the generated files should"
                 " be stored)"
             )

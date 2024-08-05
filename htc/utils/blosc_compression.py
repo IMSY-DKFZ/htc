@@ -61,24 +61,36 @@ def compress_file(path: Path, data: Union[np.ndarray, dict[Any, np.ndarray]]) ->
 
 
 def decompress_file(
-    path: Path, start_pointer: Union[int, dict[str, int]] = None
-) -> Union[Union[np.ndarray, int], dict[Any, Union[np.ndarray, int]]]:
+    path: Path, start_pointer: Union[int, dict[str, int]] = None, load_keys: list[str] = None, return_meta: bool = False
+) -> Union[
+    Union[np.ndarray, int],
+    dict[str, Union[np.ndarray, int]],
+    tuple[
+        Union[np.ndarray, int],
+        dict[str, Union[np.ndarray, int]],
+        Union[tuple[tuple[int, ...], np.dtype], dict[str, tuple[tuple[int, ...], np.dtype]]],
+    ],
+]:
     """
     Decompresses a blosc file.
 
     Args:
         path: File to the blosc data.
         start_pointer: If not None must be a valid memory address. It will be used to store the decompressed data directly into the provided memory location. This is, for example, useful if the data should be directly loaded into a shared memory buffer. If the compressed data contains a dictionary, the pointers must also be a dictionary with the keys corresponding to the (expected) keys in the compressed data. A pointer can only be used if the size and dtype of the decompressed data is known in advance.
+        load_keys: If not None and the compressed data contains a dictionary, only the keys in this list will be loaded. The other keys will be skipped.
+        return_meta: If True, will return additionally a tuple where the second value contains (shape, dtype) information for each decompressed array.
 
     Returns: Decompressed array data or the given pointer address. Depending on the file, this will either be directly the numpy array or a dict with all numpy arrays.
     """
     res = {}
+    array_meta = {}
 
     with path.open("rb") as f:
         meta = pickle.load(f)
         if type(meta) == tuple:
             shape, dtype = meta
             data = f.read()
+            array_meta = meta
 
             if start_pointer is not None:
                 blosc.decompress_ptr(data, start_pointer)
@@ -89,7 +101,12 @@ def decompress_file(
                 res = array
         else:
             for name, (shape, dtype, size) in meta.items():
+                if load_keys is not None and name not in load_keys:
+                    f.seek(size, 1)
+                    continue
+
                 data = f.read(size)
+                array_meta[name] = (shape, dtype)
 
                 if start_pointer is not None:
                     blosc.decompress_ptr(data, start_pointer[name])
@@ -99,4 +116,7 @@ def decompress_file(
                     blosc.decompress_ptr(data, array.__array_interface__["data"][0])
                     res[name] = array
 
-    return res
+    if return_meta:
+        return res, array_meta
+    else:
+        return res

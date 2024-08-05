@@ -19,7 +19,7 @@ from htc.utils.MultiPath import MultiPath
 
 
 class ColoredFormatter(logging.Formatter):
-    def format(self, record):
+    def format(self, record):  # noqa: A003
         # Apply level-specific color
         levelname_prev = record.levelname
         record.levelname = f"[logging.level.{record.levelname.lower()}]{record.levelname}[/]"
@@ -97,7 +97,7 @@ class Settings:
     - `PATH_HTC_DOCKER_RESULTS`: If you compute something in our Docker container, results will only be stored in the container and deleted as soon as the container exits (since the container is only intended for testing). Let this variable point to a directory of your choice to keep your Docker results. Example: `PATH_HTC_DOCKER_RESULTS="/my/results/folder"`
     - `HTC_ADD_NETWORK_ALTERNATIVES`: If set to the string `true`, will include results and intermediate directories on the network drive (default `false`). This is usually only required for testing. Example: `HTC_ADD_NETWORK_ALTERNATIVES="true"`
     - `HTC_ENV_OVERRIDE`: Whether environment variables defined in the .env file or in your user settings override existing variables (default `true`). Set this to `false` if you want that variables defined elsewhere (e.g. before the command: `ENV_NAME htc command`) have precedence. Example: `HTC_ENV_OVERRIDE="false"`
-    - `HTC_MODEL_COMPARISON_TIMESTAMP`: Variable is read in settings_seg and can be used to overwrite the default comparison timestamp (e.g. used for the reproducibility of our MIA2021 paper). Example: `HTC_MODEL_COMPARISON_TIMESTAMP="2022-02-03_22-58-44"`
+    - `HTC_MODEL_COMPARISON_TIMESTAMP`: Variable is read in settings_seg and can be used to overwrite the default comparison timestamp (e.g. used for the reproducibility of our MIA2022 paper). Example: `HTC_MODEL_COMPARISON_TIMESTAMP="2022-02-03_22-58-44"`
     - `HTC_BENCHMARKING_TIMESTAMP`: Variable is read in settings_bench and can be used to overwrite the default timestamp for the benchmarking networks (e.g. used for the reproducibility of our PyTorchConf2023 poster). Example: `HTC_BENCHMARKING_TIMESTAMP="2023-09-03_22-48-13"`
     - `HTC_CUDA_MEM_FRACTION`: Used in run_training.py to limit the GPU memory to a fraction of the available GPU memory (e.g. to simulate GPUs with less memory). Example: `HTC_CUDA_MEM_FRACTION="0.5"`
     - `HTC_SYSTEM_MONITOR_REFRESH_RATE`: Refresh rate x in seconds for the system monitor (an event will be logged every x seconds). Example: `HTC_SYSTEM_MONITOR_REFRESH="0.15"`
@@ -285,6 +285,7 @@ class Settings:
             "tag_blood": "#f51505",
             "tag_cauterization": "#9d9e9e",
             "tag_malperfused": "#03ffff",
+            "tag_tumor": "#ff5100",
             "instrument": "#636363",
             "fur": "#FF7830",
             "ligament_pat": "#FFB46D",
@@ -299,6 +300,7 @@ class Settings:
             "vesic_gland": "#00469C",
             "Exterior": "#00000000",  # Unlabeled parts in MITK
             "network_unsure": "#AAAAAA",
+            "not_suitable_for_semantic": "#AAAAAA",
         }
 
         self.known_envs = (

@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from htc.context.settings_context import settings_context
+from htc.evaluation.model_comparison.paper_runs import collect_comparison_runs
 from htc.evaluation.utils import split_test_table
 from htc.models.common.HTCModel import HTCModel
 from htc.models.common.MetricAggregation import MetricAggregation
@@ -45,8 +46,8 @@ def aggregate_removal_table(path: Path) -> pd.DataFrame:
     # Take the minimum for each used label, i.e. keep the worst performance per label (this corresponds to the performance of an organ if the most important neighbour is missing)
     columns = [c for c in df.columns if c not in ["target_label", "dice_metric"] + additional_metrics]
     df = df.groupby(columns, as_index=False).agg(
-        dice_metric=pd.NamedAgg(column="dice_metric", aggfunc=min),
-        **{m: pd.NamedAgg(column=m, aggfunc=min) for m in additional_metrics},
+        dice_metric=pd.NamedAgg(column="dice_metric", aggfunc="min"),
+        **{m: pd.NamedAgg(column=m, aggfunc="min") for m in additional_metrics},
     )
 
     # Implode the dataframe (to keep the same format as before)
@@ -63,7 +64,9 @@ def aggregate_removal_table(path: Path) -> pd.DataFrame:
     return df.reindex(columns=column_order)
 
 
-def context_evaluation_table(run_dir: Path, test: bool = False, aggregate: bool = True) -> pd.DataFrame:
+def context_evaluation_table(
+    run_dir: Path, test: bool = False, aggregate: bool = True, keep_subjects: bool = False
+) -> pd.DataFrame:
     """
     Collects all the context results for a training run.
 
@@ -86,6 +89,7 @@ def context_evaluation_table(run_dir: Path, test: bool = False, aggregate: bool 
         run_dir: Path to the training run to the context network.
         test: If True, read the test table instead of the validation table.
         aggregate: If True, organ-level aggregated results are returned. If False, a much larger table with metric values per image is returned.
+        keep_subjects: If True, keep the subject column in the aggregated table.
 
     Returns: Table with (aggregated) results.
     """
@@ -237,7 +241,9 @@ def context_evaluation_table(run_dir: Path, test: bool = False, aggregate: bool 
                 config,
                 metrics=metrics,
             )
-            df_agg.append(agg.grouped_metrics(mode="class_level", domains=["network", "dataset"]))
+            df_agg.append(
+                agg.grouped_metrics(mode="class_level", domains=["network", "dataset"], keep_subjects=keep_subjects)
+            )
         assert all(len(df) > 0 for df in df_agg), "All tables must have at least one row"
 
         return pd.concat(df_agg)
@@ -245,13 +251,14 @@ def context_evaluation_table(run_dir: Path, test: bool = False, aggregate: bool 
         return pd.concat(tables)
 
 
-def compare_context_runs(run_dirs: list[Path], test: bool = False) -> pd.DataFrame:
+def compare_context_runs(run_dirs: list[Path], test: bool = False, keep_subjects: bool = False) -> pd.DataFrame:
     """
     Collect all scores for the given training runs and combine it into one table. The network column is adapted to distinguish the different runs.
 
     Args:
         run_dirs: List of training runs which should be combined.
         test: If True, read the test table instead of the validation table.
+        keep_subjects: If True, keep the subject column in the aggregated table.
 
     Returns: Table with the combined results.
     """
@@ -260,7 +267,7 @@ def compare_context_runs(run_dirs: list[Path], test: bool = False) -> pd.DataFra
         # run folder name without the timestamp
         name = run_dir.name[20:]
 
-        df = context_evaluation_table(run_dir, test)
+        df = context_evaluation_table(run_dir, test, keep_subjects=keep_subjects)
         if "context" in name:
             df = df.replace(to_replace={"network": {"context": name}})
         else:
@@ -316,7 +323,7 @@ def find_best_transform_run(name: str) -> Path:
     return best_run[0]
 
 
-def glove_runs(networks: dict[str, Path] = None, aggregate: bool = True) -> pd.DataFrame:
+def glove_runs(networks: dict[str, Path] = None, aggregate: bool = True, **aggregation_kwargs) -> pd.DataFrame:
     """
     Collects the test results for all glove runs. There will be two test datasets (glove and no-glove) corresponding to the out-of-distribution and in-distribution, respectively.
 
@@ -325,6 +332,7 @@ def glove_runs(networks: dict[str, Path] = None, aggregate: bool = True) -> pd.D
     Args:
         networks: Dictionary of (name, run_dir) pairs of glove runs which should be included in the final table. If None, the default glove runs (as specified in settings_context.glove_runs) are used.
         aggregate: If True, organ-level aggregated results are returned. If False, a much larger table with metric values per image is returned.
+        aggregation_kwargs: Keyword arguments passed on to the grouped_metrics method.
 
     Returns: Table with all aggregated results.
     """
@@ -340,7 +348,7 @@ def glove_runs(networks: dict[str, Path] = None, aggregate: bool = True) -> pd.D
                 config,
                 metrics=metrics,
             )
-            df_agg.append(agg.grouped_metrics(mode="class_level", domains=["network", "dataset"]))
+            df_agg.append(agg.grouped_metrics(mode="class_level", domains=["network", "dataset"], **aggregation_kwargs))
 
         df_agg = pd.concat(df_agg)
         return df_agg
@@ -389,3 +397,94 @@ def best_run_data(test: bool = False) -> pd.DataFrame:
     df.replace({"network": {"context": "organ_transplantation"}}, inplace=True)
 
     return df
+
+
+def baseline_granularity_comparison(
+    baseline_timestamp: str, glove_runs_hsi: dict[str, Path], glove_runs_rgb: dict[str, Path]
+) -> pd.DataFrame:
+    """
+    Compares the baseline performance for different spatial granularities.
+
+    Args:
+        baseline_timestamp: The timestamp for the model comparison baseline runs (MIA runs).
+        glove_runs_hsi: A dictionary mapping spatial granularities to run directories for the HSI glove runs.
+        glove_runs_rgb: A dictionary mapping spatial granularities to run directories for the RGB glove runs.
+
+    Returns: A comparison table with class-wise aggregated scores for each network and dataset.
+    """
+    table_name = "test_table"
+    df_runs = collect_comparison_runs(baseline_timestamp)
+    config = None
+    n_bootstraps = 1000
+
+    tables = []
+    for _, row in df_runs.iterrows():
+        for modality in ["hsi", "rgb"]:
+            if row["model"] == "superpixel_classification":
+                rgb = "_rgb" if modality == "rgb" else ""
+                run_folder = settings_context.superpixel_classification_timestamp + f"_default{rgb}"
+            else:
+                run_folder = row[f"run_{modality}"]
+            run_dir = HTCModel.find_pretrained_run(row["model"], run_folder)
+            if config is None:
+                config = Config(run_dir / "config.json")
+
+            df = pd.read_pickle(run_dir / f"{table_name}.pkl.xz")
+            df["network"] = row["name"]
+            df["dataset"] = "semantic"
+            df["modality"] = modality.upper()
+            tables.append(df)
+
+            for folder, dataset in [
+                ("organ_isolation_0", "isolation_0"),
+                ("organ_isolation_cloth", "isolation_cloth"),
+                ("organ_removal_0", "removal_0"),
+                ("organ_removal_cloth", "removal_cloth"),
+                ("masks_isolation", "masks_isolation"),
+            ]:
+                table_path = (
+                    settings.results_dir
+                    / "neighbour_analysis"
+                    / folder
+                    / row["model"]
+                    / run_folder
+                    / f"{table_name}_{dataset}.pkl.xz"
+                )
+
+                if "removal" in folder:
+                    df = aggregate_removal_table(table_path)
+                else:
+                    df = pd.read_pickle(table_path)
+
+                df["network"] = row["name"]
+                df["dataset"] = dataset
+                df["modality"] = modality.upper()
+                tables.append(df)
+
+    tables_agg = []
+    for df in tables:
+        agg = MetricAggregation(
+            df,
+            config,
+            metrics=["dice_metric"],
+        )
+        tables_agg.append(
+            agg.grouped_metrics(
+                mode="class_level", domains=["network", "dataset", "modality"], n_bootstraps=n_bootstraps
+            )
+        )
+    assert all(len(df) > 0 for df in tables_agg), "All tables must have at least one row"
+
+    for name, run_dir in glove_runs_hsi.items():
+        df = glove_runs({name: run_dir}, n_bootstraps=n_bootstraps)
+        df.drop(columns=["surface_distance_metric", settings_seg.nsd_aggregation_short], inplace=True)
+        df["modality"] = "HSI"
+        tables_agg.append(df)
+
+    for name, run_dir in glove_runs_rgb.items():
+        df = glove_runs({name: run_dir}, n_bootstraps=n_bootstraps)
+        df.drop(columns=["surface_distance_metric", settings_seg.nsd_aggregation_short], inplace=True)
+        df["modality"] = "RGB"
+        tables_agg.append(df)
+
+    return pd.concat(tables_agg)

@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import multiprocessing
 from contextlib import ExitStack
 from typing import Union
 
 import torch
+import torch.multiprocessing as multiprocessing
 from rich.progress import Progress, TimeElapsedColumn
 
 from htc.model_processing.Predictor import Predictor
@@ -127,13 +127,15 @@ class TestLeaveOneOutPredictor(Predictor):
 
         batch_outputs = {}
         if "predictions" in self.outputs:
-            batch_outputs["predictions"] = batch_predictions.softmax(dim=1).cpu().numpy()
+            batch_outputs["predictions"] = batch_predictions.softmax(dim=1)
         else:
             # Ensure that we only read the features after the inference finished
             torch.cuda.synchronize()
 
         for name in self.feature_names:
-            batch_outputs[name] = features[name].cpu().numpy()
+            batch_outputs[name] = torch.empty(dtype=features[name].dtype, size=features[name].size())
+            batch_outputs[name].share_memory_()
+            batch_outputs[name].copy_(features[name])
 
         for b in range(batch["features"].size(0)):
             image_name = batch["image_name"][b]

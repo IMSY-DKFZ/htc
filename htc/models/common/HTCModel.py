@@ -27,7 +27,7 @@ class PostInitCaller(type):
 
 
 class HTCModel(nn.Module, metaclass=PostInitCaller):
-    # Models from our MIA2021 paper
+    # Models from our MIA2022 paper
     known_models = {
         "pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
             "sha256": "2f7acf8a4aed3938caf061aa15da559895bb7efd54a00db5deba1b8813614109",
@@ -131,7 +131,10 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
 
         # Default keys to load/skip for pretraining
         # Subclasses can modify these sets by adding elements to it or replacing them
-        self.load_keys_pattern = {"model."}  # This corresponds to the name of the attribute in the lightning class
+        # If the key starts with "model.", then this usually corresponds to the name of the attribute in the lightning class
+        # load_keys_pattern defines a dictionary with search and replace rules
+        self.load_keys_pattern = {"model.": ""}
+        # If any of the following names occurs in the state dict, they will be skipped
         self.skip_keys_pattern = {"segmentation_head", "classification_head", "heads.heads"}
 
         # Check for every model once whether the input is properly L1 normalized
@@ -142,9 +145,9 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
             self._load_pretrained_model()
 
         # We initialize temperature scaling only after the pretrained model may be loaded because that could change the fold name
-        if self.config.get("post_processing/calibration/temperature", None) is not None:
-            factors = self.config["post_processing/calibration/temperature/scaling"]
-            biases = self.config["post_processing/calibration/temperature/bias"]
+        if self.config.get("post_processing/calibration") is not None:
+            factors = self.config["post_processing/calibration/scaling"]
+            biases = self.config["post_processing/calibration/bias"]
             if self.fold_name not in factors or self.fold_name not in biases:
                 settings.log.warning(
                     "Found temperature scaling parameters in the config but not for the requested fold"
@@ -153,14 +156,14 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
             else:
                 self.register_buffer("_temp_factor", torch.tensor(factors[self.fold_name]), persistent=False)
                 self.register_buffer("_temp_bias", torch.tensor(biases[self.fold_name]), persistent=False)
-                if (
-                    nll_prior := self.config.get("post_processing/calibration/temperature/nll_prior", default=None)
-                ) is not None:
+                if (nll_prior := self.config.get("post_processing/calibration/nll_prior")) is not None:
                     self.register_buffer("_nll_prior", torch.tensor(nll_prior), persistent=False)
+                else:
+                    self._nll_prior = None
                 self.register_forward_hook(self._temperature_scaling)
 
     def _temperature_scaling(
-        self, module: nn.Module, input: tuple, output: Union[torch.Tensor, dict[str, torch.Tensor]]
+        self, module: nn.Module, module_in: tuple, output: Union[torch.Tensor, dict[str, torch.Tensor]]
     ) -> Union[torch.Tensor, dict[str, torch.Tensor]]:
         if type(output) == dict:
             logits = output["class"]
@@ -197,24 +200,25 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
             # It is possible that we cannot find the channel dimensions, e.g. for the pixel model if an input != 100 is passed to the model
             # It is also ok if a spectrum only contains zeros since this is done by some augmentations
             if channel_dim is not None:
+                channel_sum = features.abs().sum(dim=channel_dim)
                 # Either all values must be close to 1 (or 0)
                 all_valid = torch.all(
-                    torch.isclose(
-                        features.abs().sum(dim=channel_dim), torch.tensor(1.0, device=features.device), atol=0.1
-                    )
-                    | torch.isclose(
-                        features.abs().sum(dim=channel_dim), torch.tensor(0.0, device=features.device), atol=0.1
-                    )
+                    torch.isclose(channel_sum, torch.tensor(1.0, device=features.device), atol=0.1)
+                    | torch.isclose(channel_sum, torch.tensor(0.0, device=features.device), atol=0.1)
                 )
 
                 # Or the mean/std must fit on average for the non-zero elements (because single pixels may be off)
-                mean = features.abs().sum(dim=channel_dim)
-                mean = mean[mean.nonzero(as_tuple=True)].mean()
-                std = features.abs().sum(dim=channel_dim)
-                std = std[std.nonzero(as_tuple=True)].std()
-                average_valid = torch.isclose(
-                    mean, torch.tensor(1.0, device=features.device), atol=0.01
-                ) and torch.isclose(std, torch.tensor(0.0, device=features.device), atol=0.01)
+                nonzeros = channel_sum[channel_sum.nonzero(as_tuple=True)]
+                if nonzeros.nelement() == 0:
+                    mean = torch.tensor(torch.nan, device=features.device)
+                    std = torch.tensor(torch.nan, device=features.device)
+                    average_valid = False
+                else:
+                    mean = nonzeros.mean()
+                    std = nonzeros.std(correction=0)  # We may encounter single-element tensors here
+                    average_valid = torch.isclose(
+                        mean, torch.tensor(1.0, device=features.device), atol=0.01
+                    ) and torch.isclose(std, torch.tensor(0.0, device=features.device), atol=0.01)
 
                 if not (all_valid or average_valid):
                     settings.log.warning(
@@ -268,31 +272,32 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         model_dict = self.state_dict()
         num_keys_loaded = 0
         skipped_keys = []
+
         for k in pretrained_model["state_dict"].keys():
             if any(skip_key_pattern in k for skip_key_pattern in self.skip_keys_pattern):
                 skipped_keys.append(k)
                 continue
 
-            for load_key_pattern in self.load_keys_pattern:
-                if load_key_pattern in k:
+            for pattern, replace in self.load_keys_pattern.items():
+                if pattern in k:
                     # If the input channels are different then use the same trick as used in segmentation_models library
                     # e.g. in case of 3 channels new_weight[:, i] = pretrained_weight[:, i % 3]
 
-                    new_in_channel = model_dict[k.replace(load_key_pattern, "")].shape
+                    new_in_channel = model_dict[k.replace(pattern, replace)].shape
                     pretrained_in_channel = pretrained_model["state_dict"][k].shape
 
                     if new_in_channel != pretrained_in_channel:
                         new_in_channel, pretrained_in_channel = new_in_channel[1], pretrained_in_channel[1]
                         for c in range(new_in_channel):
-                            model_dict[k.replace(load_key_pattern, "")][:, c] = pretrained_model["state_dict"][k][
+                            model_dict[k.replace(pattern, replace)][:, c] = pretrained_model["state_dict"][k][
                                 :, c % pretrained_in_channel
                             ]
 
-                        model_dict[k.replace(load_key_pattern, "")] = (
-                            model_dict[k.replace(load_key_pattern, "")] * pretrained_in_channel
+                        model_dict[k.replace(pattern, replace)] = (
+                            model_dict[k.replace(pattern, replace)] * pretrained_in_channel
                         ) / new_in_channel
                     else:
-                        model_dict[k.replace(load_key_pattern, "")] = pretrained_model["state_dict"][k]
+                        model_dict[k.replace(pattern, replace)] = pretrained_model["state_dict"][k]
                     num_keys_loaded += 1
 
         if self.fold_name is None:

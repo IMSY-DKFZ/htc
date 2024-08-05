@@ -19,6 +19,7 @@ from htc.settings_seg import settings_seg
 _import_structure = {
     "cpp": [
         "hierarchical_bootstrapping",
+        "hierarchical_bootstrapping_labels",
         "kfold_combinations",
         "map_label_image",
         "nunique",
@@ -56,6 +57,8 @@ _import_structure = {
         "FlexibleIdentity",
         "copy_sample",
         "cpu_only_tensor",
+        "group_mean",
+        "minmax_pos_neg_scaling",
         "move_batch_gpu",
         "pad_tensors",
         "smooth_one_hot",
@@ -127,6 +130,7 @@ _import_structure = {
     "utils.parallel": ["p_imap", "p_map"],
     "utils.SpectrometerReader": ["SpectrometerReader"],
     "utils.sqldf": ["sqldf"],
+    "utils.Task": ["Task"],
     "utils.type_from_string": ["type_from_string"],
     "utils.unify_path": ["unify_path"],
     "utils.visualization": [
@@ -150,6 +154,7 @@ _import_structure = {
 if TYPE_CHECKING:
     from htc.cpp import (
         hierarchical_bootstrapping,
+        hierarchical_bootstrapping_labels,
         kfold_combinations,
         map_label_image,
         nunique,
@@ -170,6 +175,7 @@ if TYPE_CHECKING:
     from htc.fonts.set_font import set_font
     from htc.model_processing.ImageConsumer import ImageConsumer
     from htc.model_processing.Runner import Runner
+    from htc.model_processing.SinglePredictor import SinglePredictor
     from htc.model_processing.TestLeaveOneOutPredictor import TestLeaveOneOutPredictor
     from htc.model_processing.TestPredictor import TestPredictor
     from htc.model_processing.ValidationPredictor import ValidationPredictor
@@ -187,6 +193,8 @@ if TYPE_CHECKING:
         FlexibleIdentity,
         copy_sample,
         cpu_only_tensor,
+        group_mean,
+        minmax_pos_neg_scaling,
         move_batch_gpu,
         pad_tensors,
         smooth_one_hot,
@@ -254,6 +262,7 @@ if TYPE_CHECKING:
     from htc.utils.parallel import p_imap, p_map
     from htc.utils.SpectrometerReader import SpectrometerReader
     from htc.utils.sqldf import sqldf
+    from htc.utils.Task import Task
     from htc.utils.type_from_string import type_from_string
     from htc.utils.unify_path import unify_path
     from htc.utils.visualization import (

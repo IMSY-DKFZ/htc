@@ -7,6 +7,7 @@ import torch.nn as nn
 import htc.models.common.functions
 from htc.models.common.Heads import Heads
 from htc.models.common.HTCModel import HTCModel
+from htc.models.common.utils import model_input_channels
 from htc.utils.Config import Config
 
 
@@ -45,7 +46,7 @@ class ModelPixel(HTCModel):
         # The adaptive pooling layer ensures that the output of the conv layers always has the same length
         # This allows a different number of channels to be used as input which could be helpful for pretraining
         # If the input already has the correct input size, the adaptive layer does not change the conv output
-        in_dim = self._conv_output_features(self.config["input/n_channels"])
+        in_dim = self._conv_output_features(model_input_channels(self.config))
         self.adaptive_conv_reduction = nn.AdaptiveAvgPool1d(in_dim)
 
         self.fc1 = nn.Linear(in_features=in_dim, out_features=100)

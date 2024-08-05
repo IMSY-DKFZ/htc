@@ -5,6 +5,7 @@ import torch
 
 from htc.models.common.HTCDataset import HTCDataset
 from htc.models.data.DataSpecification import DataSpecification
+from htc.utils.Config import Config
 from htc.utils.DomainMapper import DomainMapper
 from htc.utils.SLICWrapper import SLICWrapper
 
@@ -63,11 +64,19 @@ class DatasetImage(HTCDataset):
         sample = self.read_experiment(self.paths[index], start_pointers=start_pointers)
         sample["image_index"] = index
 
-        if self.config["input/superpixels"]:
+        if self.config["input/superpixels"] and not self.config["input/no_features"]:
             if self.config["input/n_channels"] != 3:
-                # # We always calculate the superpixels on the RGB image since we only want to compare the features and not the shape
-                rgb = self.paths[index].read_rgb_reconstructed() / 255
-                sample["features_rgb"] = torch.from_numpy(rgb).float()
+                # We always calculate the superpixels on the RGB image since we only want to compare the features and not the shape
+
+                # Load the RGB image via the dataset so that potential transformations may be applied
+                config_rgb = Config({"input/n_channels": 3})
+                if "label_mapping" in self.config:
+                    config_rgb["label_mapping"] = self.config["label_mapping"]
+                if "input/test_time_transforms_cpu" in self.config:
+                    config_rgb["input/test_time_transforms_cpu"] = self.config["input/test_time_transforms_cpu"]
+                sample_rgb = DatasetImage([self.paths[index]], train=False, config=config_rgb)[0]
+
+                sample["features_rgb"] = sample_rgb["features"]
                 spx_features_name = "features_rgb"
             else:
                 # We already have the RGB data so we can directly use it for the superpixels
@@ -77,7 +86,7 @@ class DatasetImage(HTCDataset):
         # The main problem is that the border values get mirrored leading to duplicate superpixel indices or missing indices
         sample = self.apply_transforms(sample)  # e.g. features.shape = [480, 640, 100]
 
-        if self.config["input/superpixels"]:
+        if self.config["input/superpixels"] and not self.config["input/no_features"]:
             fast_slic = SLICWrapper(**self.config["input/superpixels"])
             sample["spxs"] = fast_slic.apply_slic(sample[spx_features_name])
 

@@ -10,11 +10,13 @@ from torch.utils.data import Sampler
 from htc.cpp import hierarchical_bootstrapping, hierarchical_bootstrapping_labels
 from htc.models.common.utils import adjust_epoch_size
 from htc.models.data.DataSpecification import DataSpecification
+from htc.models.image.DatasetImage import DatasetImage
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 from htc.utils.Config import Config
 from htc.utils.DomainMapper import DomainMapper
 from htc.utils.LabelMapping import LabelMapping
+from htc.utils.Task import Task
 
 
 class HierarchicalSampler(Sampler[int]):
@@ -45,14 +47,24 @@ class HierarchicalSampler(Sampler[int]):
         domain_mapper = DomainMapper(DataSpecification.from_config(self.config), target_domain=target_domain[0])
         subject_mapper = DomainMapper(DataSpecification.from_config(self.config), target_domain="subject_index")
 
-        if self.config["input/hierarchical_sampling"] == "labels":
-            self.label_mapping = {}
-            mapping = LabelMapping.from_config(self.config)
+        sampling_strategy = self.config.get("input/hierarchical_sampling", True)
+        if type(sampling_strategy) == str and "+" in sampling_strategy:
+            sampling_strategy, *self.sampling_options = sampling_strategy.split("+")
+            assert self.sampling_options == ["oversampling"], f"Unknown sampling options: {self.sampling_options}"
         else:
-            assert self.config.get(
-                "input/hierarchical_sampling", True
-            ), "At the moment, only True or labels can be used for `input/hierarchical_sampling`"
-            self.label_mapping = None
+            self.sampling_options = []
+
+        if sampling_strategy == "label":
+            self.label_images_mapping = {}
+            mapping = LabelMapping.from_config(self.config, task=Task.SEGMENTATION)
+        elif sampling_strategy == "image_label":
+            self.label_images_mapping = {}
+            dataset = DatasetImage(paths, train=False, config=self.config)  # Only needed to retrieve the image labels
+        else:
+            assert (
+                type(sampling_strategy) == bool
+            ), "At the moment, only True, label or image_label can be used to set a hierarchical sampling strategy"
+            self.label_images_mapping = None
 
         self.domain_mapping = {}
         for image_index, path in enumerate(paths):
@@ -67,19 +79,32 @@ class HierarchicalSampler(Sampler[int]):
 
             self.domain_mapping[domain_index][subject_index].append(image_index)
 
-            if self.config["input/hierarchical_sampling"] == "labels":
+            if sampling_strategy == "label":
                 for label in path.annotated_labels():
                     label_index = mapping.name_to_index(label)
                     if not mapping.is_index_valid(label_index):
                         continue
 
-                    if label_index not in self.label_mapping:
-                        self.label_mapping[label_index] = {}
+                    if label_index not in self.label_images_mapping:
+                        self.label_images_mapping[label_index] = []
 
-                    if subject_index not in self.label_mapping[label_index]:
-                        self.label_mapping[label_index][subject_index] = []
+                    self.label_images_mapping[label_index].append(image_index)
+            elif sampling_strategy == "image_label":
+                image_label_index = dataset.read_image_labels(path)
+                assert (
+                    image_label_index.ndim == 0
+                ), f"Only scalar image labels are supported for hierarchical sampling: {image_label_index}"
+                image_label_index = image_label_index.item()
 
-                    self.label_mapping[label_index][subject_index].append(image_index)
+                if image_label_index not in self.label_images_mapping:
+                    self.label_images_mapping[image_label_index] = []
+
+                self.label_images_mapping[image_label_index].append(image_index)
+            elif type(sampling_strategy) != bool:
+                raise ValueError(
+                    "input/hierarchical_sampling is not a boolean and does neither correspond to label nor"
+                    f" image_label. The value {sampling_strategy} does not have an effect on the label selection."
+                )
 
         assert self.config["dataloader_kwargs/batch_size"] >= len(self.domain_mapping), (
             f'The batch size ({self.config["dataloader_kwargs/batch_size"]}) must be >= the number of domains'
@@ -90,13 +115,18 @@ class HierarchicalSampler(Sampler[int]):
         n_subjects = math.ceil(self.batch_size / len(self.domain_mapping))
         n_batches = len(self) // self.batch_size
 
-        if self.label_mapping is None:
+        if self.label_images_mapping is None:
             sample_indices = hierarchical_bootstrapping(
                 self.domain_mapping, n_subjects=n_subjects, n_images=1, n_bootstraps=n_batches
             )
         else:
+            oversampling = "oversampling" in self.sampling_options
             sample_indices = hierarchical_bootstrapping_labels(
-                self.domain_mapping, self.label_mapping, n_labels=n_subjects, n_bootstraps=n_batches
+                self.domain_mapping,
+                self.label_images_mapping,
+                n_labels=n_subjects,
+                n_bootstraps=n_batches,
+                oversampling=oversampling,
             )
 
         assert (

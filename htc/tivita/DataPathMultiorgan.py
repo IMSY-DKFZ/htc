@@ -13,17 +13,29 @@ from htc.tivita.DatasetSettings import DatasetSettings
 
 
 # We use a decorator to wrap some of the path functions. This is important for the files
-# which are stored in the overlap folder because then the image data is stored in the semantic
+# which are stored in the overlap folder because then the image data is stored in a different
 # dataset (due to multiple annotations)
-def use_semantic_path(method: Callable) -> Callable:
+def use_overlap_path(method: Callable) -> Callable:
     @functools.wraps(method)
-    def _use_semantic_path(self):
+    def _use_overlap_path(self):
         if self.is_overlap:
             image_dir_old = self.image_dir
-            image_dir_new = (
-                settings.data_dirs["PATH_Tivita_multiorgan_semantic"] / "subjects" / self.subject_name / self.timestamp
-            )
-            assert image_dir_new.exists(), f"Cannot find the path {image_dir_new}"
+            potential_data_dirs = [
+                settings.data_dirs["PATH_Tivita_multiorgan_semantic"],
+                settings.data_dirs["PATH_Tivita_multiorgan_masks"],
+            ]
+            image_dir_new_found = False
+
+            for potential_data_dir in potential_data_dirs:
+                image_dir_new = potential_data_dir / "subjects" / self.subject_name / self.timestamp
+
+                if image_dir_new.exists():
+                    image_dir_new_found = True
+                    break
+
+            assert (
+                image_dir_new_found
+            ), f"Cannot find the overlap image name in any of the potential dataset dirs {potential_data_dirs}"
 
             self.image_dir = image_dir_new
             res = method(self)
@@ -33,7 +45,7 @@ def use_semantic_path(method: Callable) -> Callable:
 
         return res
 
-    return _use_semantic_path
+    return _use_overlap_path
 
 
 class DataPathMultiorgan(DataPath):
@@ -78,15 +90,15 @@ class DataPathMultiorgan(DataPath):
 
         return parts
 
-    @use_semantic_path
+    @use_overlap_path
     def cube_path(self) -> Path:
         return super().cube_path()
 
-    @use_semantic_path
+    @use_overlap_path
     def camera_meta_path(self) -> Path:
         return super().camera_meta_path()
 
-    @use_semantic_path
+    @use_overlap_path
     def rgb_path_reconstructed(self) -> Path:
         return super().rgb_path_reconstructed()
 

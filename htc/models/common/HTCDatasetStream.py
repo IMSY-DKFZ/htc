@@ -15,7 +15,6 @@ from torch.utils.data.sampler import RandomSampler, Sampler, WeightedRandomSampl
 from htc.models.common.class_weights import calculate_class_weights
 from htc.models.common.HTCDataset import HTCDataset
 from htc.models.common.SharedMemoryDatasetMixin import SharedMemoryDatasetMixin
-from htc.tivita.DataPath import DataPath
 from htc.utils.Config import Config
 
 
@@ -78,7 +77,7 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
             for key, tensor in sample.items():
                 assert i == (i % self.batch_part_size), "The index must never go beyond the batch part size"
 
-                if isinstance(tensor, torch.Tensor) and tensor.names[0] == "B":
+                if isinstance(tensor, torch.Tensor) and len(tensor.names) > 0 and tensor.names[0] == "B":
                     # Subclasses (e.g. pixel dataset) may directly return batch parts instead of individual samples
                     n_samples_current = tensor.size(0)
                     self.shared_dict[key][
@@ -135,7 +134,7 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
         """This method must be implemented by all child classes and yields one sample at a time (e.g. one patch at a time) or complete batch parts (e.g. pixel dataset)."""
         pass
 
-    def _iter_paths(self) -> tuple[int, DataPath]:
+    def _iter_paths(self) -> Iterator[tuple[int, int]]:
         worker_index = self._get_worker_index()
 
         if self.sampler is None:

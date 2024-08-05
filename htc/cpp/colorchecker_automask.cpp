@@ -67,7 +67,7 @@ public:
 			{"square_dist_horizontal", this->square_dist_horizontal + this->safety_margin + best_param.delta_horizontal},
 			{"square_dist_vertical", this->square_dist_vertical + this->safety_margin + best_param.delta_vertical},
 		};
-		
+
 		if (this->cc_board == "cc_passport") {
 			// Search for the right part on the right image side
 			this->generate_parameters(/*offset_left_min_start=*/this->img_width / 2, /*offset_left_stop=*/this->img_width);

@@ -14,7 +14,7 @@ from htc.utils.Config import Config
 
 if __name__ == "__main__":
     # For the context runs:
-    # htc dataset_tables --model image --run-folder 2023-01-27_23-59-37_random_erasing --metrics DSC --test --dataset-name masks_isolation
+    # htc dataset_tables --model image --run-folder 2023-02-08_09-40-59_elastic_0.2 --metrics DSC --test --dataset-name masks_isolation
     # For the MIA runs:
     # htc dataset_tables --model image --run-folder 2022-02-03_22-58-44_generated_default_model_comparison --metrics DSC --test --dataset-name masks_isolation --output-dir ~/htc/results_context/neighbour_analysis/masks_isolation/image/2022-02-03_22-58-44_generated_default_model_comparison
     runner = Runner(

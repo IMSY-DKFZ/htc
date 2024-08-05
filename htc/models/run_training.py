@@ -28,6 +28,7 @@ from htc.utils.Config import Config
 from htc.utils.DelayedFileHandler import DelayedFileHandler
 from htc.utils.DuplicateFilter import DuplicateFilter
 from htc.utils.MeasureTime import MeasureTime
+from htc.utils.Task import Task
 
 
 class FoldTrainer:
@@ -40,14 +41,15 @@ class FoldTrainer:
         adjust_num_workers(self.config)
 
         # There must be a label mapping defined (class names to label ids)
-        if not self.config["input/no_labels"] and "label_mapping" not in self.config:
+        labels_requested = not self.config["input/no_labels"] and Task.from_config(self.config) == Task.SEGMENTATION
+        if labels_requested and "label_mapping" not in self.config:
             settings.log.warning(
                 "No label mapping specified in the config file. The default mapping from the images will be used which"
                 " may not be what you want (e.g. it is different across datasets). Best practice is to explicitly"
                 " specify the label mapping in the config"
             )
 
-        self.data_specs = DataSpecification.from_config(self.config)
+        self.spec = DataSpecification.from_config(self.config)
         self.LightningClass = HTCLightning.class_from_config(self.config)
 
     def train_fold(self, run_folder: Union[str, None], fold_name: str, *args) -> None:
@@ -111,14 +113,14 @@ class FoldTrainer:
         )
 
         # Create datasets based on the paths in the data specs
-        train_paths = []
+        train_paths = self.spec.fold_paths(fold_name, "^train")
         test_paths = []
         datasets_val = []
-        for name, paths in self.data_specs.folds[fold_name].items():
+        for name, paths in self.spec.folds[fold_name].items():
             assert not name.startswith("test"), "The test set should not be available at this point"
 
             if name.startswith("train"):
-                train_paths += paths
+                continue
             elif name.startswith("val"):
                 dataset = self.LightningClass.dataset(paths=paths, train=False, config=self.config, fold_name=fold_name)
                 datasets_val.append(dataset)
@@ -128,8 +130,8 @@ class FoldTrainer:
         if test:
             # To avoid potential errors, we activate the test set only temporarily to get the paths
             # If other classes access the specs, they cannot accidentally access the test set
-            with self.data_specs.activated_test_set():
-                test_paths = self.data_specs.fold_paths(fold_name, "^test")
+            with self.spec.activated_test_set():
+                test_paths = self.spec.fold_paths(fold_name, "^test")
 
         # We use only one training dataset which uses all available images. Oversampling of images from one dataset can be implemented in the lightning class
         dataset_train = self.LightningClass.dataset(
@@ -144,13 +146,6 @@ class FoldTrainer:
                 " which will be used to determine the best model. Please note that this does not specify the actual"
                 " calculation of the metric but just the name of the metric (e.g. used in the checkpoint filename)."
                 f" Defaulting to \"{self.config['validation/checkpoint_metric']}\""
-            )
-        if "validation/dataset_index" not in self.config:
-            self.config["validation/dataset_index"] = 0
-            settings.log.warning(
-                "No value set for validation/dataset_index in the config. This specifies the main validation dataset,"
-                " e.g. used for checkpointing. Currently, only one validation dataset can be used. Defaulting to"
-                f" \"{self.config['validation/dataset_index']}\""
             )
 
         # Optional test dataset
@@ -226,6 +221,13 @@ class FoldTrainer:
                 ),
                 category=UserWarning,
             )
+            warnings.filterwarnings(
+                "ignore",
+                message=(
+                    ".*Default grid_sample and affine_grid behavior has changed to align_corners=False since 1.3.0.*"
+                ),
+                category=UserWarning,
+            )
 
             if self.config["wandb_kwargs"]:
                 wandb_logger = WandbLogger(save_dir=model_dir, **self.config["wandb_kwargs"])
@@ -247,7 +249,7 @@ class FoldTrainer:
                 settings.log.warning(key)
 
         self.config.save_config(model_dir / "config.json")
-        shutil.copy2(self.data_specs.path, model_dir / "data.json")
+        shutil.copy2(self.spec.path, model_dir / "data.json")
 
         # Inform the system monitor that the training is finished
         monitor_handle.send_signal(signal.SIGINT)

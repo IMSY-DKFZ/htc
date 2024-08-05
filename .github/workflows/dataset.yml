@@ -29,7 +29,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11']
+        python-version: ["3.9", "3.10", "3.11"]
 
     steps:
       - name: Checkout files
@@ -51,11 +51,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          cache: "pip"
 
       - name: Install htc package
         run: pip install imsy-htc
-      
+
       - name: Run example
         env:
           PATH_Tivita_HeiPorSPECTRAL: HeiPorSPECTRAL_example

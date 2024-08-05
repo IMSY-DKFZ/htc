@@ -9,25 +9,25 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.11']
+        python-version: ["3.11"]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: 'requirements*.txt'
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: "requirements*.txt"
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install pytest wheel
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest wheel
 
-    - name: Install htc
-      run: pip install --no-use-pep517 -e .
+      - name: Install htc
+        run: pip install --no-use-pep517 -e .
 
-    - name: Tests
-      run: py.test --doctest-modules --import-mode=importlib --collect-only .
+      - name: Tests
+        run: py.test --doctest-modules --import-mode=importlib --collect-only .

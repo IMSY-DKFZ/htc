@@ -3,7 +3,6 @@ ansi2html
 matplotlib-venn
 pynrrd
 pypdf
-xarray
 ipywidgets
 deskew
 paramiko

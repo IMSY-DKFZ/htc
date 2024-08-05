@@ -7,6 +7,7 @@ import importlib
 import math
 import os
 import platform
+import re
 import subprocess
 import sys
 import warnings
@@ -37,24 +38,34 @@ def get_n_classes(config: Config) -> int:
     Extracts the number of classes from the config. It will either use the key input/n_classes or infer the number from the label mapping.
 
     Args:
-        config: The config of the training.
+        config: The configuration of the training.
 
     Returns: Number of classes or 0 if no information in the config could be found.
     """
     if "input/n_classes" in config:
         return config["input/n_classes"]
 
-    if "label_mapping" not in config:
+    try:
+        mapping = LabelMapping.from_config(config)
+        return len(mapping)
+    except Exception:
         settings.log_once.warning(
-            "There is neither a label mapping specified in the config nor is the key input/n_classes present. Cannot"
-            " infer the number of classes (will return 0)"
+            "There is neither a label mapping (or image label mapping) specified in the config nor is the key"
+            " input/n_classes present. Cannot infer the number of classes (will return 0)"
         )
         return 0
-    elif config["label_mapping"]:
-        return len(LabelMapping.from_config(config))
-    else:
-        # User can explicitly disable the label mapping in which case no labels are used (e.g. self-supervised learning)
-        return 0
+
+
+def model_input_channels(config: Config) -> int:
+    """
+    Extract the number of input channels to the model from the config.
+
+    Args:
+        config: The configuration of the training.
+
+    Returns: Number of input channels.
+    """
+    return config.get("model/n_input_channels", config["input/n_channels"])
 
 
 def parse_optimizer(config: Config, model: nn.Module) -> Union[tuple[list, list], Any]:
@@ -62,7 +73,7 @@ def parse_optimizer(config: Config, model: nn.Module) -> Union[tuple[list, list]
     Creates an optimizer plus optionally an scheduler which can be used in your lightning module (via `configure_optimizers()`).
 
     Args:
-        config: The training configuration (with an `optimization` key).
+        config: The configuration of the training (must include an `optimization` key).
         model: The network model containing the parameters to optimize.
 
     Returns: Optimizer or optimizer and scheduler as tuple (same format as lightning).
@@ -75,7 +86,42 @@ def parse_optimizer(config: Config, model: nn.Module) -> Union[tuple[list, list]
     module = importlib.import_module("torch.optim")
     optimizer_class = getattr(module, name)
 
-    optimizer = optimizer_class(model.parameters(), **optimizer_param)
+    if config["optimization/optimizer_layer_settings"]:
+        # Transform the layer settings to the format of the optimizer for per-parameter settings (https://pytorch.org/docs/stable/optim.html#per-parameter-options)
+        model_parameters_helper = {}
+        for pattern in config["optimization/optimizer_layer_settings"].keys():
+            model_parameters_helper[pattern] = []
+        model_parameters_default = []
+
+        compiled_patterns = {}  # Lookup table
+        for layer_name, layer_params in model.named_parameters():
+            matched = False
+            for pattern in config["optimization/optimizer_layer_settings"].keys():
+                if pattern not in compiled_patterns:
+                    compiled_patterns[pattern] = re.compile(pattern)
+
+                if compiled_patterns[pattern].search(layer_name):
+                    model_parameters_helper[pattern].append(layer_params)
+                    matched = True
+                    break
+
+            if not matched:
+                model_parameters_default.append(layer_params)
+
+        # Check that every pattern matches at least one layer
+        # infer_swa_lr() uses a dummy layer and in that case, we do not want to perform this check
+        is_dummy_layer = type(model) == nn.Linear and model.in_features == 2 and model.out_features == 1
+        if not is_dummy_layer:
+            for pattern, layers in model_parameters_helper.items():
+                assert len(layers) > 0, f"Found no layers which match the pattern {pattern}"
+
+        model_parameters = [{"params": model_parameters_default}]
+        for pattern, layers in model_parameters_helper.items():
+            model_parameters.append({"params": layers} | config["optimization/optimizer_layer_settings"][pattern])
+
+        optimizer = optimizer_class(model_parameters, **optimizer_param)
+    else:
+        optimizer = optimizer_class(model.parameters(), **optimizer_param)
 
     if config["optimization/lr_scheduler"]:
         # Same for the scheduler, if available
@@ -97,7 +143,7 @@ def dtype_from_config(config: Config) -> torch.dtype:
     Infer the dtype of the features from the config.
 
     Args:
-        config: The training configuration.
+        config: The configuration of the training.
 
     Returns: The dtype of the features.
     """
@@ -108,8 +154,14 @@ def dtype_from_config(config: Config) -> torch.dtype:
         # If the data is stored as float16, we also load it as float16
         # As a user, it is possible to convert the data via:
         # input/test_time_transforms_cpu": [{"class": "ToType", "dtype": "float32"}]
-        default_dtype = torch.float16 if config["input/preprocessing"] in ["raw16", "L1"] else torch.float32
-        features_dtype = torch.float16 if config["trainer_kwargs/precision"] in [16, "16-mixed"] else default_dtype
+        default_dtype = (
+            torch.float16
+            if config["input/preprocessing"] and config["input/preprocessing"].startswith(("raw16", "L1"))
+            else torch.float32
+        )
+        features_dtype = (
+            torch.float16 if config["trainer_kwargs/precision"] in [16, "16-mixed", "16-true"] else default_dtype
+        )
 
     return features_dtype
 
@@ -176,7 +228,7 @@ def cluster_command(args: str, memory: str = "10.7G", n_gpus: int = 1, excluded_
 
     bsubs_command = (
         f'bsub -R "tensorcore" {excluded_hosts}-q gpu-lowprio'
-        f" -gpu num={n_gpus}:j_exclusive=yes:mode=exclusive_process:gmem={memory} ./runner_htc.sh htc training {args}"
+        f" -gpu num={n_gpus}:j_exclusive=yes:gmem={memory} ./runner_htc.sh htc training {args}"
     )
 
     return bsubs_command
@@ -264,6 +316,9 @@ def adjust_epoch_size(config: Config) -> None:
     ignore_line...
     >>> config['input/epoch_size']
     20
+
+    Args:
+        config: The configuration of the training.
     """
     assert (
         "input/epoch_size" in config and "dataloader_kwargs/batch_size" in config
@@ -349,7 +404,7 @@ def multi_label_condensation(logits: torch.Tensor, config: Config) -> dict[str, 
 
     Args:
         logits: The output of the network (batch, class, *).
-        config: The configuration of the training run.
+        config: The configuration of the training.
 
     Returns: Dictionary with the entries:
         - `predictions`: Predicted labels (batch, *).

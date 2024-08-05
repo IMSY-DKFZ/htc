@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+from functools import partial
 from pathlib import Path
 from typing import Union
 
@@ -61,6 +62,8 @@ class MetricAggregation:
         """
         Calculates a metric value for checkpointing optionally utilizing one or more domains. Depending on the 'validation/checkpoint_metric_mode' in the config, image or class scores are obtained. Aggregation is always performed along the hierarchy (image, subject, domains).
 
+        If `validation/dataset_index` is set in the config, only the results of the selected dataset are considered. Otherwise, the results from all datasets are considered.
+
         Args:
             domains: The domains to consider additionally.
                 - If string or list, metric values for these domains are treated separately before aggregating to the final score (e.g. camera_index).
@@ -78,15 +81,19 @@ class MetricAggregation:
         if mode is None:
             mode = self.config.get("validation/checkpoint_metric_mode", "class_level")
 
+        df = self.df
+        if self.config["validation/dataset_index"] and "dataset_index" in df.columns:
+            df = df[df["dataset_index"] == self.config["validation/dataset_index"]]
+
         if mode == "class_level":
-            df_g = self.df.explode(self.metrics + ["used_labels"])
+            df_g = df.explode(self.metrics + ["used_labels"])
             df_g = df_g.groupby(domains + ["subject_name", "used_labels"], as_index=False)[self.metrics].agg(
                 self._default_aggregator
             )
             df_g = df_g.groupby(domains + ["used_labels"], as_index=False)[self.metrics].agg(self._default_aggregator)
             df_g = df_g.groupby(["used_labels"], as_index=False)[self.metrics].agg(self._default_aggregator)
         elif mode == "image_level":
-            df_g = self.df.explode(self.metrics + ["used_labels"])
+            df_g = df.explode(self.metrics + ["used_labels"])
             df_g = df_g.groupby(domains + ["subject_name", "image_name"], as_index=False)[self.metrics].agg(
                 self._default_aggregator
             )
@@ -105,9 +112,19 @@ class MetricAggregation:
         mode: str = None,
         dataset_index: Union[int, None] = 0,
         best_epoch_only: bool = True,
+        n_bootstraps: int = None,
     ) -> pd.DataFrame:
         """
         Calculates a table with metric values for each label and (optionally) the corresponding domains. The scores are first aggregated per subject and then across subjects.
+
+        Example for retrieving class-level scores with bootstrapping:
+        >>> from htc import settings
+        >>> np.random.seed(42)
+        >>> run_dir = settings.training_dir / "image/2022-02-03_22-58-44_generated_default_model_comparison"
+        >>> df = MetricAggregation(run_dir / "test_table.pkl.xz").grouped_metrics(n_bootstraps=1000)
+        >>> bootstraps = np.stack(df["dice_metric_bootstraps"])
+        >>> np.quantile(np.mean(bootstraps, axis=0), q=[0.025, 0.975])  # 95 % confidence interval
+        array([0.83..., 0.88...])
 
         Args:
             domains: The domains to consider additionally, i.e. the columns which should be kept in the output.
@@ -119,6 +136,7 @@ class MetricAggregation:
             mode: Aggregation mode. Either `class_level` (one metric value per label) or `image_level` (multiple classes in an image are aggregated first to get a metric value for one image). If None, the value from the config (`validation/checkpoint_metric_mode`) is used. Defaults to `class_level`.
             dataset_index: The index of the dataset which is selected in the table (if available). If None, no selection is carried out.
             best_epoch_only: If True, only results from the best epoch are considered (if available). If False, no selection is carried out and you will get aggregated results per epoch_index (which will also be a column in the resulting table).
+            n_bootstraps: If not None, bootstrapping is performed to estimate the uncertainty of the aggregated scores on the subject level. That is, for each class, n_bootstraps are drawn with replacement from the available subject scores (the number of drawn subjects depends on the number of available subjects for the respective class) and the scores are averaged to yield a class-level score per bootstrap sample. The results are stored in a new column with the suffix "_bootstraps" (e.g., dice_metric_bootstraps). This column can, for example, be stacked together, averaged across classes for each bootstrap and then be used to estimate the 95 % confidence interval. Set a Numpy seed to ensure reproducibility.
 
         Returns: Table with metric values.
         """
@@ -158,7 +176,16 @@ class MetricAggregation:
                         self._default_aggregator
                     )
 
-                    if not keep_subjects:
+                    if n_bootstraps is not None:
+                        assert not keep_subjects, (
+                            "Bootstrapping requires aggregation towards class-level scores because the bootstrapped"
+                            " scores are based on re-sampling of the subject scores followed by averaging those scores"
+                            " (to obtain multiple class-level scores)"
+                        )
+                        df_g = df_g.groupby(domains + ["used_labels"], as_index=False)[self.metrics].apply(
+                            partial(self._aggregator_bootstrapping, n_bootstraps=n_bootstraps)
+                        )
+                    elif not keep_subjects:
                         df_g = df_g.groupby(domains + ["used_labels"], as_index=False)[self.metrics].agg(
                             self._default_aggregator
                         )
@@ -315,8 +342,18 @@ class MetricAggregation:
 
         return domains
 
-    def _default_aggregator(self, series: pd.Series):
+    def _default_aggregator(self, series: pd.Series) -> Union[float, np.ndarray]:
         if series.name == "confusion_matrix":
-            return np.sum(np.stack(series.values), axis=0)
+            return np.sum(np.stack(series), axis=0)
         else:
-            return series.mean()
+            return np.mean(series)
+
+    def _aggregator_bootstrapping(self, df: pd.DataFrame, n_bootstraps: int) -> pd.Series:
+        bootstrap_indices = np.random.randint(0, len(df), (len(df), n_bootstraps))
+
+        res = {}
+        for m in self.metrics:
+            res[m] = np.mean(df[m].values)
+            res[m + "_bootstraps"] = np.mean(df[m].values[bootstrap_indices], axis=0)
+
+        return pd.Series(res)

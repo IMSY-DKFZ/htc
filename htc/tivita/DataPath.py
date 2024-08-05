@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable, Union
 
 import numpy as np
 import pandas as pd
+import torch
 from PIL import Image
 from typing_extensions import Self
 
@@ -89,7 +90,7 @@ class DataPath:
 
         Args:
             image_dir: Path (or string) to the image directory (timestamp folder).
-            data_dir: Path (or string) to the data directory of the dataset (it should contain a dataset_settings.json file).
+            data_dir: Path (or string) to the data directory of the dataset (it should contain a dataset_settings.json file). In case of a subdataset, data_dir should point to the subdataset folder instead of the root dataset folder.
             intermediates_dir: Path (or string) to the intermediates directory of the dataset.
             dataset_settings: Reference to the settings of the dataset. If None and no settings could be found in the image directory, the parents of the image directory are searched. If available, the closest dataset_settings.json is used. Otherwise, the data path gets an empty dataset settings assigned.
             annotation_name_default: Default annotation_name(s) which will be used when reading the segmentation with read_segmentation() with no arguments.
@@ -148,15 +149,10 @@ class DataPath:
     @property
     def dataset_settings(self) -> DatasetSettings:
         if self._dataset_settings is None:
-            if self.image_dir is not None and (path := self.image_dir / "dataset_settings.json").exists():
-                self._dataset_settings = DatasetSettings(path)
+            if self.image_dir is not None:
+                self._dataset_settings = DatasetSettings(self.image_dir / "dataset_settings.json")
             else:
                 self._dataset_settings = DatasetSettings(path_or_data={})
-                parent_paths = list(self.image_dir.parents)
-                for p in parent_paths:
-                    if (path := p / "dataset_settings.json").exists():
-                        self._dataset_settings = DatasetSettings(path)
-                        break
 
         return self._dataset_settings
 
@@ -172,12 +168,11 @@ class DataPath:
         """
         return self() / f"{self.timestamp}_SpecCube.dat"
 
-    def read_cube(self, *reading_args, **reading_kwargs) -> np.ndarray:
+    def read_cube(self, **reading_kwargs) -> np.ndarray:
         """
         Read the Tivita HSI cube (see read_tivita_hsi()).
 
         Args:
-            reading_args: Positional arguments to be passed to read_tivita_hsi function.
             reading_kwargs: Keyword arguments to be passed to read_tivita_hsi function.
 
         Returns: HSI data cube.
@@ -185,7 +180,24 @@ class DataPath:
         from htc.tivita.hsi import read_tivita_hsi
 
         cube_path = self.cube_path()
-        return read_tivita_hsi(cube_path, *reading_args, **reading_kwargs)
+
+        if getattr(self, "calibration_target", None) is not None:
+            from htc.cameras.calibration.CalibrationSwap import CalibrationSwap
+
+            cube = read_tivita_hsi(self.cube_path())  # We need unnormalized cubes
+
+            t = CalibrationSwap()
+            cube = t.transform_image(
+                self, image=torch.from_numpy(cube), calibration_target=self.calibration_target
+            ).numpy()
+
+            if reading_kwargs.get("normalization") is not None:
+                cube = cube / np.linalg.norm(cube, ord=reading_kwargs["normalization"], axis=2, keepdims=True)
+                cube = np.nan_to_num(cube, copy=False)
+        else:
+            cube = read_tivita_hsi(cube_path, **reading_kwargs)
+
+        return cube
 
     def read_cube_raw(self, calibration_original: Union["CalibrationFiles", None] = None) -> np.ndarray:
         """
@@ -204,6 +216,7 @@ class DataPath:
 
             t = CalibrationSwap()
             calibration_original = t.original_calibration_files(self)
+
         return cube * calibration_original.white_image.numpy() + calibration_original.dark_image.numpy()
 
     def compute_oversaturation_mask(self, threshold: int = 1000) -> np.ndarray:
@@ -213,18 +226,21 @@ class DataPath:
         Args:
             threshold: Threshold to consider a camera count being oversaturated. The maximum count of the camera is 1023, therefore a value of 1000 is chosen as default to account for noise and slight miscalibrations (e.g. due to the corresponding calibration files not being available).
 
-        Returns: Oversaturation mask of the image.
+        Returns: Oversaturation mask of the image (True indicates overstaurated pixels).
         """
         cube_raw = self.read_cube_raw()
         return np.any(cube_raw > threshold, axis=-1)
 
-    def is_cube_valid(self) -> bool:
+    def is_cube_valid(self, strict: bool = False) -> bool:
         """
         Checks whether the HSI cube is valid, i.e. not broken. Unfortunately, the Tivita camera may produce broken images due to unknown reasons. Here, we basically check whether we can read the cube and whether it contains invalid values (zero, negative pixels, infinite numbers).
 
         >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
         >>> path.is_cube_valid()
         True
+
+        Args:
+            strict: If True, will also mark cubes as invalid if any value is zero or negative. Otherwise, only a warning is issued.
 
         Returns: True if all checks pass. If False, then the image should be excluded from the analysis as the spectra may be completely wrong. R.I.P.
         """
@@ -238,7 +254,10 @@ class DataPath:
                 is_valid = False
 
             if cube.shape != self.dataset_settings["shape"]:
-                settings.log.error(f"The cube {self} does not have the correct shape ({cube.shape = })")
+                settings.log.error(
+                    f"The cube {self} does not have the correct shape ({cube.shape = } !="
+                    f" {self.dataset_settings['shape'] = })"
+                )
                 is_valid = False
 
             infinite_values = ~np.isfinite(cube)
@@ -255,6 +274,8 @@ class DataPath:
                     settings.log.warning(
                         f"The cube {self} has {np.sum(cube == 0)} zero values (the cube is still used)"
                     )
+                    if strict:
+                        is_valid = False
 
             if np.all(cube < 0):
                 settings.log.error(f"The cube {self} contains only negative values")
@@ -265,6 +286,8 @@ class DataPath:
                     settings.log.warning(
                         f"The cube {self} contains {np.sum(negative_pixels)} negative pixels (the cube is still used)"
                     )
+                    if strict:
+                        is_valid = False
         except Exception as e:
             settings.log.error(f"Cannot read the cube {self}: {e}")
             is_valid = False
@@ -331,6 +354,31 @@ class DataPath:
 
         rgb_path = self.rgb_path_sensor()
         return read_tivita_rgb(rgb_path, *reading_args, **reading_kwargs)
+
+    def align_rgb_sensor(self, *args, recompute: bool = False, **kwargs) -> np.ndarray:
+        """
+        Align the RGB image from the RGB sensor to the reconstructed RGB image of the HSI cube.
+
+        See the function `align_rgb_sensor()` for more details.
+
+        Args:
+            recompute: If True, the alignment will be recomputed even if a precomputed file exists.
+            args: Positional arguments to be passed to `align_rgb_sensor()` function.
+            kwargs: Keyword arguments to pass to `align_rgb_sensor()` function.
+
+        Returns: Aligned RGB sensor image.
+        """
+        if not recompute:
+            precomputed_path = (
+                self.intermediates_dir / "preprocessing" / "rgb_sensor_aligned" / f"{self.image_name()}.blosc"
+            )
+            if precomputed_path.exists():
+                data = decompress_file(precomputed_path)
+                return np.ma.MaskedArray(data["data"], data["mask"])
+
+        from htc.tivita.rgb import align_rgb_sensor
+
+        return align_rgb_sensor(self.rgb_path_reconstructed(), self.rgb_path_sensor(), *args, **kwargs)
 
     def segmentation_path(self) -> Union[Path, None]:
         """
@@ -407,6 +455,29 @@ class DataPath:
         else:
             return None
 
+    def colorchecker_annotation_path(self) -> Union[Path, None]:
+        """
+        Path to the colorchecker annotation file (automatically or manually created).
+
+        Returns: Path to the existing colorchecker annotation file or None if it could not be found (e.g., if the data path does not point to an colorchecker image).
+        """
+        annotations_dir = self.image_dir / "annotations"
+        if not annotations_dir.exists():
+            return None
+        else:
+            mask_paths = list(
+                annotations_dir.glob(f"{self.timestamp}#squares#automask#*.png")
+            )  # searching for automasks
+            if len(mask_paths) == 0:
+                mask_paths = list(annotations_dir.glob(f"{self.timestamp}#polygon#*.nrrd"))  # searching for MITK masks
+
+            if len(mask_paths) == 0:
+                return None
+            elif len(mask_paths) > 1:
+                raise ValueError(f"Too many colorchecker masks available for {self.image_dir}")
+            else:
+                return mask_paths[0] if mask_paths[0].exists() else None
+
     def read_colorchecker_mask(
         self, return_spectra: bool = False, normalization: int = None
     ) -> Union[dict[str, Union[np.ndarray, pd.DataFrame, LabelMapping]], None]:
@@ -436,22 +507,15 @@ class DataPath:
             - median_table: Table with median spectra (unnormalized and L1-normalized) for each color chip.
             - label_mapping: The label mapping object to interpret the values of the mask array.
         """
-        mask_dir = self.image_dir / "annotations"
-        mask_paths = list(mask_dir.glob(f"{self.timestamp}#squares#automask#*.png"))  # searching for automasks
-        if len(mask_paths) == 0:
-            mask_paths = list(mask_dir.glob(f"{self.timestamp}#polygon#*.nrrd"))  # searching for MITK masks
-        assert len(mask_paths) <= 1, f"Too many colorchecker masks available for {self.image_dir}"
+        mask_path = self.colorchecker_annotation_path()
 
-        if len(mask_paths) == 0:
+        if mask_path is None:
             settings.log.warning(
                 f"Colorchecker mask cannot be found for {self.image_dir}. Please refer to"
                 " ColorcheckerMaskCreation.ipynb or use MITK to generate the corresponding colorchecker mask!"
             )
             return None
-
         else:
-            mask_path = mask_paths[0]
-
             from htc.utils.ColorcheckerReader import ColorcheckerReader
 
             if mask_path.suffix == ".png":
@@ -643,7 +707,7 @@ class DataPath:
 
         return decompress_file(params_path)
 
-    def compute_sto2(self, cube: np.ndarray = None) -> np.ndarray:
+    def compute_sto2(self, cube: np.ndarray = None, version: str = None) -> np.ndarray:
         """
         Computes the Tissue oxygen saturation (StO2) for the image.
 
@@ -666,29 +730,34 @@ class DataPath:
 
         Args:
             cube: If not None, will use this cube instead of loading it.
+            version: Name of the function to use for computing the StO2 parameter. If None, the official function which will be chosen based on the Camera_CamID. Currently, `calc_sto2` is used for the Halogen formula and `calc_sto2_2_helper` for the LED formula.
 
         Returns: The StO2 parameter image (as numpy masked array) with values in the range [0;1].
         """
-        try:
-            from htc.tivita.functions_official import calc_sto2, calc_sto2_2_helper, detect_background
+        detect_background = self._code_from_official("detect_background")
+        if version is not None:
+            calc_sto2 = self._code_from_official(version)
+        else:
+            if self.meta("Camera_CamID") is None or self.meta("Camera_CamID") in [
+                "0102-00057",
+                "0102-00085",
+                "0102-00098",
+                "0202-00113",
+                "0202-00118",
+            ]:
+                calc_sto2 = self._code_from_official("calc_sto2")  # Halogen formula should be used
+            else:
+                calc_sto2 = self._code_from_official("calc_sto2_2_helper")  # LED formula should be used
 
+        if calc_sto2 is not None and detect_background is not None:
             with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
                 cube = self.read_cube() if cube is None else cube
-                if self.meta("Camera_CamID") is None or self.meta("Camera_CamID") in [
-                    "0102-00057",
-                    "0102-00085",
-                    "0102-00098",
-                    "0202-00113",
-                    "0202-00118",
-                ]:
-                    sto2_img = calc_sto2(cube)  # Halogen formula should be used
-                else:
-                    sto2_img = calc_sto2_2_helper(cube)  # LED formula should be used
+                sto2_img = calc_sto2(cube)
                 param = np.nan_to_num(np.rot90(sto2_img, k=-1), copy=False)
                 background = np.rot90(detect_background(cube), k=-1)
 
                 return np.ma.MaskedArray(param, background == 0, fill_value=0)
-        except ImportError:
+        else:
             params = self._load_precomputed_parameters()
             return np.ma.MaskedArray(params["StO2"], params["background"], fill_value=0)
 
@@ -1102,6 +1171,18 @@ class DataPath:
     def datetime(self) -> datetime:
         return datetime.strptime(self.timestamp, "%Y_%m_%d_%H_%M_%S")
 
+    def is_timestamp_folder(self) -> bool:
+        """
+        Check if this data path points to a timestamp folder (as it is usually the case for image folders).
+
+        Returns: True if this data path points to a valid timestamp, False otherwise.
+        """
+        try:
+            self.datetime()
+            return True
+        except ValueError:
+            return False
+
     def annotation_names(self) -> list[str]:
         """
         Returns the names of all associated annotations for this image.
@@ -1158,11 +1239,26 @@ class DataPath:
                     assert len(table_path) == 1, f"More than one meta table found for {entry}"
                     table_path = table_path[0]
 
-                    dsettings = DatasetSettings(entry["path_data"] / "dataset_settings.json")
                     df = pd.read_feather(table_path)
-                    df["dsettings"] = dsettings
+
+                    if "dataset_settings_path" in df.columns:
+                        # Subdatasets may have their own path to the dataset settings
+                        dsettings_mapping = {
+                            f: DatasetSettings(entry["path_data"] / f) for f in df.dataset_settings_path.unique()
+                        }
+                        df["dsettings"] = df.dataset_settings_path.map(dsettings_mapping)
+
+                        # The data directory always points to the folder which contains the dataset settings (may be the subdataset instead of the root dataset)
+                        data_dir_mapping = {
+                            f: (entry["path_data"] / f).parent for f in df.dataset_settings_path.unique()
+                        }
+                        df["data_dir"] = df.dataset_settings_path.map(data_dir_mapping)
+                    else:
+                        dsettings = DatasetSettings(entry["path_data"] / "dataset_settings.json")
+                        df["dsettings"] = dsettings
+
                     df["dataset_env_name"] = env_key
-                    df["data_dir"] = entry["path_data"]
+                    df["root_data_dir"] = entry["path_data"]
                     df["intermediates_dir"] = entry["path_intermediates"]
 
                     # Append the metadata for the current dataset to the global cache
@@ -1266,8 +1362,8 @@ class DataPath:
                     )
 
                 DataPath._data_paths_cache[cache_name] = DataPathClass(
-                    match["data_dir"] / match["path"],
-                    match["data_dir"],
+                    match["root_data_dir"] / match["path"],
+                    match["data_dir"] if "data_dir" in match else match["root_data_dir"],
                     match["intermediates_dir"],
                     match["dsettings"],
                     annotation_name,
@@ -1277,7 +1373,7 @@ class DataPath:
 
     @staticmethod
     def iterate(
-        data_dir: Path,
+        data_dir: Union[str, Path],
         filters: Union[list[Callable[[Self], bool]], None] = None,
         annotation_name: Union[str, list[str]] = None,
     ) -> Iterator[Self]:
@@ -1305,6 +1401,8 @@ class DataPath:
 
         Returns: Generator with all path objects.
         """
+        if type(data_dir) == str:
+            data_dir = Path(data_dir)
         if filters is None:
             filters = []
 
@@ -1340,7 +1438,11 @@ class DataPath:
                         parts.pop()
 
         if DataPathClass is None:
-            if not (data_dir / "dataset_settings.json").exists() and (data_dir / "data").exists():
+            if (
+                not (data_dir / "dataset_settings.json").exists()
+                and (data_dir / "data").exists()
+                and not data_dir.name.startswith("Cat_")
+            ):
                 settings.log.warning(
                     f"No dataset_settings.json file found in the data directory {data_dir} but the subdirectory data"
                     " exists in this directory. For the default datasets, please point data_dir to the data"

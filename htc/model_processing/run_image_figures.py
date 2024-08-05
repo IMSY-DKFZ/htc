@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import numpy as np
+from typing import Union
+
 import pandas as pd
 import torch
 
@@ -11,6 +12,7 @@ from htc.model_processing.TestLeaveOneOutPredictor import TestLeaveOneOutPredict
 from htc.model_processing.TestPredictor import TestPredictor
 from htc.model_processing.ValidationPredictor import ValidationPredictor
 from htc.models.common.utils import multi_label_condensation
+from htc.tivita.DataPath import DataPath
 from htc.utils.LabelMapping import LabelMapping
 from htc.utils.visualization import (
     compress_html,
@@ -30,15 +32,15 @@ class ImageFigureConsumer(ImageConsumer):
             self.target_dir = self.target_dir / self.run_dir.parent.name / self.run_dir.name
         self.target_dir.mkdir(parents=True, exist_ok=True)
 
-    def handle_image_data(self, image_data: dict) -> None:
-        predictions = image_data["predictions"]
+    def handle_image_data(self, image_data: dict[str, Union[torch.Tensor, DataPath, str]]) -> None:
         if self.config["model/activations"] == "sigmoid":
-            res = multi_label_condensation(torch.from_numpy(predictions).float().unsqueeze(dim=0), self.config)
+            res = multi_label_condensation(image_data["predictions"].float().unsqueeze(dim=0), self.config)
             confidences = res["confidences"].squeeze(dim=0).numpy()
             predictions = res["predictions"].squeeze(dim=0).numpy()
         else:
-            confidences = np.max(predictions, axis=0)
-            predictions = np.argmax(predictions, axis=0)
+            confidences, predictions = image_data["predictions"].max(dim=0)
+            confidences = confidences.numpy()
+            predictions = predictions.numpy()
 
         path = image_data["path"]
 
@@ -100,6 +102,9 @@ if __name__ == "__main__":
     runner.add_argument("--test")
     runner.add_argument("--test-looc")
     runner.add_argument("--output-dir")
+    runner.add_argument("--spec")
+    runner.add_argument("--spec-fold")
+    runner.add_argument("--spec-split")
 
     if runner.args.test:
         TestClass = TestLeaveOneOutPredictor if runner.args.test_looc else TestPredictor

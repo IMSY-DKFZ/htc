@@ -20,6 +20,7 @@ from htc.models.common.HTCLightning import HTCLightning
 from htc.models.image.DatasetImage import DatasetImage
 from htc.settings import settings
 from htc.settings_seg import settings_seg
+from htc.tivita.DataPath import DataPath
 from htc.utils.general import apply_recursive
 from htc.utils.helper_functions import get_nsd_thresholds
 from htc.utils.LabelMapping import LabelMapping
@@ -129,6 +130,7 @@ def _save_test_table(
         )
 
     # For the test table it is easier, as we create it from scratch (and overwrite an existing one, if available)
+    target_dir.mkdir(parents=True, exist_ok=True)
     df_results.to_pickle(target_dir / f"{test_table_name}.pkl.xz")
 
 
@@ -154,7 +156,7 @@ class ImageTableConsumer(ImageConsumer):
 
         self.test_table_name = test_table_name
 
-    def handle_image_data(self, image_data: dict) -> None:
+    def handle_image_data(self, image_data: dict[str, Union[torch.Tensor, DataPath, str]]) -> None:
         config = copy.copy(self.config)
         config["input/preprocessing"] = None
         config["input/no_features"] = True  # As we only need labels from the sample
@@ -164,19 +166,23 @@ class ImageTableConsumer(ImageConsumer):
         mapping.unknown_invalid = True
 
         path = image_data["path"]
+        if len(path.annotated_labels(annotation_name="all")) == 0:
+            settings.log.info(f"The image {path.image_name()} is skipped because it contains no labels")
+            return None
+
         sample = DatasetImage([path], train=False, config=config)[0]
 
-        predictions = torch.from_numpy(image_data["predictions"]).unsqueeze(dim=0)
+        predictions = image_data["predictions"].unsqueeze(dim=0)
         labels = sample["labels"].unsqueeze(dim=0)
         valid_pixels = sample["valid_pixels"].unsqueeze(dim=0)
 
         if valid_pixels.sum() == 0:
             settings.log.info(f"The image {path.image_name()} is skipped because it contains no valid pixels")
-            return
+            return None
 
         metric_data = {}
 
-        # this script can also be used without setting the metrics parameter i.e. in case the metrics don't have to
+        # This script can also be used without setting the metrics parameter i.e. in case the metrics don't have to
         # computed, but only the predictions are to be stored
         if len(self.metrics) > 0:
             metric_data |= evaluate_images(
@@ -233,7 +239,9 @@ class TableValidationPredictor(EvaluationMixin, ValidationPredictor):
 
     def save_table(self, output_dir: Path) -> None:
         df = pd.DataFrame(self.rows)
-        _save_validation_table(df, output_dir, self.metrics, self.run_dir)
+        _save_validation_table(
+            df, target_dir=output_dir, metrics=self.metrics, tolerance_name=None, run_dir=self.run_dir
+        )
 
 
 class TableTestPredictor(EvaluationMixin, TestPredictor):
@@ -256,7 +264,9 @@ class TableTestPredictor(EvaluationMixin, TestPredictor):
 
     def save_table(self, output_dir: Path) -> None:
         df = pd.DataFrame(self.rows)
-        _save_test_table(df, output_dir, self.metrics, self.test_table_name)
+        _save_test_table(
+            df, target_dir=output_dir, metrics=self.metrics, tolerance_name=None, test_table_name=self.test_table_name
+        )
 
 
 if __name__ == "__main__":
@@ -268,7 +278,11 @@ if __name__ == "__main__":
     runner.add_argument("--spec")
     runner.add_argument("--spec-fold")
     runner.add_argument("--spec-split")
+    runner.add_argument("--paths-variable")
+    runner.add_argument("--input-dir")
     runner.add_argument("--output-dir")
+    runner.add_argument("--config")
+    runner.add_argument("--test-table-name", default="test_table", type=str, help="Name of the generated test table.")
     runner.add_argument(
         "--gpu-only",
         action="store_true",
@@ -282,9 +296,15 @@ if __name__ == "__main__":
 
     if runner.args.gpu_only:
         if runner.args.test:
-            predictor = TableTestPredictor(runner.run_dir, metrics=runner.args.metrics)
+            predictor = TableTestPredictor(
+                runner.run_dir,
+                test_table_name=runner.args.test_table_name,
+                metrics=runner.args.metrics,
+                paths=runner.paths,
+                config=runner.args.config,
+            )
         else:
-            predictor = TableValidationPredictor(runner.run_dir, metrics=runner.args.metrics)
+            predictor = TableValidationPredictor(runner.run_dir, metrics=runner.args.metrics, config=runner.args.config)
 
         with torch.autocast(device_type="cuda"):
             predictor.start(task_queue=None, hide_progressbar=False)

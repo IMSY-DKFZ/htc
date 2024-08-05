@@ -1,7 +1,7 @@
 # Order plays a role here: we first need to run pyupgrade because it changes the code and the new code may not be correctly formatted so we need to run black afterwards. flake8 again should be run after black so that it doesn't e.g. complain about whitespace issues.
 repos:
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.0
+    rev: v3.15.2
     hooks:
       - id: pyupgrade
         args: [--py39-plus]
@@ -22,6 +22,7 @@ repos:
           - flake8-comprehensions
           - flake8-use-pathlib
           - flake8-docstrings
+          - flake8-builtins
   - repo: https://github.com/asottile/yesqa
     rev: v1.5.0
     hooks:
@@ -31,8 +32,9 @@ repos:
           - flake8-comprehensions
           - flake8-use-pathlib
           - flake8-docstrings
+          - flake8-builtins
   - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.7.1
+    rev: 1.8.5
     hooks:
       - id: nbqa-pyupgrade
         args: [--py39-plus]
@@ -43,7 +45,14 @@ repos:
           - flake8-comprehensions
           - flake8-use-pathlib
           - flake8-docstrings
+          - flake8-builtins
         args: ["--extend-ignore=E402"]
+  # Avoid potential problems with py.test if __init__.py files are missing
+  - repo: https://github.com/lk16/detect-missing-init
+    rev: v0.1.6
+    hooks:
+      - id: detect-missing-init
+        args: ["--create", "--python-folders", "htc"]
   - repo: https://github.com/citation-file-format/cff-converter-python
     rev: "44e8fc9"
     hooks:
@@ -56,3 +65,36 @@ repos:
     rev: 1.7.0
     hooks:
       - id: pyproject-fmt
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: trailing-whitespace
+      - id: check-case-conflict
+      - id: debug-statements
+      - id: name-tests-test
+        args: [--pytest-test-first]
+      - id: mixed-line-ending
+      - id: end-of-file-fixer
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+  - repo: local
+    hooks:
+      - id: check-notebooks
+        name: Check notebooks for common errors
+        entry: python hooks/check_notebooks.py
+        language: system
+        types: [jupyter]
+      - id: check-public-readme
+        name: Check for common mistakes in the public README
+        entry: python hooks/check_public_readme.py
+        language: system
+        types: [file]
+        files: ^README_public.md$
+  - repo: meta
+    hooks:
+      - id: check-hooks-apply
+      - id: check-useless-excludes

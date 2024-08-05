@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import gc
 from pathlib import Path
 
 import pandas as pd
@@ -43,6 +44,10 @@ class ContextValidationPredictor(ContextEvaluationMixin, ValidationPredictor):
 
             self.rows[k] += rows
 
+        # There might be memory overflows without explicit garbage collection
+        gc.collect()
+        torch.cuda.empty_cache()
+
     def predict_step(self, batch: dict[str, torch.Tensor], batch_idx: int = None) -> dict[str, torch.Tensor]:
         prediction = self.model.predict_step(batch)
         prediction["class"] = prediction["class"].softmax(dim=1)
@@ -72,6 +77,9 @@ class ContextTestPredictor(ContextEvaluationMixin, TestPredictor):
         for k in self.context_keys:
             rows = self._validation_context(batch, batch_idx=-1, dataloader_idx=0, context_key=k)
             self.rows[k] += rows
+
+        gc.collect()
+        torch.cuda.empty_cache()
 
     def predict_step(self, batch: dict[str, torch.Tensor], batch_idx: int = None) -> dict[str, torch.Tensor]:
         return self.model.predict_step(batch)

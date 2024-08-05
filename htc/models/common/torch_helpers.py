@@ -152,7 +152,7 @@ def smooth_one_hot(labels: torch.Tensor, n_classes: int, smoothing: float = 0.0)
 
 def group_mean(indices: torch.Tensor, values: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    Group and average values by the given indices.
+    Group values according to their membership (indices) and compute the average.
 
     >>> indices = torch.tensor([0, 0, 2, 2, 2])
     >>> values = torch.tensor([1, 2, 3, 4, 5])
@@ -183,6 +183,53 @@ def group_mean(indices: torch.Tensor, values: torch.Tensor) -> tuple[torch.Tenso
     valid_aggregated = (aggregated / counts)[valid]
 
     return valid_indices, valid_aggregated
+
+
+def minmax_pos_neg_scaling(tensor: torch.Tensor, dim: int = 0) -> torch.Tensor:
+    """
+    Applies min-max scaling separately for positive and negative values of a tensor along a specified dimension.
+
+    All negative values are scaled to [-1, 0] and all positive values to [0, 1]. In total, the values in the tensor are in the range [-1, 1].
+
+    >>> x = torch.tensor([
+    ...     [-1, 0, -3],
+    ...     [4, -5, 6],
+    ... ], dtype=torch.float32)
+    >>> minmax_pos_neg_scaling(x, dim=0)
+    tensor([[-0.3333,  0.0000, -1.0000],
+            [ 0.6667, -1.0000,  1.0000]])
+
+    Args:
+        tensor: The input tensor.
+        dim: The dimension along which to apply the scaling. All values for every entry in this dimension will be scaled independently from each other to [-1, 1].
+
+    Returns: The scaled tensor.
+    """
+    # We modify the tensor in-place
+    tensor = tensor.clone()
+
+    # Move the target dimension to the front
+    tensor = tensor.permute(dim, *tuple(i for i in range(tensor.ndim) if i != dim))
+
+    # Put all other values which should be scaled in the second dimension
+    original_shape = tensor.shape
+    tensor = tensor.reshape(tensor.shape[0], -1)
+
+    min_values = tensor.min(dim=1, keepdim=True).values.abs().repeat(1, tensor.shape[1])
+    min_values[tensor >= 0] = 1
+    max_values = tensor.max(dim=1, keepdim=True).values.repeat(1, tensor.shape[1])
+    max_values[tensor <= 0] = 1
+
+    tensor = tensor / min_values
+    tensor = tensor / max_values
+
+    # Back to the original shape
+    tensor = tensor.reshape(original_shape)
+    perm_dims = list(range(1, tensor.ndim))
+    perm_dims.insert(dim, 0)
+    tensor = tensor.permute(*perm_dims)
+
+    return tensor
 
 
 def move_batch_gpu(batch: dict, device: torch.device = None) -> dict:
@@ -298,5 +345,5 @@ class FlexibleIdentity(nn.Identity):
     Same as nn.Identity but the forward function also accepts additional arguments.
     """
 
-    def forward(self, input: torch.Tensor, *args, **kwargs) -> torch.Tensor:
-        return input
+    def forward(self, x: torch.Tensor, *args, **kwargs) -> torch.Tensor:
+        return x

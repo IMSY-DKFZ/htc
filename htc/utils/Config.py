@@ -123,30 +123,45 @@ class Config:
                     self.data[k] = v
 
         if self["inherits"]:
-            extension = "" if self["inherits"].endswith(".json") else ".json"
-            inherits = Path(self["inherits"] + extension)
+            if type(self["inherits"]) == str:
+                self["inherits"] = [self["inherits"]]
 
-            # We try several locations to find the parent config file
-            possible_paths = Config._get_possible_paths(inherits)
-            if self.path_config is not None:
-                possible_paths.append(self.path_config.with_name(inherits.name))  # Same directory as the child config
+            for parent in self["inherits"]:
+                extension = "" if parent.endswith(".json") else ".json"
+                inherits = Path(parent + extension)
 
-            parent_path = None
-            for path in possible_paths:
-                if path.exists():
-                    parent_path = path
-                    break
+                # We try several locations to find the parent config file
+                possible_paths = Config._get_possible_paths(inherits)
+                if self.path_config is not None:
+                    possible_paths.append(
+                        self.path_config.with_name(inherits.name)
+                    )  # Same directory as the child config
 
-            assert parent_path is not None, (
-                f"Cannot find the path to the parent configuration file {inherits}. Tried at the following locations:"
-                f" {possible_paths}"
-            )
-            data_parent = Config(parent_path).data
+                parent_path = None
+                for path in possible_paths:
+                    if path.exists():
+                        parent_path = path
+                        break
 
-            # The existing data (=data from the child) has precedence over the parent data
-            self.data = dict(merge_dicts_deep(data_parent, self.data))
+                assert parent_path is not None, (
+                    f"Cannot find the path to the parent configuration file {inherits}. Tried at the following"
+                    f" locations: {possible_paths}"
+                )
+
+                config_parent = Config(parent_path)
+                if self["inherits_skip"]:
+                    for key in self["inherits_skip"]:
+                        del config_parent[key]
+                data_parent = config_parent.data
+
+                # The existing data (=data from the child) has precedence over the parent data
+                self.data = dict(merge_dicts_deep(data_parent, self.data))
+
+                # Extend all config keys from the parent (but not the own class due to the possibility of multiple inherence)
+                self._extend_lists(config_parent)
 
             del self["inherits"]
+            del self["inherits_skip"]
 
         self._extend_lists()
 
@@ -157,9 +172,12 @@ class Config:
         else:
             self._used_keys = {}
 
-    def _extend_lists(self) -> None:
+    def _extend_lists(self, base_config: "Config" = None) -> None:
+        if base_config is None:
+            base_config = self
+
         # Users can extend additional lists by adding the same key with _extends appended
-        for k, v in self.items():
+        for k, v in base_config.items():
             if k.endswith("_extends") and type(v) == list:
                 k_original = k.removesuffix("_extends")
                 if k_original in self:
@@ -168,7 +186,7 @@ class Config:
                         " supported for the extends feature"
                     )
                     self[k_original] = self[k_original] + v
-                    del self[k]
+                    del base_config[k]
 
     def _copy_data(self, dict_data: dict) -> dict:
         new_data = {}

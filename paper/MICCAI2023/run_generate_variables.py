@@ -214,8 +214,8 @@ class VariableGeneration:
             df_performance.query("drop_DSC > 0")
             .groupby(["modality"])
             .agg(
-                min_drop_DSC=pd.NamedAgg(column="drop_DSC", aggfunc=min),
-                max_drop_DSC=pd.NamedAgg(column="drop_DSC", aggfunc=max),
+                min_drop_DSC=pd.NamedAgg(column="drop_DSC", aggfunc="min"),
+                max_drop_DSC=pd.NamedAgg(column="drop_DSC", aggfunc="max"),
             )
         )
         self.vars["varHSIDropRange"] = (
@@ -238,10 +238,10 @@ class VariableGeneration:
             df_performance.query("drop_DSC > 0")
             .groupby(["modality"])
             .agg(
-                min_improvement_DSC=pd.NamedAgg(column="improvement_DSC", aggfunc=min),
-                max_improvement_DSC=pd.NamedAgg(column="improvement_DSC", aggfunc=max),
-                min_improvement_NSD=pd.NamedAgg(column="improvement_NSD", aggfunc=min),
-                max_improvement_NSD=pd.NamedAgg(column="improvement_NSD", aggfunc=max),
+                min_improvement_DSC=pd.NamedAgg(column="improvement_DSC", aggfunc="min"),
+                max_improvement_DSC=pd.NamedAgg(column="improvement_DSC", aggfunc="max"),
+                min_improvement_NSD=pd.NamedAgg(column="improvement_NSD", aggfunc="min"),
+                max_improvement_NSD=pd.NamedAgg(column="improvement_NSD", aggfunc="max"),
             )
         )
         for metric in ["DSC", "NSD"]:

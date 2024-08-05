@@ -124,22 +124,22 @@ class MultiPath(type(Path())):
         /y (exists=False)
         /x/y (exists=False)
         """
-        repr = f"Class: {self.__class__.__name__}\n"
+        text = f"Class: {self.__class__.__name__}\n"
 
         root_location = Path(super().__str__())
-        repr += f"Root location: {root_location} (exists={root_location.exists()})\n"
+        text += f"Root location: {root_location} (exists={root_location.exists()})\n"
 
         if self._default_needle is not None:
             repr_needle = f" (considering needle {self._default_needle})"
         else:
             repr_needle = ""
         best_location = self.find_best_location()
-        repr += f"Best location{repr_needle}: {best_location} (exists={best_location.exists()})\n"
+        text += f"Best location{repr_needle}: {best_location} (exists={best_location.exists()})\n"
 
-        repr += "All locations:\n"
-        repr += "\n".join([str(a) + f" (exists={a.exists()})" for a in self.possible_locations()])
+        text += "All locations:\n"
+        text += "\n".join([str(a) + f" (exists={a.exists()})" for a in self.possible_locations()])
 
-        return repr
+        return text
 
     def __reduce__(self):
         # Called when pickling path objects (e.g. multiprocessing)
@@ -181,17 +181,17 @@ class MultiPath(type(Path())):
         # Some methods also rely on this property
         return self.find_best_location().name
 
-    def iterdir(self, filter: Callable[[Path], bool] = None):
+    def iterdir(self, filter_func: Callable[[Path], bool] = None):
         # We also need to override the iterate methods to return paths from all alternatives
-        for location in self.possible_locations(only_existing=True, filter=filter):
+        for location in self.possible_locations(only_existing=True, filter_func=filter_func):
             yield from location.iterdir()
 
-    def glob(self, pattern, filter: Callable[[Path], bool] = None):
-        for location in self.possible_locations(only_existing=True, filter=filter):
+    def glob(self, pattern, filter_func: Callable[[Path], bool] = None):
+        for location in self.possible_locations(only_existing=True, filter_func=filter_func):
             yield from location.glob(pattern)
 
-    def rglob(self, pattern, filter: Callable[[Path], bool] = None):
-        for location in self.possible_locations(only_existing=True, filter=filter):
+    def rglob(self, pattern, filter_func: Callable[[Path], bool] = None):
+        for location in self.possible_locations(only_existing=True, filter_func=filter_func):
             yield from location.rglob(pattern)
 
     def mkdir(self, *args, **kwargs):
@@ -330,7 +330,7 @@ class MultiPath(type(Path())):
             # There was a match, but the path does not exist, still better than the root location
             return matched_location
 
-    def possible_locations(self, only_existing=False, filter: Callable[[Path], bool] = None) -> list[Path]:
+    def possible_locations(self, only_existing=False, filter_func: Callable[[Path], bool] = None) -> list[Path]:
         """
         Lists all locations which can be accessed by this multi path.
 
@@ -341,7 +341,7 @@ class MultiPath(type(Path())):
 
         Args:
             only_existing: Include only locations which exist.
-            filter: Filter function to select locations. The function receives a paths and must return True if the path should be used.
+            filter_func: Filter function to select locations. The function receives a paths and must return True if the path should be used.
 
         Returns: All possible locations for the current path.
         """
@@ -364,8 +364,8 @@ class MultiPath(type(Path())):
             new = unify_path(new, resolve_symlinks=False)
             locations.append(new)
 
-        if filter is not None:
-            locations = [l for l in locations if filter(l)]
+        if filter_func is not None:
+            locations = [l for l in locations if filter_func(l)]
 
         if only_existing:
             locations = [l for l in locations if l.exists()]

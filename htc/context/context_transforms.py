@@ -522,6 +522,10 @@ class OrganTransplantation(HTCTransformation):
                 donor_regions = {k: batch[k][donor] for k in regions_keys}
 
             valid_donor_labels = donor_labels[donor_valid_pixels].unique()
+            if len(valid_donor_labels) == 0:
+                # In rare cases, it may happen that a previous (affine) augmentation removes all valid pixels
+                # In this case, there is not much we can do here because no donor pixels are available
+                continue
             selected_label = valid_donor_labels[torch.randperm(len(valid_donor_labels))[0]]
 
             # Apply selection to organ acceptor

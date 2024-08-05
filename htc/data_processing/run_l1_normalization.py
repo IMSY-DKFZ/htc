@@ -16,14 +16,21 @@ from htc.utils.paths import ParserPreprocessing
 
 
 class L1Normalization(DatasetIteration):
-    def __init__(self, paths: list[DataPath], file_type: str, output_dir: Path = None, regenerate: bool = False):
+    def __init__(
+        self,
+        paths: list[DataPath],
+        file_type: str,
+        output_dir: Path = None,
+        regenerate: bool = False,
+        folder_name: str = "L1",
+    ):
         super().__init__(paths)
         self.file_type = file_type
 
         if output_dir is None:
-            self.output_dir = settings.intermediates_dir_all / "preprocessing" / "L1"
+            self.output_dir = settings.intermediates_dir_all / "preprocessing" / folder_name
         else:
-            self.output_dir = output_dir / "L1"
+            self.output_dir = output_dir / folder_name
         self.output_dir.mkdir(exist_ok=True, parents=True)
 
         config = Config({
@@ -36,7 +43,7 @@ class L1Normalization(DatasetIteration):
             clear_directory(self.output_dir)
 
     def compute(self, i: int) -> None:
-        if not (self.output_dir / f"{self.paths[i].image_name()}.{self.file_type}").exists():
+        if self._compute_necessary(self.paths[i].image_name()):
             sample = self.dataset[i]
             img = sample["features"].numpy().astype(np.float16)
 

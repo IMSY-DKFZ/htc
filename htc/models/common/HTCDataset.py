@@ -4,12 +4,14 @@
 import re
 from abc import ABC, abstractmethod
 from functools import partial
+from pathlib import Path
 from typing import Union
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from htc.models.common.torch_helpers import str_to_dtype
 from htc.models.common.transforms import HTCTransformation, ToType
 from htc.models.common.utils import dtype_from_config
 from htc.models.data.DataSpecification import DataSpecification
@@ -20,6 +22,7 @@ from htc.utils.blosc_compression import decompress_file
 from htc.utils.Config import Config
 from htc.utils.helper_functions import median_table
 from htc.utils.LabelMapping import LabelMapping
+from htc.utils.Task import Task
 
 
 class HTCDataset(ABC, Dataset):
@@ -43,6 +46,7 @@ class HTCDataset(ABC, Dataset):
         self.image_names = [p.image_name() for p in self.paths]
         self.n_channels_loading = self.config["input/n_channels"]  # Value before any channel selection
         self.features_dtype = dtype_from_config(self.config)
+        self._checked_features_dtype = False
 
         # Data transformations
         if self.train and self.config["input/transforms_cpu"]:
@@ -142,20 +146,39 @@ class HTCDataset(ABC, Dataset):
 
     def label_counts(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Returns: label values and corresponding counts used for class weighting.
+        Calculate for each label in the dataset (for the current fold) how often it occurs. This is for example useful to calculate class weights.
+
+        For a segmentation task, this refers to the pixel counts of the segmentation masks. For classification tasks, this refers to the number of images for each label.
+
+        Returns: Tuple with label values and corresponding counts.
         """
         assert self.fold_name is not None, "The fold name must be provided if label counts are needed"
 
         specs = DataSpecification.from_config(self.config)
-        mapping = LabelMapping.from_config(self.config)
         image_names = [p.image_name() for p in specs.fold_paths(self.fold_name, "^train")]
 
         # We use the median tables to calculate the label count information
-        df = median_table(image_names=image_names, label_mapping=mapping)
-        df = df.groupby("label_index_mapped", as_index=False)["n_pixels"].sum()
-        df.sort_values(by="label_index_mapped", inplace=True)
+        task = Task.from_config(self.config)
+        if task == Task.SEGMENTATION:
+            df = median_table(image_names=image_names, config=self.config)
 
-        return torch.from_numpy(df["label_index_mapped"].values), torch.from_numpy(df["n_pixels"].values)
+            # Counts are determined by the number of pixels for each label
+            df = df.groupby("label_index_mapped", as_index=False)["n_pixels"].sum()
+            df.sort_values(by="label_index_mapped", inplace=True)
+            label_values = torch.from_numpy(df["label_index_mapped"].values)
+            label_counts = torch.from_numpy(df["n_pixels"].values)
+        elif task == Task.CLASSIFICATION:
+            df = median_table(image_names=image_names, config=self.config)
+
+            # Counts are determined with the number of images for each label
+            df = df.groupby("image_labels", as_index=False)["image_name"].nunique()
+            df.sort_values(by="image_labels", inplace=True)
+            label_values = torch.from_numpy(df["image_labels"].values)
+            label_counts = torch.from_numpy(df["image_name"].values)
+        else:
+            raise ValueError(f"Unknown task: {task}")
+
+        return label_values, label_counts
 
     def read_labels(self, path: DataPath) -> Union[dict[str, torch.Tensor], None]:
         """
@@ -186,7 +209,7 @@ class HTCDataset(ABC, Dataset):
                 elif isinstance(self.config["label_mapping"], LabelMapping):
                     label_mapping = self.config["label_mapping"]
                 else:
-                    label_mapping = LabelMapping.from_config(self.config)
+                    label_mapping = LabelMapping.from_config(self.config, task=Task.SEGMENTATION)
             else:
                 # Default is not to change the labels
                 label_mapping = LabelMapping.from_path(path)
@@ -214,12 +237,38 @@ class HTCDataset(ABC, Dataset):
         assert len(sample) > 0, "No labels found"
         return sample
 
+    def read_image_labels(self, path: DataPath) -> torch.Tensor:
+        """
+        Read image-level labels for the given image as specified in `config["input/image_labels"]`.
+
+        Args:
+            path: Data path to the image.
+
+        Returns: A tensor containing the image labels. The tensor represents either a scalar (if only one image label is read) or a vector (if multiple image labels are read).
+        """
+        image_labels = []
+        for image_label_entry_index, level_data in enumerate(self.config["input/image_labels"]):
+            for attribute in level_data["meta_attributes"]:
+                if (value := path.meta(attribute)) is not None:
+                    if "image_label_mapping" in level_data:
+                        mapping = LabelMapping.from_config(
+                            self.config, task=Task.CLASSIFICATION, image_label_entry_index=image_label_entry_index
+                        )
+                        value = mapping.name_to_index(value)
+                    image_labels.append(value)
+                    break
+
+        if len(image_labels) == 1:
+            image_labels = image_labels[0]
+
+        return torch.tensor(image_labels, dtype=torch.int64)
+
     def read_experiment(self, path: DataPath, start_pointers: dict[str, int] = None) -> dict[str, torch.Tensor]:
         """
         Reads the experiment data of one image.
 
         Args:
-            path: Path to the experiment folder.
+            path: Data path to the image.
             start_pointers: If not None, should be a dictionary with sample key names (e.g. `features`) and pointer addresses to memory locations where the sample data should be stored.
 
         Returns: Dictionary with tensors of the features, labels, etc. ready to be used in the network. If a starting pointer is given for a sample key, no data will be returned for this key but instead the pointer address.
@@ -231,7 +280,10 @@ class HTCDataset(ABC, Dataset):
             data = None
         elif self.config["input/preprocessing"]:
             data = self._load_preprocessed(
-                path.image_name(), self.config["input/preprocessing"], start_pointer=start_pointers.get("features")
+                path,
+                self.config["input/preprocessing"],
+                start_pointer=start_pointers.get("features"),
+                parameter_names=self.config["input/parameter_names"],
             )
         else:
             assert self.n_channels_loading != 0, (
@@ -243,22 +295,31 @@ class HTCDataset(ABC, Dataset):
                 data = torch.from_numpy(path.read_rgb_reconstructed() / 255)
             else:  # HSI
                 normalization = 1 if self.config["input/normalization"] == "L1" else None
-                data = torch.from_numpy(path.read_cube(normalization))
+                data = torch.from_numpy(path.read_cube(normalization=normalization))
 
         sample = self.read_labels(path)
         if sample is None:
             sample = {}
 
+        if self.config["input/image_labels"]:
+            sample["image_labels"] = self.read_image_labels(path)
+
         if data is not None:
             sample["features"] = data
 
-        if folder_names := self.config["input/preprocessing_additional"]:
-            for name in folder_names:
-                sample_key = f"data_{name}"
+        if preprocess_data := self.config["input/preprocessing_additional"]:
+            for data in preprocess_data:
+                sample_key = f"data_{data['name']}"
                 data_additional = self._load_preprocessed(
-                    path.image_name(), name, start_pointer=start_pointers.get(sample_key)
+                    path,
+                    data["name"],
+                    start_pointer=start_pointers.get(sample_key),
+                    parameter_names=data.get("parameter_names"),
                 )
                 sample[sample_key] = data_additional
+
+        if self.config["input/meta"]:
+            sample["meta"] = self.read_meta(path)
 
         if self.config["input/channel_selection"] and "features" in sample:
             start_channel, end_channel = self.config["input/channel_selection"]
@@ -274,7 +335,7 @@ class HTCDataset(ABC, Dataset):
                 assert "features" not in sample or type(sample["features"]) == int, "Either no features or pointers"
 
         for name, tensor in sample.items():
-            if isinstance(tensor, torch.Tensor):
+            if isinstance(tensor, torch.Tensor) and tensor.ndim >= 1 and name not in ["image_labels", "meta"]:
                 if name.startswith(("labels", "valid_pixels")):
                     # May be CHW
                     spatial_shape = tensor.shape[-2:]
@@ -282,14 +343,36 @@ class HTCDataset(ABC, Dataset):
                     # May be HWC
                     spatial_shape = tensor.shape[:2]
 
-                assert spatial_shape == path.dataset_settings["spatial_shape"], (
-                    f"All tensors must agree in the spatial dimension but the tensor {name} has only a shape of"
-                    f" {tensor.shape}"
+                assert spatial_shape == tuple(
+                    self.config.get("input/spatial_shape", path.dataset_settings["spatial_shape"])
+                ), (
+                    f"All tensors from the path {path} must agree in the spatial dimension but the tensor {name} has"
+                    f" only a shape of {tensor.shape}"
                 )
 
         sample["image_name"] = path.image_name()
 
         return sample
+
+    def read_meta(self, path: DataPath) -> torch.Tensor:
+        """
+        Read meta values for the given image as specified in `config["input/meta"]`.
+
+        Args:
+            path: Data path to the image.
+
+        Returns: A tensor with the meta values.
+        """
+        meta_values = []
+        for attribute in self.config["input/meta/attributes"]:
+            value = path.meta(attribute["name"])
+            if "mapping" in attribute:
+                value = attribute["mapping"].get(value, value)
+            if value is None:
+                value = self.config.get("input/meta/missing_replacement", -1)
+            meta_values.append(value)
+
+        return torch.tensor(meta_values, dtype=str_to_dtype(self.config.get("input/meta/dtype", "float32")))
 
     def get_sample_weights(self, paths: list[DataPath]) -> torch.Tensor:
         # Create a weighting for the different datasets (e.g. show semantic images more often)
@@ -323,15 +406,16 @@ class HTCDataset(ABC, Dataset):
         return sample_weights
 
     def _load_preprocessed(
-        self, image_name: str, folder_name: str, start_pointer: int = None
+        self, path: DataPath, folder_name: str, start_pointer: int = None, parameter_names: list[str] = None
     ) -> Union[torch.Tensor, int]:
         """
         Load preprocessed data for a given image from the specified folder.
 
         Args:
-            image_name: The name of the image to load.
+            path: The path to the image to load preprocessed files for.
             folder_name: The name of the folder where the preprocessed data is stored relative to intermediates/preprocessing, results_dir/preprocessing, results_dir or directly a relative or absolute path.
             start_pointer: If given, the data will be directly loaded into the memory location specified by this pointer address.
+            parameter_names: If parameter images should be loaded, specify a list of parameter names (e.g., THI).
 
         Returns: The loaded preprocessed data as a PyTorch tensor or the pointer address if start_pointer is not None.
         """
@@ -339,7 +423,7 @@ class HTCDataset(ABC, Dataset):
             settings.intermediates_dir_all / "preprocessing" / folder_name,
             settings.results_dir / "preprocessing" / folder_name,
             settings.results_dir / folder_name,
-            folder_name,
+            Path(folder_name),
         ]
         files_dir = None
         for p in possible_directories:
@@ -351,27 +435,64 @@ class HTCDataset(ABC, Dataset):
             f"Could not find the intermediates folder {folder_name}. Tried the following"
             f" locations:\n{possible_directories}"
         )
+        load_keys = None
 
+        if folder_name.startswith("parameter_images"):
+            # Parameter images are combined manually below
+            start_pointer = None
+
+            if parameter_names is None:
+                parameter_names = ["StO2", "NIR", "TWI", "OHI"]
+            load_keys = parameter_names
+
+        if folder_name == "rgb_sensor_aligned":
+            # We need to transform the RGB values to the range [0, 1] (see below)
+            start_pointer = None
+
+            # Currently, we only support reading the data without the mask
+            load_keys = ["data"]
+
+        need_meta = not self._checked_features_dtype and start_pointer is not None
         extensions = [
-            (".blosc", partial(decompress_file, start_pointer=start_pointer)),
+            (
+                ".blosc",
+                partial(decompress_file, start_pointer=start_pointer, load_keys=load_keys, return_meta=need_meta),
+            ),
             (".npy", np.load),
             (".npz", lambda p: np.load(p, allow_pickle=True)["data"]),
         ]
         data = None
         for ext, load_func in extensions:
-            file_path = files_dir / f"{image_name}{ext}"
+            file_path = files_dir / f"{path.image_name()}{ext}"
             if file_path.exists():
                 data = load_func(file_path)
                 break
 
+        if not self._checked_features_dtype and type(data) == tuple:
+            data, (shape, dtype) = data
+            if str(dtype) != str(self.features_dtype).split(".")[1]:
+                settings.log_once.warning(
+                    f"The dtype of the loaded data ({dtype}) does not match the dtype of the features"
+                    f" ({self.features_dtype}). This can lead to errors and you may need to set input/features_dtype to"
+                    " the correct value."
+                )
+
+            self._checked_features_dtype = True
+
+        if data is None and folder_name == "rgb_sensor_aligned":
+            settings.log_once.info(
+                "No aligned RGB image available for at least one image. Falling back to the reconstructed RGB image"
+            )
+            return torch.from_numpy(path.read_rgb_reconstructed() / 255)
+
         assert data is not None, (
-            f"Could not ind the image {image_name}. This probably means that you have not registered the dataset where"
-            " this image is from, i.e. you need to set the corresponding environment variable. The following"
-            f" intermediate directories are registered: {settings.intermediates_dir_all} and the following file"
-            f" extensions were tried: {[e[0] for e in extensions]}"
+            f"Could not find the image {path.image_name()}. This probably means that you have not registered the"
+            " dataset where this image is from, i.e. you need to set the corresponding environment variable. The"
+            f" following intermediate directories are registered: {settings.intermediates_dir_all} and the following"
+            f" file extensions were tried: {[e[0] for e in extensions]}"
         )
 
-        if self.features_dtype != torch.float16:
+        if type(data) != int and self.features_dtype != torch.float16:
             data_dtype = next(iter(data.values())).dtype if type(data) == dict else data.dtype
             if data_dtype == np.float16:
                 settings.log_once.warning(
@@ -379,17 +500,22 @@ class HTCDataset(ABC, Dataset):
                     f" {data_dtype} which means that you will not work with the full precision of the original data"
                 )
 
-        if folder_name == "parameter_images":
-            names = self.config.get("input/parameter_names", ["StO2", "NIR", "TWI", "OHI"])
-            assert len(names) > 0, "At least the name of one parameter is required"
-            assert all(n in data for n in names), "Not all parameter names are stored in the preprocessed file"
+        if folder_name.startswith("parameter_images"):
+            assert len(parameter_names) > 0, "At least the name of one parameter is required"
+            assert all(
+                n in data for n in parameter_names
+            ), "Not all parameter names are stored in the preprocessed file"
 
             # Store all parameters in one array
-            array = np.empty((*data[names[0]].shape, len(names)), data[names[0]].dtype)
-            for i, name in enumerate(names):
+            array = np.empty((*data[parameter_names[0]].shape, len(parameter_names)), data[parameter_names[0]].dtype)
+            for i, name in enumerate(parameter_names):
                 array[..., i] = data[name]
 
             data = array
+
+        if folder_name == "rgb_sensor_aligned":
+            # Same format as the reconstructed RGB images
+            data = data["data"].astype(np.float32) / 255
 
         if start_pointer is None:
             data = torch.from_numpy(data)

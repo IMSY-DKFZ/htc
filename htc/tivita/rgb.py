@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+from functools import partial
 from pathlib import Path
 
 import numpy as np
 import torch
+from kornia.geometry import HomographyWarper, ImageRegistrator, Similarity
 from PIL import Image
 
 

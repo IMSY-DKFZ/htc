@@ -1,15 +1,18 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Union
 
 import torch
 
-from htc.model_processing.TestPredictor import TestEnsemble
+from htc.model_processing.TestEnsemble import TestEnsemble
 from htc.models.common.HTCLightning import HTCLightning
 from htc.models.common.HTCModel import HTCModel
+from htc.models.common.torch_helpers import move_batch_gpu
 from htc.models.common.utils import dtype_from_config
+from htc.tivita.DataPath import DataPath
 from htc.utils.Config import Config
 from htc.utils.LabelMapping import LabelMapping
 
@@ -23,6 +26,7 @@ class SinglePredictor:
         fold_name: str = None,
         device: str = "cuda",
         test: bool = False,
+        config: Union[Config, str] = None,
     ) -> None:
         """
         Class which can be used to create predictions for individual samples or batches for a model.
@@ -68,10 +72,14 @@ class SinglePredictor:
             fold_name: Name of the validation fold which defines the trained network of the run. If None, the model with the highest metric score will be used.
             device: Device which is used to compute the predictions.
             test: If True, use a test ensemble for the predictions instead of individual models. Similar to the `TestPredictor` and `ValidationPredictor` classes.
+            config: Configuration object to use or name of the configuration file to load (relative to the run directory). If None, the default configuration file of the training run will be loaded.
         """
         self.run_dir = HTCModel.find_pretrained_run(model, run_folder, path)
         self.device = device
-        self.config = Config(self.run_dir / "config.json")
+        if config is None:
+            self.config = Config(self.run_dir / "config.json")
+        else:
+            self.config = config if type(config) == Config else Config(self.run_dir / config)
         self.label_mapping = LabelMapping.from_config(self.config)
         self.features_dtype = dtype_from_config(self.config)
 
@@ -134,3 +142,35 @@ class SinglePredictor:
             logits = self.model.predict_step(batch_predict)
 
         return logits
+
+    def predict_paths(
+        self, paths: list[DataPath], return_batch: bool = True
+    ) -> Iterator[tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]]:
+        """
+        Compute predictions for every path.
+
+        Args:
+            paths: A list of paths to create predictions for.
+            return_batch: If True, the batch is returned together with the predictions.
+
+        Yields: An iterator that yields a tuple containing the input batch (optional) and the predicted logits.
+        """
+        dataloader = self.model.paths_dataloader(paths)
+
+        with torch.no_grad(), torch.autocast(device_type=self.device):
+            for batch in dataloader:
+                assert (
+                    "labels" in batch or "features" in batch or "meta" in batch
+                ), "Batch must contain either labels, features or meta"
+                if "labels" in batch and not batch["labels"].is_cuda:
+                    batch = move_batch_gpu(batch)
+                elif "features" in batch and not batch["features"].is_cuda:
+                    batch = move_batch_gpu(batch)
+                elif "meta" in batch and not batch["meta"].is_cuda:
+                    batch = move_batch_gpu(batch)
+
+                logits = self.model.predict_step(batch)
+                if return_batch:
+                    yield batch, logits
+                else:
+                    yield logits

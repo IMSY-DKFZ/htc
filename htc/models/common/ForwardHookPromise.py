@@ -64,7 +64,7 @@ class ForwardHookPromise:
         self._in_context = True
         return self
 
-    def __exit__(self, type: Any, value: Any, tb: Any) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self._handle.remove()
         del self._data
         self._in_context = False

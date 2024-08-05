@@ -119,7 +119,7 @@ class NSDToleranceEstimation:
             )
 
             for c in range(n_labels - 1):  # The last class (invalid_label_index) is ignored
-                (edges_pred, edges_gt) = get_mask_edges(seg1_hot[..., c], seg2_hot[..., c])
+                (edges_pred, edges_gt) = get_mask_edges(seg1_hot[..., c], seg2_hot[..., c], always_return_as_numpy=True)
 
                 # Calculate the distances in both directions for symmetry
                 distances_pred_gt = get_surface_distance(edges_pred, edges_gt, distance_metric=self.distance_metric)

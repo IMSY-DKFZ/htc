@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from torchmetrics.functional import confusion_matrix
 
+from htc.cpp import automatic_numpy_conversion
+
 
 def dice_from_cm(cm: np.ndarray) -> float:
     """
@@ -138,7 +140,10 @@ def accuracy_from_cm(cm: Union[np.ndarray, torch.Tensor]) -> float:
         raise ValueError("Invalid type")
 
 
-def confusion_matrix_to_predictions(cm: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+@automatic_numpy_conversion
+def confusion_matrix_to_predictions(
+    cm: Union[torch.Tensor, np.ndarray]
+) -> tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]]:
     """
     Converts a confusion matrix to a list of predictions and labels.
 
@@ -160,13 +165,14 @@ def confusion_matrix_to_predictions(cm: np.ndarray) -> tuple[np.ndarray, np.ndar
     assert cm.shape[0] == cm.shape[1], "The confusion matrix must be square"
 
     total_samples = cm.sum()
-    predictions = np.empty(total_samples, dtype=np.int64)
-    labels = np.empty(total_samples, dtype=np.int64)
+    predictions = torch.empty(total_samples, dtype=torch.int64, device=cm.device)
+    labels = torch.empty(total_samples, dtype=torch.int64, device=cm.device)
+    possible_labels = torch.arange(cm.shape[1], dtype=torch.int64, device=cm.device)
     row_start = 0
-    for row in range(cm.shape[0]):
+    for row in torch.arange(cm.shape[0], dtype=torch.int64, device=cm.device):
         row_samples = cm[row, :].sum()
-        predictions[row_start : row_start + row_samples] = np.repeat(np.arange(cm.shape[1]), repeats=cm[row, :])
-        labels[row_start : row_start + row_samples] = np.repeat(row, row_samples)
+        predictions[row_start : row_start + row_samples] = torch.repeat_interleave(possible_labels, repeats=cm[row, :])
+        labels[row_start : row_start + row_samples] = torch.repeat_interleave(row, row_samples)
         row_start += row_samples
 
     return predictions, labels

@@ -69,6 +69,14 @@ class SettingContext:
             "elastic": "#F4A460",
             "baseline": self.network_colors["baseline#HSI"],
         }
+        self.cmap_diverging = "PRGn"
+
+        self.labels_paper_renaming = {
+            "major_vein": "major vein",
+            "kidney_with_Gerotas_fascia": "kidney with<br>Gerota's fascia",
+            "fat_subcutaneous": "subcutaneous fat",
+            "small_bowel": "small bowel",
+        }
 
         # This also specifies which tasks we include in the paper (e.g. box plots)
         self.task_name_mapping = {
@@ -79,6 +87,18 @@ class SettingContext:
             "removal_0": "removal_zero",
             "removal_cloth": "removal_bgr",
             "no-glove": "no-occlusion",
+            "glove": "occlusion",
+        }
+
+        self.scenario_mapping = {
+            "semantic": "isolation",
+            "isolation_0": "isolation",
+            "isolation_cloth": "isolation",
+            "masks_isolation": "isolation",
+            "semantic2": "removal",
+            "removal_0": "removal",
+            "removal_cloth": "removal",
+            "no-glove": "occlusion",
             "glove": "occlusion",
         }
 
@@ -263,6 +283,9 @@ class SettingContext:
             "masks_isolation": self.masks_isolation_dataset,
         }
 
+        # The original superpixel runs got broken so we had to re-train the HSI and RGB models
+        self.superpixel_classification_timestamp = "2024-07-24_15-20-46"
+
         self._results_dir = None
 
     @property
@@ -283,6 +306,12 @@ class SettingContext:
     @property
     def paper_dir(self) -> MultiPath:
         target_dir = self.results_dir / "paper"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        return target_dir
+
+    @property
+    def paper_extended_dir(self) -> MultiPath:
+        target_dir = self.results_dir / "paper_extended"
         target_dir.mkdir(parents=True, exist_ok=True)
         return target_dir
 
@@ -325,6 +354,30 @@ class SettingContext:
             "organ_transplantation": (
                 settings.training_dir / "image/2023-02-24_14-27-15_glove_organ_transplantation_0.8_rgb"
             ),
+        }
+
+    @property
+    def glove_runs_granularities(self) -> dict[str, MultiPath]:
+        return {
+            "image": self.glove_runs["baseline"],
+            "patch_64": settings.training_dir / "patch/2024-07-19_10-26-33_default_64_glove",
+            "patch_32": settings.training_dir / "patch/2024-07-19_10-26-33_default_glove",
+            "superpixel_classification": (
+                settings.training_dir / "superpixel_classification/2024-07-19_10-26-33_default_glove"
+            ),
+            "pixel": settings.training_dir / "pixel/2024-07-19_10-26-33_default_glove",
+        }
+
+    @property
+    def glove_runs_granularities_rgb(self) -> dict[str, MultiPath]:
+        return {
+            "image": self.glove_runs_rgb["baseline"],
+            "patch_64": settings.training_dir / "patch/2024-07-19_10-26-33_default_64_rgb_glove",
+            "patch_32": settings.training_dir / "patch/2024-07-19_10-26-33_default_rgb_glove",
+            "superpixel_classification": (
+                settings.training_dir / "superpixel_classification/2024-07-19_10-26-33_default_rgb_glove"
+            ),
+            "pixel": settings.training_dir / "pixel/2024-07-19_10-26-33_default_rgb_glove",
         }
 
 

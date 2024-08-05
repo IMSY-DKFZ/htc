@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import json
+import threading
 from pathlib import Path
 from typing import Any, Union
 
@@ -43,6 +44,21 @@ class DatasetSettings:
             self._data = None
             self._path = path_or_data
 
+        self._mutex = threading.Lock()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        # The lock cannot be pickled but this is not a problem since the lock is only for threads anyway to ensure that inside one process the data is only modified once
+        del state["_mutex"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+        # Just create a new lock for every process
+        self._mutex = threading.Lock()
+
     def __repr__(self) -> str:
         res = (
             "Settings for the dataset"
@@ -82,18 +98,19 @@ class DatasetSettings:
     @property
     def settings_path(self) -> Union[None, Path]:
         """
-        Returns: The Path to the dataset_settings.json file if it exists or None if not.
+        Returns: The Path to the dataset_settings.json file if it exists (either at the specified path or any parent directory) or None if not.
         """
         if self._path is None:
             return None
         else:
-            if self._path.exists():
-                p = self._path
-                if self._path.is_dir():
-                    p /= "dataset_settings.json"
-
-                return p if p.exists() else None
+            if self._path.is_file():
+                return self._path
             else:
+                possible_locations = [self._path] + list(self._path.parents)
+                for p in possible_locations:
+                    if (path := p / "dataset_settings.json").is_file():
+                        return path
+
                 return None
 
     @property
@@ -102,10 +119,14 @@ class DatasetSettings:
             if self.settings_path is None:
                 self._data = {}
             else:
-                with self.settings_path.open(encoding="utf-8") as f:
-                    self._data = json.load(f)
+                # The data should only be loaded and converted by one thread at a time
+                with self._mutex:
+                    # By now, another thread might have already loaded the data
+                    if self._data is None:
+                        with self.settings_path.open(encoding="utf-8") as f:
+                            self._data = json.load(f)
 
-                self._data_conversions()
+                        self._data_conversions()
 
         return self._data
 

@@ -1,0 +1,38 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$comment": "This schema file defines the common structure of our data specification files used by the htc framework to define the training folds and splits. We are storing the data specification files in this repository because they are fundamental for every training and we want to ensure that everyone uses the same splits. There are also several tests running against each data specification file (e.g., that they adhere to this schema definition).",
+    "type": "array",
+    "items": {
+        "description": "Each object in this list defines the training setup for one fold. The folds are trained in the order as defined in the data specification.",
+        "type": "object",
+        "properties": {
+            "fold_name": {
+                "description": "The name of the fold (will be used as folder name for the training run).",
+                "type": "string"
+            }
+        },
+        "patternProperties": {
+            "^(?:train|val|test)": {
+                "description": "The configuration of one split for this fold. Usually, there is a training, a validation and a testing split. The test split is usually the same for all folds. There may be more than one split per split type, e.g., two validation splits. However, for train and test splits, all paths from all respective splits will be combined (e.g., paths from train_1 and train_2 become the training paths) and sorted by image name (not relevant for training but for testing). Only for validation splits, a list of datasets will be used (e.g., in HTCLightning.datasets_val) with the index being defined by the order of the splits in the spec.",
+                "type": "object",
+                "properties": {
+                    "image_names": {
+                        "description": "List of unique image names which should be included in this split. The name may also include the desired annotation name as defined by the DataPath class.",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "data_path_class": {
+                        "description": "Per default, our htc.tivita.DataPath class will be used to load the images. However, with this key, it is also possible to specify a custom class which should be used to load the images. The custom class must have a from_image_name() method which gets the name of an image and should return an instance of the class. Specify the class in the format module>class (e.g., htc.bias.bias_aware_ML.SimulationPath>SimulationPath) or refer to the type_from_string() function for more details.",
+                        "type": "string"
+                    }
+                },
+                "required": ["image_names"],
+                "additionalProperties": false
+            }
+        },
+        "required": ["fold_name"],
+        "additionalProperties": false
+    }
+}

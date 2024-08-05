@@ -10,10 +10,10 @@ services:
       - htc-base
     image: htc
     container_name: htc
-    network_mode: host  # e.g. for Jupyter Lab
+    network_mode: host # e.g. for Jupyter Lab
     shm_size: 10gb
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # This allows Docker containers to be start from inside the container, but as siblings and not nested (https://stackoverflow.com/a/33003273/2762258)
+      - /var/run/docker.sock:/var/run/docker.sock # This allows Docker containers to be start from inside the container, but as siblings and not nested (https://stackoverflow.com/a/33003273/2762258)
     # Required to get copy-on-write to work: https://github.com/moby/moby/issues/18191#issuecomment-159280820
     cap_add:
       - SYS_ADMIN
@@ -23,4 +23,4 @@ services:
       resources:
         reservations:
           devices:
-          - capabilities: [gpu]
+            - capabilities: [gpu]

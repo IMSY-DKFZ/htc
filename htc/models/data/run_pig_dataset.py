@@ -90,23 +90,15 @@ class SpecsGenerationPigLOOCV(SpecsGenerationPig):
             fold_specs = {
                 "fold_name": f"fold_{subject_name}",
                 "train_semantic": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_train],
                 },
                 "val_semantic_unknown": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_val_unknown],
                 },
                 "val_semantic_known": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_val_known],
                 },
                 "test": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": imgs_test,
                 },
             }
@@ -134,23 +126,15 @@ class SpecsGenerationPigKFolds(SpecsGenerationPig):
             fold_specs = {
                 "fold_name": "fold_" + ",".join(fold),
                 "train_semantic": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_train],
                 },
                 "val_semantic_unknown": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_val_unknown],
                 },
                 "val_semantic_known": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_val_known],
                 },
                 "test": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": imgs_test,
                 },
             }
@@ -182,28 +166,18 @@ class SpecsGenerationPigKFoldsWithMasks(SpecsGenerationPig):
             fold_specs = {
                 "fold_name": "fold_" + ",".join(fold),
                 "train_semantic": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_train],
                 },
                 "train_masks": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_train_masks],
                 },
                 "val_semantic_unknown": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_val_unknown],
                 },
                 "val_semantic_known": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": [p.image_name() for p in paths_val_known],
                 },
                 "test": {
-                    "data_path_module": "htc.tivita.DataPath",
-                    "data_path_class": "DataPath",
                     "image_names": imgs_test,
                 },
             }

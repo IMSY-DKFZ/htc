@@ -3,11 +3,36 @@
     "$comment": "This schema file defines the common structure of the config files used in this repository. It is not a complete list but describes the most important properties.",
     "type": "object",
     "properties": {
+        "inherits": {
+            "description": "Path to a parent config file where this config should inherit from. Absolute, relative or package-relative paths are supported. Properties of the parent config are available as well. Properties of the child have always precedence over properties defined in one of the parents. Multiple inherence is possible by passing an array of paths.",
+            "type": ["string", "array", "null"],
+            "items": {
+                "type": "string"
+            }
+        },
+        "inherits_skip": {
+            "description": "List of keys which should be excluded from inheritance (via full names, e.g., input/hierarchical_sampling).",
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
         "lightning_class": {
-            "description": "Specification of the lightning class used for training. It must be in the format module>class (e.g. htc.models.image.LightningImage>LightningImage) and must refer to a valid Python class.",
+            "description": "Specification of the lightning class used for training. It must be in the format module>class (e.g. htc.models.image.LightningImage>LightningImage) and must refer to a valid Python class (see the type_from_string() function for more details).",
             "type": "string"
         },
+        "label_mapping": {
+            "description": "Mapping of label names to label indices. This will be used to remap the original labels of the dataset to the new labels for the current training. Can either be a dict with label_name:label_index mappings or a string in the format module>variable (e.g. htc.settings_seg>label_mapping) in which case it must refer to a variable inside a Python script.",
+            "type": ["object", "string"]
+        },
+        "task": {
+            "description": "Sets the main network task. Can either be set to segmentation or classification. Segmentation tasks use pixel-level labels whereas classification tasks use image-level labels. This is for example used to determine which labels should be considered for class weighting.",
+            "type": "string",
+            "enum": ["segmentation", "classification"],
+            "default": "segmentation"
+        },
         "input": {
+            "description": "Common attributes which affect the loading of the data.",
             "type": "object",
             "properties": {
                 "data_spec": {
@@ -16,10 +41,14 @@
                 },
                 "preprocessing": {
                     "description": "Name of the folder inside the intermediates/preprocessing directory which contains preprocessed images (e.g. L1). It is also possible to specify the folder relative to the results_dir or results_dir/preprocessing. This may be useful for preprocessed files which are only needed for specific projects or on the cluster. Finally, the relative or absolute path to the folder can be specified as well.",
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                    "type": ["string", "null"]
+                },
+                "spatial_shape": {
+                    "description": "Explicitly set the shape of the input data. Useful for cases where it is different to the image shape (e.g., cropped images). If not set, the input shape will be inferred from the dataset settings.",
+                    "type": ["array", "null"],
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "features_dtype": {
                     "description": "Explicitly set the dtype for the features. This determines with which dtype the features are transferred to the GPU. Usually, this is automatically inferred from the training precision (e.g. 16-mixed leads to float16) but in some cases you may want to have control over this parameter (e.g. for benchmarking).",
@@ -36,12 +65,83 @@
                 },
                 "preprocessing_additional": {
                     "description": "Additional preprocessing folder names which will be added to the batch as data_NAME. For example, if L1 is in the list, it will be added as data_L1.",
-                    "type": [
-                        "array",
-                        "null"
-                    ],
+                    "type": ["array", "null"],
                     "items": {
-                        "type": "string"
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "description": "Name of the preprocessing folder.",
+                                "type": "string"
+                            },
+                            "parameter_names": {
+                                "description": "Name of the parameter images which are concatenated along the channel dimension (see input/parameter_names).",
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "enum": ["StO2", "NIR", "TWI", "OHI", "TLI", "THI"]
+                                }
+                            },
+                            "n_channels": {
+                                "description": "Number of input channels for the additional input.",
+                                "type": "integer"
+                            }
+                        },
+                        "required": ["name"]
+                    }
+                },
+                "meta": {
+                    "type": "object",
+                    "properties": {
+                        "attributes": {
+                            "description": "List of meta attributes to load.",
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "description": "Name of the attribute. This name will be passed on to path.meta().",
+                                        "type": "string"
+                                    },
+                                    "mapping": {
+                                        "description": "Mapping which is applied on the loaded metadata. This is useful to map strings to numbers.",
+                                        "type": "object"
+                                    }
+                                },
+                                "required": ["name"]
+                            }
+                        },
+                        "dtype": {
+                            "description": "Data type of the metadata table (also used for GPU transfer).",
+                            "type": "string",
+                            "default": "float32"
+                        },
+                        "missing_replacement": {
+                            "description": "Value which will be used to replace missing values (nan values).",
+                            "type": "number",
+                            "default": -1
+                        }
+                    },
+                    "required": ["attributes"]
+                },
+                "image_labels": {
+                    "description": "Specifies how the image labels should be constructed from the metadata of the images. Each entry in this list results in one image label which can be used as classification target. The resulting image_labels entry (e.g. in the loaded sample or batch) can be a scalar (if only one image label is requested) or a two-dimensional tensor (if more than one image label is requested).",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "meta_attributes": {
+                                "description": "List of names for the metadata columns where the label should be extracted from (via DataPath.meta()). Specify more than one name if metadata from different datasets should be combined but the corresponding columns have different names.",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "image_label_mapping": {
+                                "description": "Defines an optional mapping to map the string meta values to indices. The format is the same as for the label_mapping attribute.",
+                                "type": ["object", "string"]
+                            }
+                        },
+                        "required": ["meta_attributes"]
                     }
                 },
                 "no_features": {
@@ -53,48 +153,44 @@
                     "type": "boolean"
                 },
                 "n_channels": {
-                    "description": "Specifies which data should be loaded. 100 = HSI data, 4 = TPI data, 3 = RGB data.",
-                    "type": "integer",
-                    "enum": [3, 4, 100]
+                    "description": "Specifies the number of input channels. For example, 100 = HSI data, 4 = TPI data, 3 = RGB data.",
+                    "type": "integer"
                 },
                 "n_classes": {
-                    "description": "Number of classes which should be used for training. This key is only required if a label mapping cannot be specified ( usually the number of classes is inferred from the label mapping).",
+                    "description": "Number of classes which should be used for training. This key is only required if a label mapping cannot be specified (usually the number of classes is inferred from the label mapping).",
                     "type": "integer"
                 },
                 "epoch_size": {
                     "description": "Length of one training epoch in terms of number of images. Can also be a string like '500 images' and then it will translate automatically for non-image based models (like the pixel model) to the appropriate number depending on the image size.",
-                    "type": [
-                        "integer",
-                        "string"
-                    ]
+                    "type": ["integer", "string"]
+                },
+                "target_domain": {
+                    "description": "Specifies the target domain which should be taken into account in the model or for the sampling. If set to \"no_domain\", assigns each image to the same domain.",
+                    "type": ["array", "null"],
+                    "items": {
+                        "type": "string",
+                        "enum": ["camera_index", "subject_index", "species_index", "no_domain"]
+                    }
+                },
+                "hierarchical_sampling": {
+                    "description": "Use a batch sampling strategy which takes the hierarchy of the data into account. The first hierarchy level is defined by input/target_domain and the second by the subjects. If set to true, each batch contains images from each input/target_domain domain while maximizing diversity between subjects (it is preferred to take images from different subjects over images from the same subject). It can also be set to label or image_label to additionally ensure an equal label distribution in the batches (label uses the labels from the segmentation masks and image_label the metadata defined by input/image_labels). For example, with a batch size of 6 and two cameras (first hierarchical level), there might be two colon, two liver and two kidney images (or more precisely: images which contain at least colon, liver and kidney), one from each camera and from 6 different subjects. You can also add +oversampling to the string to enforce selecting images which contain underrepresented classes.",
+                    "type": ["boolean", "string", "null"]
                 },
                 "transforms_cpu": {
                     "description": "Data augmentation specification as list of dicts (each entry denotes one augmentation step). Will be executed on the CPU (by the workers).",
-                    "type": [
-                        "array",
-                        "null"
-                    ]
+                    "type": ["array", "null"]
                 },
                 "transforms_gpu": {
                     "description": "Data augmentation specification as list of dicts (each entry denotes one augmentation step). Will be executed on the GPU.",
-                    "type": [
-                        "array",
-                        "null"
-                    ]
+                    "type": ["array", "null"]
                 },
                 "test_time_transforms_cpu": {
                     "description": "Similar to transforms_cpu but the transforms will also be applied during inference. This is for example useful for context analysis (e.g. removing organs in an image).",
-                    "type": [
-                        "array",
-                        "null"
-                    ]
+                    "type": ["array", "null"]
                 },
                 "test_time_transforms_gpu": {
                     "description": "Similar to transforms_gpu but the transforms will also be applied during inference. This is for example useful for applying normalization.",
-                    "type": [
-                        "array",
-                        "null"
-                    ]
+                    "type": ["array", "null"]
                 },
                 "patch_sampling": {
                     "description": "The strategy to extract patches from an image. `uniform` yields so many patches as a grid-based tiling would yield, i.e. the number of patches are simply a function of the patch and image size. `proportional` constraints the number of patches to the number of valid pixels, i.e. so many patches will be sampled until theoretically (!) all pixels are used. However, this it is not enforced that really all valid pixels are sampled. `all_valid` is similar to `proportional` but now makes sure that all valid pixels are part of a patch at least once. This is especially useful to ensure that smaller classes are sampled as well.",
@@ -107,10 +203,7 @@
                 },
                 "annotation_name": {
                     "description": "The annotations which should be loaded. Either a list of annotation names or 'all' if all available annotation names should be included in the batch. If no merge strategy is set (see merge_annotations), the annotations will appear as separate tensors with the name labels_annotation_name and valid_pixels_annotation_name. Please note that it is also possible to define the annotations you want to use on a per image bases by using the format image_name@name1&name.",
-                    "type": [
-                        "array",
-                        "string"
-                    ]
+                    "type": ["array", "string"]
                 },
                 "merge_annotations": {
                     "description": "Merge strategy in case there is more than one annotation per image. 'union' merges all annotations in one image. It assumes that the annotations are conflict-free, i.e. that there will be no pixel with more than one class label (overlap on the same class label is fine). Later annotator names overwrite previous ones.",
@@ -119,15 +212,44 @@
                 }
             }
         },
-        "label_mapping": {
-            "description": "Mapping of label names to label indices. This will be used to remap the original labels of the dataset to the new labels for the current training. Can either be a dict with label_name:label_index mappings or a string in the format module>variable (e.g. htc.settings_seg>label_mapping) in which case it must refer to a variable inside a Python script.",
-            "type": [
-                "object",
-                "string"
-            ]
+        "optimization": {
+            "description": "Settings for the optimizer and the learning rate scheduler.",
+            "type": "object",
+            "properties": {
+                "optimizer": {
+                    "description": "Settings for the optimizer. Except for the name, all attributes are passed on as arguments to the optimizer.",
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "description": "Name of the optimizer inside the torch.optim module.",
+                            "type": "string"
+                        }
+                    }
+                },
+                "optimizer_layer_settings": {
+                    "description": "Layer-specific settings for the optimizer. This can be used to specify separate learning rates for different layers.",
+                    "type": "object",
+                    "patternProperties": {
+                        ".*": {
+                            "description": "The name of the property is interpreted as a regular expression which is matched against all layers of the model. The value must be an object with the layer-specific settings (e.g., learning rate).",
+                            "type": "object"
+                        }
+                    }
+                },
+                "lr_scheduler": {
+                    "description": "Settings for the learning rate scheduler. Except for the name, all attributes are passed on as arguments to the scheduler.",
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "description": "Name of the learning rate scheduler inside the torch.optim.lr_scheduler module.",
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         },
         "model": {
-            "description": "Settings to configure a neural network.",
+            "description": "Settings to configure a neural network. Most settings depend on the lightning class.",
             "type": "object",
             "properties": {
                 "pretrained_model": {
@@ -152,18 +274,22 @@
         },
         "dataloader_kwargs": {
             "description": "Keyword arguments which are passed to the PyTorch dataloader.",
-            "type": "object",
-            "properties": {
-                "batch_size": {
-                    "type": "integer"
-                }
-            }
+            "type": "object"
+        },
+        "trainer_kwargs": {
+            "description": "Keyword arguments which are passed to the PyTorch Lightning trainer.",
+            "type": "object"
+        },
+        "swa_kwargs": {
+            "description": "Keyword arguments which are passed to the SWA scheduler. If this attribute is present (and not null), SWA will be activated.",
+            "type": ["object", "null"]
         },
         "validation": {
+            "description": "Arguments which define how the validation is carried on (metric, checkpointing, etc.).",
             "type": "object",
             "properties": {
                 "dataset_index": {
-                    "description": "Index of the dataset which should be used for checkpointing (relevant if there is more than one validation dataset).",
+                    "description": "Index of the dataset which should be used for checkpointing (relevant if there is more than one validation dataset). The index is defined by the order of the validation splits in the data spec. If not set, the checkpoint metric will be calculated based on the results from all validation datasets.",
                     "type": "integer"
                 },
                 "checkpoint_metric": {
@@ -174,15 +300,6 @@
                     "description": "Strategy for checkpoint saving. Either the best (default) or the last checkpoint is saved. If set to false, no checkpoints are saved.",
                     "type": ["string", "boolean"],
                     "enum": ["best", "last", false]
-                }
-            }
-        },
-        "trainer_kwargs": {
-            "description": "Keyword arguments which are passed to the PyTorch Lightning trainer.",
-            "type": "object",
-            "properties": {
-                "max_epochs": {
-                    "type": "integer"
                 }
             }
         }

@@ -9,8 +9,10 @@ import htc.context.extra_datasets.run_dataset_tables as run_dataset_tables
 import htc.context.manipulated_datasets.run_context_evaluation_table as run_context_evaluation_table
 from htc.context.models.run_context_test_tables import compute_glove_test_tables
 from htc.context.settings_context import settings_context
+from htc.evaluation.model_comparison.paper_runs import collect_comparison_runs
 from htc.models.common.HTCModel import HTCModel
 from htc.settings import settings
+from htc.settings_seg import settings_seg
 from htc.utils.general import subprocess_run
 
 
@@ -134,17 +136,40 @@ if __name__ == "__main__":
     # The main difference between the baseline and the context networks is that we store the context tables for the baseline network at a different location (settings.results_dir / "neighbour_analysis") since we do not want to change the existing models
     # Additionally, we also compute the validation tables for the baseline network, but not for the context networks (as this is done automatically during training)
     # This is why we cannot use the same script for both
-    runs = [
-        HTCModel.find_pretrained_run("image", "2022-02-03_22-58-44_generated_default_model_comparison"),
-        HTCModel.find_pretrained_run("image", "2022-02-03_22-58-44_generated_default_rgb_model_comparison"),
-    ]
-    runs_glove = [
-        settings_context.glove_runs["baseline"],
-        settings_context.glove_runs_rgb["baseline"],
+    runs_main = [
+        HTCModel.find_pretrained_run(
+            "image", f"{settings_seg.model_comparison_timestamp}_generated_default_model_comparison"
+        ),
+        HTCModel.find_pretrained_run(
+            "image", f"{settings_seg.model_comparison_timestamp}_generated_default_rgb_model_comparison"
+        ),
     ]
 
-    compute_context_tables(runs, "validation_table", args.recalculate)
-    compute_context_tables(runs, "test_table", args.recalculate)
-    compute_context_tables(runs_glove, "validation_table", args.recalculate)
-    compute_context_tables(runs_glove, "test_table", args.recalculate)
+    runs_other_granularities = []
+    df_runs = collect_comparison_runs(settings_seg.model_comparison_timestamp)
+    for _, row in df_runs.iterrows():
+        if row["model"] == "image":
+            continue
+        elif row["model"] == "superpixel_classification":
+            runs_other_granularities.append(
+                HTCModel.find_pretrained_run(
+                    row["model"], settings_context.superpixel_classification_timestamp + "_default"
+                )
+            )
+            runs_other_granularities.append(
+                HTCModel.find_pretrained_run(
+                    row["model"], settings_context.superpixel_classification_timestamp + "_default_rgb"
+                )
+            )
+        else:
+            runs_other_granularities.append(HTCModel.find_pretrained_run(row["model"], row["run_hsi"]))
+            runs_other_granularities.append(HTCModel.find_pretrained_run(row["model"], row["run_rgb"]))
+
+    runs_glove = list(settings_context.glove_runs_granularities.values()) + list(
+        settings_context.glove_runs_granularities_rgb.values()
+    )
+
+    compute_context_tables(runs_main, "validation_table", args.recalculate)
+    compute_context_tables(runs_main, "test_table", args.recalculate)
+    compute_context_tables(runs_other_granularities, "test_table", args.recalculate)
     compute_glove_test_tables(runs_glove, args.recalculate)

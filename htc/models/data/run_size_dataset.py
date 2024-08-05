@@ -131,13 +131,9 @@ class SpecsGenerationPigTrainData(SpecsGenerationPig):
                 fold_specs = {
                     "fold_name": f"fold_pigs={n_pigs}_seed={seed}",
                     "train_semantic": {
-                        "data_path_module": "htc.tivita.DataPath",
-                        "data_path_class": "DataPath",
                         "image_names": [p.image_name() for p in paths_fold],
                     },
                     "val_semantic_test": {
-                        "data_path_module": "htc.tivita.DataPath",
-                        "data_path_class": "DataPath",
                         "image_names": [p.image_name() for p in paths_test],
                     },
                 }

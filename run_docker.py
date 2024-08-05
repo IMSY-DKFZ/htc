@@ -38,10 +38,10 @@ if __name__ == "__main__":
         volumes.append("$PATH_HTC_DOCKER_RESULTS:/home/results")
         envs.append("PATH_HTC_DOCKER_RESULTS=/home/results")
 
-    # Mount volumes and set environment variables for all available datasets
+    # Mount volumes and set environment variables for all available datasets/result directories
     symlinks = []
     for env_name in os.environ.keys():
-        if not env_name.upper().startswith("PATH_TIVITA"):
+        if not env_name.upper().startswith(("PATH_TIVITA", "PATH_HTC_RESULTS")):
             continue
 
         if path_env := os.getenv(env_name, False):
@@ -52,9 +52,8 @@ if __name__ == "__main__":
                 if f.is_symlink():
                     symlinks.append(f.readlink())
 
-            dataset_name = path_env.name
-            volumes.append(f"${env_name}:/home/{dataset_name}-ro:ro")
-            envs.append(f"{env_name}=/home/{dataset_name}")
+            volumes.append(f"${env_name}:/home/{path_env.name}-ro:ro")
+            envs.append(f"{env_name}=/home/{path_env.name}")
 
     # Additional mount points are e.g. useful to include symbolic link locations in the container (if not done automatically)
     if "HTC_DOCKER_MOUNTS" in os.environ:

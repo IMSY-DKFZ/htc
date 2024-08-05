@@ -124,7 +124,7 @@ class PandaSQL:
                     continue
                 self.loaded_tables.add(table_name)
                 df = env[table_name]
-                if "*" not in query:
+                if "*" not in query.replace("(*)", ""):  # COUNT(*) is ok but * not
                     # Remove columns which are not used in the query (faster and type safer)
                     used_columns = [c for c in df.columns if c in query]
                     df = df[used_columns]

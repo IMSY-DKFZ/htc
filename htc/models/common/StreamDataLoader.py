@@ -48,9 +48,8 @@ class StreamDataLoader:
             # If there is a sampler, we want to make sure that we return all images defined by the sampler. The last batch may be smaller in this case
             self.n_batches = math.ceil(dataset_length / self.config["dataloader_kwargs/batch_size"])
 
-        self.single_mode = not isinstance(
-            self.dataset, IterableDataset
-        )  # With index-based datasets, every worker operates on their own batch
+        # With index-based datasets, every worker operates on their own batch
+        self.single_mode = not isinstance(self.dataset, IterableDataset)
         if not self.single_mode:
             assert self.config["dataloader_kwargs/batch_size"] % self.config["dataloader_kwargs/num_workers"] == 0, (
                 f'The batch size ({self.config["dataloader_kwargs/batch_size"]}) must be divisible by the number of'

@@ -1,12 +1,16 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import multiprocessing
 import traceback
 from abc import abstractmethod
 from pathlib import Path
+from typing import Union
+
+import torch
+import torch.multiprocessing as multiprocessing
 
 from htc.settings import settings
+from htc.tivita.DataPath import DataPath
 from htc.utils.blosc_compression import compress_file
 from htc.utils.Config import Config
 
@@ -35,7 +39,7 @@ class ImageConsumer(multiprocessing.Process):
             results_dict: dict-like object which can be used to share results across consumers.
             run_dir: Path to the run directory where the predictions are calculated from.
             store_predictions: Whether to store the predictions for later use (e.g. for faster inference on the next run).
-            config: The configuration object to use. If None, the config from the run directory will be used.
+            config: Configuration object to use or name of the configuration file to load (relative to the run directory). If None, the default configuration file of the training run will be loaded.
             kwargs: All additional keyword arguments will be stored as attributes in this class.
         """
         multiprocessing.Process.__init__(self)
@@ -58,7 +62,10 @@ class ImageConsumer(multiprocessing.Process):
             # New results should be stored in the run directory
             self.run_dir.set_default_location(str(self.run_dir))
 
-        self.config = Config(self.run_dir / "config.json") if config is None else config
+        if config is None:
+            self.config = Config(self.run_dir / "config.json")
+        else:
+            self.config = config if type(config) == Config else Config(self.run_dir / config)
 
     def run(self):
         try:
@@ -115,7 +122,7 @@ class ImageConsumer(multiprocessing.Process):
                     self.task_queue.task_done()
 
     @abstractmethod
-    def handle_image_data(self, image_data: dict) -> None:
+    def handle_image_data(self, image_data: dict[str, Union[torch.Tensor, DataPath, str]]) -> None:
         """
         This abstract method must be implemented by every consumer and is called for every new prediction which is available.
 

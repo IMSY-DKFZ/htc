@@ -27,6 +27,7 @@ class SpecsGeneration:
         specs_path = target_folder / f"{self.name}.json"
         with specs_path.open("w") as f:
             json.dump(folds, f, indent=4)
+            f.write("\n")  # Add newline at the end of the file so that all JSON files are formatted the same way
 
         # Make sure we can read the specs file
         DataSpecification(specs_path)

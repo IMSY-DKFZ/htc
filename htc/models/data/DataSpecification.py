@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import importlib
 import json
 import re
 from collections.abc import Iterator
@@ -15,6 +14,7 @@ from typing_extensions import Self
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 from htc.utils.Config import Config
+from htc.utils.type_from_string import type_from_string
 
 
 class DataSpecification:
@@ -52,7 +52,9 @@ class DataSpecification:
         >>> len({p.subject_name for p in test_paths})
         5
 
-        The main purpose of the data specification is to define your training setup, i.e. which paths should be used for training, which for validation etc. For this, add the name or (relative) path to your data specification in your config (`input/data_spec`) and it will iterate over your folds, use all paths for training which are part of a split starting with the name `train` for training, all with `val` for validation and  `test` for testing. For testing, however, you need to add the `--test` argument to the training script if it should be used and the images validated.
+        The main purpose of the data specification is to define your training setup, i.e. which paths should be used for training, which for validation etc. For this, add the name or (relative) path to your data specification in your config (`input/data_spec`) and it will iterate over your folds, use all paths for training which are part of a split starting with the name `train` for training, all with `val` for validation and  `test` for testing. For testing, however, you need to add the `--test` argument to the training script if the test images should be evaluated.
+
+        The format of the data specification files itself is described in the data_spec.schema file.
 
         Args:
             path_or_file: Path (or string) to the data specification json file (path can also be relative to the models or data directories) or a file object which implements a read() method.
@@ -105,13 +107,8 @@ class DataSpecification:
                 if split_key == "fold_name":
                     continue
 
-                if "data_path_module" in split_specs and "data_path_class" in split_specs:
-                    try:
-                        # Dynamically import the data path class as specified in the data specs
-                        module = importlib.import_module(split_specs["data_path_module"])
-                        DataPathClass = getattr(module, split_specs["data_path_class"])
-                    except ModuleNotFoundError:
-                        DataPathClass = DataPath
+                if "data_path_class" in split_specs:
+                    DataPathClass = type_from_string(split_specs["data_path_class"])
                 else:
                     DataPathClass = DataPath
 
@@ -132,6 +129,9 @@ class DataSpecification:
         for fold_data in self.folds.values():
             assert split_names == list(fold_data.keys()), "Every fold must use the same splits"
 
+    def __repr__(self) -> str:
+        return f"DataSpecification(name={self.name()}, folds={self.fold_names()}, splits={self.split_names()})"
+
     def __eq__(self, other: Self) -> bool:
         return self.folds == other.folds and self.__folds_test == other.__folds_test
 
@@ -141,7 +141,7 @@ class DataSpecification:
         """
         return len(self.folds)
 
-    def __iter__(self) -> tuple[str, dict[str, DataPath]]:
+    def __iter__(self) -> Iterator[tuple[str, dict[str, DataPath]]]:
         """
         Iterates over all folds in the data specification file.
 

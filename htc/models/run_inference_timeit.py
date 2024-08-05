@@ -4,7 +4,6 @@
 import pandas as pd
 import torch
 from rich.progress import track
-from torch.cuda.amp import autocast
 
 from htc.models.common.HTCLightning import HTCLightning
 from htc.models.common.torch_helpers import move_batch_gpu
@@ -44,7 +43,7 @@ class InferenceTimeMeasurer:
         self.batch = move_batch_gpu(sample)
         self.batch["features"] = self.batch["features"].unsqueeze(dim=0)
 
-    @autocast()
+    @torch.autocast("cuda")
     @torch.no_grad()
     def inference_image(self) -> None:
         fold_predictions = []

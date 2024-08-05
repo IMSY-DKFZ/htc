@@ -7,6 +7,7 @@ import torch.nn as nn
 import htc.models.common.functions
 from htc.models.common.Heads import Heads
 from htc.models.common.HTCModel import HTCModel
+from htc.models.common.utils import model_input_channels
 from htc.utils.Config import Config
 
 
@@ -27,7 +28,7 @@ class ModelPixelRGB(HTCModel):
             DropoutLayer = nn.Identity
 
         # FNN
-        self.fc1 = nn.Linear(in_features=self.config["input/n_channels"], out_features=200)
+        self.fc1 = nn.Linear(in_features=model_input_channels(self.config), out_features=200)
         self.fc1_norm = NormalizationLayer(num_features=self.fc1.out_features)
         self.fc1_dropout = DropoutLayer(self.config["model/dropout"])
 

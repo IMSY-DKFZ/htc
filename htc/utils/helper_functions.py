@@ -24,6 +24,7 @@ from htc.tivita.DataPath import DataPath
 from htc.tivita.DatasetSettings import DatasetSettings
 from htc.utils.Config import Config
 from htc.utils.LabelMapping import LabelMapping
+from htc.utils.Task import Task
 
 
 def basic_statistics(
@@ -92,11 +93,8 @@ def basic_statistics(
         df["label_name"] = df_median["label_name_mapped"]
         df["label_valid"] = [label_mapping.is_index_valid(i) for i in df["label_index"]]
 
-        # Only include valid labels in the statistics
-        df = df[df["label_valid"]]
-
         # Sum together the pixels for labels with the same name
-        df = df.groupby(sorted(set(df.columns.to_list()) - {"n_pixels"}), as_index=False, observed=True)[
+        df = df.groupby(sorted(set(df.columns.to_list()) - {"n_pixels"}), as_index=False, observed=True, dropna=False)[
             "n_pixels"
         ].sum()
         df = df.sort_values(by=["image_name", "label_index"])
@@ -111,6 +109,9 @@ def median_table(
     image_names: list[str] = None,
     label_mapping: LabelMapping = None,
     annotation_name: Union[str, list[str]] = None,
+    additional_mappings: dict[str, LabelMapping] = None,
+    image_labels_column: list[dict[str, Union[list[str], LabelMapping]]] = None,
+    config: Config = None,
 ) -> pd.DataFrame:
     """
     This function is the general entry point for reading the median spectra tables. You can either read the table from a specific dataset or provide image names for which you want to have the spectra (also works if the names come from different datasets).
@@ -123,7 +124,7 @@ def median_table(
 
     Besides basic info about the image and the median spectra (`median_normalized_spectrum`), all available metadata is included in the table as well:
     >>> df.columns.to_list()
-    ['image_name', 'subject_name', 'timestamp', 'label_index', 'label_name', 'median_spectrum', 'std_spectrum', 'median_normalized_spectrum', 'std_normalized_spectrum', 'n_pixels', 'median_sto2', 'std_sto2', 'median_nir', 'std_nir', 'median_twi', 'std_twi', 'median_ohi', 'std_ohi', 'median_thi', 'std_thi', 'median_tli', 'std_tli', 'image_labels', 'Camera_CamID', 'Camera_Exposure', 'Camera_analoger Gain', 'Camera_digitaler Gain', 'Camera_Speed', 'SW_Name', 'SW_Version', 'Fremdlichterkennung_Fremdlicht erkannt?', 'Fremdlichterkennung_PixelmitFremdlicht', 'Fremdlichterkennung_Breite LED Rot', 'Fremdlichterkennung_Breite LED Gruen', 'Fremdlichterkennung_Grenzwert Pixelanzahl', 'Fremdlichterkennung_Intensity Grenzwert', 'Aufnahme_Aufnahmemodus', 'camera_name', 'path', 'annotation_name']
+    ['image_name', 'subject_name', 'timestamp', 'label_index', 'label_name', 'median_spectrum', 'std_spectrum', 'median_normalized_spectrum', 'std_normalized_spectrum', 'n_pixels', 'median_sto2', 'std_sto2', 'median_nir', 'std_nir', 'median_twi', 'std_twi', 'median_ohi', 'std_ohi', 'median_thi', 'std_thi', 'median_tli', 'std_tli', 'image_labels', 'Camera_CamID', 'Camera_Exposure', 'Camera_analoger Gain', 'Camera_digitaler Gain', 'Camera_Speed', 'SW_Name', 'SW_Version', 'Fremdlichterkennung_Fremdlicht erkannt?', 'Fremdlichterkennung_PixelmitFremdlicht', 'Fremdlichterkennung_Breite LED Rot', 'Fremdlichterkennung_Breite LED Gruen', 'Fremdlichterkennung_Grenzwert Pixelanzahl', 'Fremdlichterkennung_Intensity Grenzwert', 'Aufnahme_Aufnahmemodus', 'camera_name', 'path', 'dataset_settings_path', 'annotation_name']
 
     This function can also be used to select specific annotations, either globally per dataset:
     >>> df = median_table(dataset_name="2021_02_05_Tivita_multiorgan_semantic", annotation_name="semantic#intra1")
@@ -138,15 +139,40 @@ def median_table(
     Note: In the original table, one row denotes one label of one image from one annotator which also corresponds to the default of this function since the default annotation is used (similar to DataPath.read_segmentation()). If more than one annotation name is requested, a row is unique by its image_name, label_name and annotation_name.
 
     Args:
-        dataset_name: Name of the dataset from which you want to have the median spectra table. The name may include a # to specify a subdataset, e.g. `2021_02_05_Tivita_multiorgan_semantic#context_experiments` for the context_experiments folder inside the semantic data directory.
+        dataset_name: Name of the dataset from which you want to have the median spectra table. The name may include a # to specify a subdataset, e.g. `2021_02_05_Tivita_multiorgan_semantic#context_experiments` for the context_experiments folder inside the semantic data directory. If a dataset consists only of subdatasets (e.g., 2022_10_24_Tivita_sepsis_ICU), it is also possible to use the name of the main dataset to get all tables from the subdatasets (e.g., 2022_10_24_Tivita_sepsis_ICU to get 2022_10_24_Tivita_sepsis_ICU#calibrations + 2022_10_24_Tivita_sepsis_ICU#subjects).
         table_name: For each dataset, there may be multiple tables for different purposes (e.g. tables with recalibrated data). With this switch, you specify which table should be loaded. The format of these tables on disk is `dataset_name@table_name@median_spectra@annotation_name.feather`. Per default, the normal table with the original data is loaded corresponding to tables on disk with the format `dataset_name@median_spectra@annotation_name.feather`, i.e. without the optional `@table_name`. Requested image names (`image_names` argument) are only considered from the tables matching the given `table_name`. It is not possible to select images from tables with different table names with this function since they may contain the same images.
         paths: List of DataPath objects from which you want to have the median spectra. If annotation names are specified with a data path object, those names will be used. If specified, image_names must be None.
         image_names: List of image names to search for (similar to the paths parameter). Image names may also include annotation names (e.g. subject#timestamp@name1&name2). It is not ensured that the resulting table contains all requested images because some images may lack annotations or are filtered out by the label_mapping. If specified, paths must be None.
-        label_mapping: The target label mapping. There will be a new label_index_mapped column (and a new label_name_mapped column with the new names defined by the mapping) and the old label_index column will be removed (since the label_index is not unique across datasets). If set to None, then mapping is not carried out.
+        label_mapping: The target label mapping. There will be a new label_index_mapped column (and a new label_name_mapped column with the new names defined by the mapping) and the old label_index column will be removed (since the label_index is not unique across datasets). Only valid labels will be included in the resulting table. If set to None, then mapping is not carried out.
         annotation_name: Unique name of the annotation(s) for cases where multiple annotations exist (e.g. inter-rater variability). If None, will use the default from the dataset. If the dataset does not have a default (i.e. the annotation_name_default is missing in the dataset_settings.json file), all annotations are returned. It is also possible to explicitly retrieve all annotations by setting this parameter to 'all'.
+        additional_mappings: Additional label mappings for other columns. The keys are the column names and the values are the LabelMapping objects for the respective columns. For each specified column, a new column with _index appended will be added.
+        image_labels_column: Specify how multiple columns should be mapped into one `image_labels` column indicating one or more image labels. Each entry in the list specifies one dimension in the `image_labels` columns and the dictionary contains information from which columns values should be mapped from. It is possible to map values from different columns to one image label and to have multiple image labels. The specification is similar to `input/image_labels` in the config file. See tests for examples.
+        config: Load median spectra based on the settings of the config. This can be used to automatically retrieve common options (e.g., label_mapping) which otherwise have to be passed to this function. If no dataset_name, paths or image_names is given, the data specification is loaded from the config object and all non-test paths are used. Options passed as arguments have precedence over the config options.
 
     Returns: Median spectra data frame. The table is either sorted by image names (if image_names is not None) or by the sort_labels() function (if dataset_name is used).
     """
+    if additional_mappings is None:
+        additional_mappings = {}
+
+    if config is not None:
+        if table_name == "":
+            table_name = config.get("input/table_name", "")
+        if dataset_name is None and paths is None and image_names is None and config["input/data_spec"]:
+            spec = DataSpecification.from_config(config)
+            paths = spec.paths()
+        if label_mapping is None and config["label_mapping"]:
+            label_mapping = LabelMapping.from_config(config, task=Task.SEGMENTATION)
+        if annotation_name is None:
+            annotation_name = config.get("input/annotation_name", None)
+        if image_labels_column is None and config["input/image_labels"]:
+            image_labels_column = config["input/image_labels"]
+
+            # Make sure the label mapping objects are created
+            for image_label_entry_index, data in enumerate(image_labels_column):
+                data["image_label_mapping"] = LabelMapping.from_config(
+                    config, task=Task.CLASSIFICATION, image_label_entry_index=image_label_entry_index
+                )
+
     # Collect all available tables
     tables = {}
     for path in sorted((settings.intermediates_dir_all / "tables").glob("*median_spectra*.feather")):
@@ -169,7 +195,8 @@ def median_table(
 
         assert _table_type == "median_spectra", (
             f"Invalid table name for median spectra table ({_table_type} instead of median_spectra, the general format"
-            f" should be dataset_name@median_spectra@annotation_name.feather): {path}"
+            " should be <dataset_name>@median_spectra@<annotation_name>.feather or"
+            f" <dataset_name>@<table_name>@median_spectra@<annotation_name>.feather): {path}"
         )
 
         _table_identifier = (_dataset_name, _table_name)
@@ -178,7 +205,12 @@ def median_table(
             tables[_table_identifier] = {}
         tables[_table_identifier][_annotation_name] = path
 
-    def read_table(dataset_name: str, table_name: str, annotation_name: Union[str, list[str], None]) -> pd.DataFrame:
+    def read_table(
+        dataset_name: str,
+        table_name: str,
+        annotation_name: Union[str, list[str], None],
+        requested_image_names: list[str] = None,
+    ) -> pd.DataFrame:
         table_identifier = (dataset_name, table_name)
 
         # Find the default annotation_name
@@ -189,6 +221,9 @@ def median_table(
                 annotation_name = dsettings.get("annotation_name_default")
 
         if annotation_name is None or annotation_name == "all":
+            assert (
+                table_identifier in tables
+            ), f"Could not find the table {table_identifier} in the tables\n{tables.keys()}"
             annotation_name = list(tables[table_identifier].keys())
 
         if type(annotation_name) == str:
@@ -196,6 +231,9 @@ def median_table(
 
         df = []
         for name in annotation_name:
+            if name not in tables[table_identifier]:
+                continue
+
             df_a = pd.read_feather(tables[table_identifier][name])
             if name is not None:
                 df_a["annotation_name"] = name
@@ -203,21 +241,34 @@ def median_table(
                 assert len(annotation_name) == 1
             df.append(df_a)
 
+        if len(df) == 0:
+            return pd.DataFrame()
+
         needs_sorting = len(df) > 1
         df = pd.concat(df)
 
-        if len(df) > 0 and label_mapping is not None:
-            # Mapping from path to config (the mapping depends on the dataset and must be done separately)
-            df = df.query("label_name in @label_mapping.label_names(all_names=True)").copy()
-            if len(df) > 0:
-                label_indices = torch.from_numpy(df["label_index"].values)
-                assert (
-                    settings.data_dirs[dataset_name] is not None
-                ), f"Cannot find the path to the dataset {dataset_name} but this is required for remapping the labels"
-                original_mapping = LabelMapping.from_data_dir(settings.data_dirs[dataset_name])
-                label_mapping.map_tensor(label_indices, original_mapping)
-                df["label_index_mapped"] = label_indices
-                df["label_name_mapped"] = [label_mapping.index_to_name(i) for i in df["label_index_mapped"]]
+        if requested_image_names is not None:
+            # Select relevant images so that we don't change the labels if we don't need to
+            df = df[df["image_name"].isin(requested_image_names)]
+
+        if len(df) > 0:
+            if label_mapping is not None:
+                # Mapping from path to config (the mapping depends on the dataset and must be done separately)
+                df = df.query("label_name in @label_mapping.label_names(all_names=True)").copy()
+                if len(df) > 0:
+                    assert settings.data_dirs[dataset_name] is not None, (
+                        f"Cannot find the path to the dataset {dataset_name} but this is required for remapping the"
+                        " labels"
+                    )
+
+                    original_mapping = LabelMapping.from_data_dir(settings.data_dirs[dataset_name])
+                    label_indices = df["label_index"].values.astype(np.int64, copy=True)
+                    label_mapping.map_tensor(label_indices, original_mapping)  # Operates in-place
+                    df["label_index_mapped"] = label_indices
+                    df["label_name_mapped"] = [label_mapping.index_to_name(i) for i in df["label_index_mapped"]]
+
+            for name, mapping in additional_mappings.items():
+                df[f"{name}_index"] = [mapping.name_to_index(x) for x in df[name]]
 
         if needs_sorting:
             df = sort_labels(df, dataset_name=dataset_name)
@@ -225,148 +276,230 @@ def median_table(
         return df.reset_index(drop=True)
 
     if dataset_name is not None:
-        return read_table(dataset_name, table_name, annotation_name)
-
-    def parse_paths(paths: list[DataPath]) -> tuple[list[str], dict[str, list[str]], list[str]]:
-        image_names_ordering = []
-        image_names_only = []
-        annotation_images = {}
-        for p in paths:
-            image_names_ordering.append(p.image_name())
-            names = p.annotation_names()
-
-            if len(names) > 0:
-                for a in names:
-                    if a not in annotation_images:
-                        annotation_images[a] = []
-                    annotation_images[a].append(p.image_name())
+        if (dataset_name, table_name) not in tables:
+            error_message = (
+                f"Could not find the table {dataset_name}@{table_name} in the registered median tables (from all"
+                f" available datasets):\n{tables.keys()}"
+            )
+            if "#" not in dataset_name:
+                # If the dataset consists only of subdatasets but the main dataset is requested, collect all tables and merge them, e.g.
+                # 2022_10_24_Tivita_sepsis_ICU = 2022_10_24_Tivita_sepsis_ICU#calibrations + 2022_10_24_Tivita_sepsis_ICU#subjects
+                parent_tables = []
+                for _dataset_name, _table_name in tables.keys():
+                    if _dataset_name.startswith(dataset_name) and table_name == _table_name:
+                        parent_tables.append(read_table(_dataset_name, _table_name, annotation_name))
+                if len(parent_tables) > 0:
+                    return pd.concat(parent_tables, ignore_index=True)
+                else:
+                    raise ValueError(error_message)
             else:
-                image_names_only.append(p.image_name())
-
-        return image_names_only, annotation_images, image_names_ordering
-
-    def parse_image_names(names: list[str]) -> tuple[list[str], dict[str, list[str]], list[str]]:
-        image_names_ordering = []
-        image_names_only = []
-        annotation_images = {}
-        for name in names:
-            if "@" in name:
-                image_name, annotation_names = name.split("@")
-                annotation_names = annotation_names.split("&")
-                for a in annotation_names:
-                    if a not in annotation_images:
-                        annotation_images[a] = []
-                    annotation_images[a].append(image_name)
-                image_names_ordering.append(image_name)
-            else:
-                image_names_only.append(name)
-                image_names_ordering.append(name)
-
-        return image_names_only, annotation_images, image_names_ordering
-
-    if paths is not None:
-        assert image_names is None, "image_names must be None if paths is specified"
-        image_names_only, annotation_images, image_names_ordering = parse_paths(paths)
-    elif image_names is not None:
-        assert paths is None, "paths must be None if image_names is specified"
-        # Theoretically, we could also parse the image names to paths and only use the paths function
-        # However, it is faster to use the image names directly if available (and we need image names anyway for the table)
-        image_names_only, annotation_images, image_names_ordering = parse_image_names(image_names)
+                raise ValueError(error_message)
+        else:
+            df = read_table(dataset_name, table_name, annotation_name)
+            if len(df) == 0:
+                settings.log.warning(
+                    f"Could not find a table for the dataset {dataset_name}, the table name {table_name} and the"
+                    f" annotation name {annotation_name}"
+                )
     else:
-        raise ValueError("image_names or paths must be supplied if dataset_names is None")
 
-    image_names = image_names_only + list(itertools.chain.from_iterable(annotation_images.values()))
-    image_names = pd.unique(np.asarray(image_names))  # Unique without sorting
-    image_names_ordering = pd.unique(np.asarray(image_names_ordering))
+        def parse_paths(paths: list[DataPath]) -> tuple[list[str], dict[str, list[str]], list[str]]:
+            image_names_ordering = []
+            image_names_only = []
+            annotation_images = {}
+            for p in paths:
+                image_names_ordering.append(p.image_name())
+                names = p.annotation_names()
 
-    # First all the images without annotation name requirements
-    dfs = []
-    remaining_images = set(image_names_only)
-    considered_datasets = set()
-    for _dataset_name, _table_name in tables.keys():
-        if _table_name != table_name:
-            continue
+                if len(names) > 0:
+                    for a in names:
+                        if a not in annotation_images:
+                            annotation_images[a] = []
+                        annotation_images[a].append(p.image_name())
+                else:
+                    image_names_only.append(p.image_name())
 
-        df = read_table(_dataset_name, _table_name, annotation_name)
-        df = df.query("image_name in @remaining_images")
+            return image_names_only, annotation_images, image_names_ordering
 
-        if len(df) > 0:
-            dfs.append(df)
-            remaining_images = remaining_images - set(df["image_name"].values)
-            considered_datasets.add(_dataset_name)
+        def parse_image_names(names: list[str]) -> tuple[list[str], dict[str, list[str]], list[str]]:
+            image_names_ordering = []
+            image_names_only = []
+            annotation_images = {}
+            for name in names:
+                if "@" in name:
+                    image_name, annotation_names = name.split("@")
+                    annotation_names = annotation_names.split("&")
+                    for a in annotation_names:
+                        if a not in annotation_images:
+                            annotation_images[a] = []
+                        annotation_images[a].append(image_name)
+                    image_names_ordering.append(image_name)
+                else:
+                    image_names_only.append(name)
+                    image_names_ordering.append(name)
 
-            if len(remaining_images) == 0:
-                # We already have all image_names, we can stop looping over the tables
-                break
+            return image_names_only, annotation_images, image_names_ordering
 
-    # Then all images with annotation names
-    if len(annotation_images) > 0:
-        remaining_images = {name: set(images) for name, images in annotation_images.items()}
-        is_done = False
+        if paths is not None:
+            assert image_names is None, "image_names must be None if paths is specified"
+            image_names_only, annotation_images, image_names_ordering = parse_paths(paths)
+        elif image_names is not None:
+            assert paths is None, "paths must be None if image_names is specified"
+            # Theoretically, we could also parse the image names to paths and only use the paths function
+            # However, it is faster to use the image names directly if available (and we need image names anyway for the table)
+            image_names_only, annotation_images, image_names_ordering = parse_image_names(image_names)
+        else:
+            raise ValueError("image_names or paths must be supplied if dataset_names is None")
+
+        image_names = image_names_only + list(itertools.chain.from_iterable(annotation_images.values()))
+        image_names = pd.unique(np.asarray(image_names))  # Unique without sorting
+        image_names_ordering = pd.unique(np.asarray(image_names_ordering))
+
+        # First all the images without annotation name requirements
+        dfs = []
+        remaining_images = set(image_names_only)
+        considered_datasets = set()
         for _dataset_name, _table_name in tables.keys():
             if _table_name != table_name:
                 continue
-            if is_done:
-                break
 
-            for table_annotation_name in tables[(_dataset_name, _table_name)].keys():
-                if table_annotation_name not in annotation_images.keys():
-                    # If the table does not contain any of the requested annotations, we can skip it
+            df = read_table(_dataset_name, _table_name, annotation_name, requested_image_names=remaining_images)
+            if len(df) > 0:
+                dfs.append(df)
+                remaining_images = remaining_images - set(df["image_name"].values)
+                considered_datasets.add(_dataset_name)
+
+                if len(remaining_images) == 0:
+                    # We already have all image_names, we can stop looping over the tables
+                    break
+
+        # Then all images with annotation names
+        if len(annotation_images) > 0:
+            remaining_images = {name: set(images) for name, images in annotation_images.items()}
+            is_done = False
+            for _dataset_name, _table_name in tables.keys():
+                if _table_name != table_name:
                     continue
+                if is_done:
+                    break
 
-                df = read_table(_dataset_name, _table_name, table_annotation_name)
-                df = df.query("image_name in @remaining_images[@table_annotation_name]")
+                for table_annotation_name in tables[(_dataset_name, _table_name)].keys():
+                    if table_annotation_name not in annotation_images.keys():
+                        # If the table does not contain any of the requested annotations, we can skip it
+                        continue
 
-                if len(df) > 0:
-                    dfs.append(df)
-                    remaining_images[table_annotation_name] = remaining_images[table_annotation_name] - set(
-                        df["image_name"].values
+                    df = read_table(
+                        _dataset_name,
+                        _table_name,
+                        table_annotation_name,
+                        requested_image_names=remaining_images[table_annotation_name],
                     )
-                    considered_datasets.add(_dataset_name)
+                    if len(df) > 0:
+                        dfs.append(df)
+                        remaining_images[table_annotation_name] = remaining_images[table_annotation_name] - set(
+                            df["image_name"].values
+                        )
+                        considered_datasets.add(_dataset_name)
 
-                    if all(len(r) == 0 for r in remaining_images.values()):
-                        is_done = True
-                        # We already have all image_names, we can stop looping over the tables
-                        break
+                        if all(len(r) == 0 for r in remaining_images.values()):
+                            is_done = True
+                            # We already have all image_names, we can stop looping over the tables
+                            break
 
-    # We cannot assert that there are no remaining images anymore because some images may get excluded due to the label mapping or some images maybe don't even have annotations (so they can't be included)
-    assert len(dfs) > 0, (
-        f"Could not find any of the requested images ({image_names = }, {annotation_images = }) in the tables"
-        f" ({considered_datasets = }). This could mean that some of the intermediate files are missing or that you do"
-        " not have access to them (e.g. human data)"
-    )
+        # We cannot assert that there are no remaining images anymore because some images may get excluded due to the label mapping or some images maybe don't even have annotations (so they can't be included)
+        if len(dfs) == 0:
+            error_message = (
+                f"Could not find any of the requested images (first image: {image_names[0]}) in the tables"
+                f" ({considered_datasets = }). This could mean that some of the intermediate files are missing or that"
+                " you do not have access to them (e.g. human data)."
+            )
+            if label_mapping is not None:
+                error_message += (
+                    f" Please make also sure that the label mapping ({label_mapping}) is correct and does not exclude"
+                    " all images."
+                )
+            raise ValueError(error_message)
 
-    with warnings.catch_warnings():
-        # The same columns might have different dtypes in the dataframes depending on missing values
-        warnings.filterwarnings("ignore", message=".*object-dtype columns with all-bool values", category=FutureWarning)
-        df = pd.concat(dfs)
-    if len(dfs) > 1:
-        # label_index is potentially incorrect when paths from multiple datasets are used, so it is safer to remove it
-        df.drop(columns="label_index", inplace=True)
+        with warnings.catch_warnings():
+            # The same columns might have different dtypes in the dataframes depending on missing values
+            warnings.filterwarnings(
+                "ignore", message=".*object-dtype columns with all-bool values", category=FutureWarning
+            )
+            df = pd.concat(dfs)
+        if len(dfs) > 1 and "label_index" in df.columns:
+            # label_index is potentially incorrect when paths from multiple datasets are used, so it is safer to remove it
+            df.drop(columns="label_index", inplace=True)
 
-    # Same order as defined by the paths
-    df["image_name"] = df["image_name"].astype("category")
-    df["image_name"] = df["image_name"].cat.set_categories(image_names_ordering)
-    df.sort_values("image_name", inplace=True, ignore_index=True)
+        # Same order as defined by the paths
+        df["image_name"] = df["image_name"].astype("category")
+        df["image_name"] = df["image_name"].cat.set_categories(image_names_ordering)
+        df.sort_values("image_name", inplace=True, ignore_index=True)
 
-    # Make sure we have all requested image_names (it is possible that some image_names are missing if they contain only labels which were filtered out by the label mapping)
-    image_names_df = set(df["image_name"].unique())
-    assert image_names_df.issubset(image_names), (
-        "Could not find all image_names in the median spectra tables. Please make sure that the median table exists for"
-        " every dataset where the image_names come from"
-    )
-
-    if label_mapping is not None:
-        assert set(df["label_index_mapped"].values).issubset(
-            set(label_mapping.label_indices())
-        ), "Found at least one label_index which is not part of the mapping"
-    if len(image_names_df) < len(image_names):
-        settings.log.warning(
-            f"{len(image_names) - len(image_names_df)} image_names are not used because they were filtered out (e.g. by"
-            f" the label mapping). The following tables were considered: {considered_datasets}"
+        # Make sure we have all requested image_names (it is possible that some image_names are missing if they contain only labels which were filtered out by the label mapping)
+        image_names_df = set(df["image_name"].unique())
+        assert image_names_df.issubset(image_names), (
+            "Could not find all image_names in the median spectra tables. Please make sure that the median table exists"
+            " for every dataset where the image_names come from"
         )
 
+        if label_mapping is not None:
+            assert set(df["label_index_mapped"].values).issubset(
+                set(label_mapping.label_indices())
+            ), "Found at least one label_index which is not part of the mapping"
+        if len(image_names_df) < len(image_names):
+            settings.log.warning(
+                f"{len(image_names) - len(image_names_df)} image_names are not used because they were filtered out"
+                f" (e.g. by the label mapping). The following tables were considered: {considered_datasets}"
+            )
+
+    if image_labels_column is not None:
+        image_labels = []
+        for _, row in df.iterrows():
+            row_label = []
+            # There may be more than one image label to predict (e.g., sepsis_status and shock)
+            for level_data in image_labels_column:
+                # Multiple attributes can be mapped to the same image label (e.g., sepsis_status (new sepsis study) and health_status (old sepsis study))
+                for attribute in level_data["meta_attributes"]:
+                    if attribute in row and not pd.isna(row[attribute]):
+                        value = row[attribute]
+                        if "image_label_mapping" in level_data:
+                            mapping = level_data["image_label_mapping"]
+                            value = mapping.name_to_index(value)
+                        else:
+                            value = int(value)
+                        row_label.append(value)
+                        break
+
+            assert len(row_label) >= 1, f"Could not map the row\n{row}\nto any image label"
+            if len(row_label) == 1:
+                row_label = row_label[0]
+            image_labels.append(row_label)
+
+        df["image_labels"] = image_labels
+
     return df
+
+
+def add_times_table(df: pd.DataFrame, groups: list[str] = None) -> None:
+    """
+    Adds a column "time" to the table with the timestamp converted to a datetime object. If groups is given, another "rel_time" column is added which contains the relative time (in seconds) within each grouping (e.g. time for all images of one subject relative to the first image `groups=["subject_name"]`).
+
+    Args:
+        df: The table to add the columns to (in-place).
+        groups: A list of column names for grouping of the relative time.
+    """
+    if groups is None:
+        groups = ["subject_name"]
+
+    df["time"] = pd.to_datetime(df["timestamp"], format=settings.tivita_timestamp_format)
+
+    if groups is not None:
+        df_group_times = df.groupby(groups)["time"].min()
+
+        rel_times = []
+        for _, row in df.iterrows():
+            rel_times.append(row["time"] - df_group_times.loc[tuple([row[g] for g in groups])])
+        df["rel_time"] = rel_times
 
 
 def group_median_spectra(df: pd.DataFrame, additional_columns: list[str] = None) -> pd.DataFrame:
@@ -514,7 +647,7 @@ def utilization_table(run_dir: Path) -> pd.DataFrame:
 
 def sort_labels(
     storage: Union[np.ndarray, list, set, dict, pd.DataFrame],
-    label_ordering: dict[str, Union[str, int]] = None,
+    label_ordering: Union[dict[str, Union[str, int]], list[str]] = None,
     sorting_cols: list[str] = None,
     dataset_name: str = None,
 ) -> Union[np.ndarray, list, dict, pd.DataFrame]:
@@ -532,12 +665,15 @@ def sort_labels(
 
     Args:
         storage: The storage to sort: numpy array, list, dict or dataframe. If dataframe, it will sort by label_name, image_name and annotation_name (if available).
-        label_ordering: Alternative sort order for the labels. The mapping must define a key for each label and something sortable as values (e.g. integer values).
+        label_ordering: Alternative sort order for the labels. Either a mapping which defines a key for each label and something sortable as values (e.g. integer values) or a list of label names in the sorting order.
         sorting_cols: Explicit list of columns which should be used to sort the dataframe. If None, will sort by label_name, image_name (if available) and annotation_name (if available).
         dataset_name: Name of a dataset which is accessible via settings.data_dirs and which contains a dataset settings with a defined label ordering.
 
     Returns: The sorted storage.
     """
+    if type(label_ordering) == list:
+        label_ordering = {label: i for i, label in enumerate(label_ordering)}
+
     if label_ordering is None and dataset_name is not None:
         dsettings = DatasetSettings(settings.data_dirs[dataset_name])
         label_ordering = dsettings.get("label_ordering", None)
@@ -610,13 +746,13 @@ def sort_labels_cm(
     # Swap rows
     switched_cm = torch.zeros_like(cm)
     ordering_indices = [cm_order.index(l) for l in target_order]
-    for i, id in enumerate(ordering_indices):
-        switched_cm[i, :] = cm[id, :]
+    for i, idx in enumerate(ordering_indices):
+        switched_cm[i, :] = cm[idx, :]
 
     # Swap columns
     switched_cm_final = torch.zeros_like(cm)
-    for j, id in enumerate(ordering_indices):
-        switched_cm_final[:, j] = switched_cm[:, id]
+    for j, idx in enumerate(ordering_indices):
+        switched_cm_final[:, j] = switched_cm[:, idx]
 
     return switched_cm_final
 
@@ -740,7 +876,7 @@ def get_nsd_thresholds(mapping: LabelMapping, aggregation_method: str = None, na
     Args:
         mapping: Label mapping of the training run which is used to make a selection of labels.
         aggregation_method: Aggregation method (e.g. mean). Must correspond to a column name in the table.
-        name: Name of the table (e.g. semantic for the MIA2021 thresholds).
+        name: Name of the table (e.g. semantic for the MIA2022 thresholds).
 
     Returns: Tolerance value for each class in the order defined in the label mapping.
     """

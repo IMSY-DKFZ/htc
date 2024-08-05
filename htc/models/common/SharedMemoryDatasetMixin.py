@@ -10,6 +10,7 @@ from torch.utils.data import get_worker_info
 from torch.utils.data.sampler import Sampler
 
 from htc.models.common.StreamDataLoader import StreamDataLoader
+from htc.models.common.torch_helpers import str_to_dtype
 from htc.tivita.DataPath import DataPath
 from htc.utils.Config import Config
 
@@ -92,10 +93,50 @@ class SharedMemoryDatasetMixin:
 
             self.path_indices_worker[:] = torch.tensor(sampler_indices)
 
-    @abstractmethod
     def _add_shared_resources(self) -> None:
-        """Each child class should implement this method to initialize the tensors which are needed in the batch."""
-        pass
+        """
+        This method is responsible for allocating the shared memory buffers which are needed for the dataset. This is dataset-specific and should be implemented by the child class. The default implementation is for image-based datasets (DatasetImageBatch or DatasetImageStream).
+        """
+        self._add_image_index_shared()
+        spatial_shape = self.config.get("input/spatial_shape", self.paths[0].dataset_settings["spatial_shape"])
+
+        if not self.config["input/no_features"]:
+            self._add_tensor_shared("features", self.features_dtype, *spatial_shape, self.config["input/n_channels"])
+            for data in self.config.get("input/preprocessing_additional", []):
+                self._add_tensor_shared(
+                    f"data_{data['name']}",
+                    self.features_dtype,
+                    *spatial_shape,
+                    data["n_channels"],
+                )
+
+        if not self.config["input/no_labels"]:
+            if self.config["input/annotation_name"] and not self.config["input/merge_annotations"]:
+                for name in self._possible_annotation_names():
+                    self._add_tensor_shared(f"labels_{name}", torch.int64, *spatial_shape)
+                    self._add_tensor_shared(f"valid_pixels_{name}", torch.bool, *spatial_shape)
+            else:
+                self._add_tensor_shared("labels", torch.int64, *spatial_shape)
+                self._add_tensor_shared("valid_pixels", torch.bool, *spatial_shape)
+
+        if self.config["input/superpixels"]:
+            self._add_tensor_shared("spxs", torch.int64, *spatial_shape)
+
+        for domain in self.target_domains:
+            self._add_tensor_shared(domain, torch.int64)
+
+        if self.config["input/image_labels"]:
+            if len(self.config["input/image_labels"]) == 1:
+                self._add_tensor_shared("image_labels", torch.int64)
+            else:
+                self._add_tensor_shared("image_labels", torch.int64, len(self.config["input/image_labels"]))
+
+        if self.config["input/meta"]:
+            self._add_tensor_shared(
+                "meta",
+                str_to_dtype(self.config.get("input/meta/dtype", "float32")),
+                len(self.config["input/meta/attributes"]),
+            )
 
     def _add_image_index_shared(self) -> None:
         tensor = torch.empty(self.buffer_size, self.config["dataloader_kwargs/batch_size"], dtype=torch.int64)

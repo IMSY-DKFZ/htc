@@ -6,11 +6,7 @@
     },
     "inherits": "models/image/configs/default",
     "input": {
-        "annotation_name": [
-            "polygon#annotator1",
-            "polygon#annotator2",
-            "polygon#annotator3"
-        ],
+        "annotation_name": ["polygon#annotator1", "polygon#annotator2", "polygon#annotator3"],
         "data_spec": "/mnt/ssd_8tb/htc/src/tutorials/network_training/pigs_thoracic_2folds.json",
         "epoch_size": 500,
         "merge_annotations": "union",
@@ -22,15 +18,9 @@
                 "degrees": 45,
                 "p": 0.5,
                 "padding_mode": "reflection",
-                "scale": [
-                    0.9,
-                    1.1
-                ],
+                "scale": [0.9, 1.1],
                 "transformation_name": "RandomAffine",
-                "translate": [
-                    0.0625,
-                    0.0625
-                ]
+                "translate": [0.0625, 0.0625]
             },
             {
                 "class": "KorniaTransform",

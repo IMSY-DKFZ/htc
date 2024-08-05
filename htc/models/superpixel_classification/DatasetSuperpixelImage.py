@@ -38,7 +38,6 @@ class DatasetSuperpixelImage(DatasetImage):
             x_image = F.interpolate(
                 x_image.float(), size=self.config["input/resize_shape"], mode="bilinear", align_corners=False
             ).squeeze(dim=0)
-            x_image = self.apply_transforms(x_image)  # [100, 32, 32]
 
             features.append(x_image)
 
@@ -48,9 +47,8 @@ class DatasetSuperpixelImage(DatasetImage):
             "image_name": sample_img["image_name"],
             "features": torch.stack(features),
             "spxs_sizes": torch.tensor(spxs_sizes),
-            "spxs_indices_rows": torch.cat(
-                spxs_indices_rows
-            ),  # We already concatentate the ids since we make only full image assignments later
+            # We already concatenate the ids since we make only full image assignments later
+            "spxs_indices_rows": torch.cat(spxs_indices_rows),
             "spxs_indices_cols": torch.cat(spxs_indices_cols),
         }
 

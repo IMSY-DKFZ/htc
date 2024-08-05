@@ -30,7 +30,7 @@ torch::Tensor nunique(const torch::Tensor& in, int64_t dim) {
 
             *reinterpret_cast<int64_t*>(out_data) = values.size();
         };
-        
+
         // Unfortunately, we need to execute the loop in serial because the unordered_set is not thread safe
         iter.serial_for_each(loop, {0, iter.numel()});
     });

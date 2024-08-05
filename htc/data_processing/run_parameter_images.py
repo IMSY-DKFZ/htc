@@ -14,14 +14,21 @@ from htc.utils.paths import ParserPreprocessing
 
 
 class ParameterImages(DatasetIteration):
-    def __init__(self, paths: list[DataPath], file_type: str, output_dir: Path = None, regenerate: bool = False):
+    def __init__(
+        self,
+        paths: list[DataPath],
+        file_type: str,
+        output_dir: Path = None,
+        regenerate: bool = False,
+        folder_name: str = "parameter_images",
+    ):
         super().__init__(paths)
         self.file_type = file_type
 
         if output_dir is None:
-            self.output_dir = settings.intermediates_dir_all / "preprocessing" / "parameter_images"
+            self.output_dir = settings.intermediates_dir_all / "preprocessing" / folder_name
         else:
-            self.output_dir = output_dir / "parameter_images"
+            self.output_dir = output_dir / folder_name
         self.output_dir.mkdir(exist_ok=True, parents=True)
 
         if regenerate:
@@ -30,7 +37,7 @@ class ParameterImages(DatasetIteration):
     def compute(self, i: int) -> None:
         path = self.paths[i]
 
-        if not (self.output_dir / f"{path.image_name()}.{self.file_type}").exists():
+        if self._compute_necessary(path.image_name()):
             cube = path.read_cube()
             sto2 = path.compute_sto2(cube)
             params = {

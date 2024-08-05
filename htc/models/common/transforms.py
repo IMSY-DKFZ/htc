@@ -11,6 +11,7 @@ import torch
 from typing_extensions import Self
 
 from htc.models.common.torch_helpers import str_to_dtype
+from htc.models.common.utils import dtype_from_config
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -273,13 +274,51 @@ class StandardizeHSI(HTCTransformation):
         self.mean = params[f"{modality}_{stype}_mean"].astype(np.float32)
         self.std = params[f"{modality}_{stype}_std"].astype(np.float32)
 
-    def __call__(self, batch: torch.Tensor) -> torch.Tensor:
+    def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         batch["features"] = (batch["features"] - self.mean) / self.std
 
         return batch
 
     def __repr__(self) -> str:
         return f"StandardizeHSI(mean.shape={self.mean.shape})"
+
+
+class TransformPCA(HTCTransformation):
+    def __init__(self, n_components: int, config: Config, fold_name: str, device: str, **kwargs):
+        self.n_components = n_components
+
+        # PCA is precomputed based on the complete dataset
+        specs_name = DataSpecification.from_config(config).name()
+        pca_path = (
+            settings.intermediates_dir_all / "data_stats" / f"{specs_name}#pca#{config['input/preprocessing']}.pkl"
+        )
+        assert pca_path.exists(), f"could not find the precomputed PCA data at {pca_path}"
+
+        pcas = pickle.load(pca_path.open("rb"))
+        assert fold_name in pcas, f"Could not find {fold_name} in pca file (available keys: {pcas.keys()})"
+
+        pca = pcas[fold_name]
+        variance = [f"{x:.3f}" for x in pca.explained_variance_ratio_[:n_components]]
+        settings.log_once.info(
+            f"Using PCA with {n_components} components explaining"
+            f" {np.sum(pca.explained_variance_ratio_[:n_components]):.3} of the variance ({variance})."
+        )
+
+        self.mean = torch.from_numpy(pca.mean_).to(dtype=torch.float32, device=device)
+        self.components = torch.from_numpy(pca.components_[:n_components].transpose(1, 0)).to(
+            dtype=torch.float32, device=device
+        )
+
+    def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        original_shape = batch["features"].shape[:-1]
+        x = batch["features"].reshape(-1, batch["features"].size(-1))
+        x = (x - self.mean) @ self.components
+        batch["features"] = x.reshape(*original_shape, self.n_components)
+
+        return batch
+
+    def __repr__(self) -> str:
+        return f"TransformPCA(n_components={self.n_components})"
 
 
 class StandardNormalVariate(HTCTransformation):
@@ -300,6 +339,12 @@ class StandardNormalVariate(HTCTransformation):
 
 class ToType(HTCTransformation):
     def __init__(self, dtype: Union[str, torch.dtype] = torch.float32, **kwargs):
+        """
+        Transformation to convert all floating point tensors to the specified type.
+
+        Args:
+            dtype: Target type (e.g. "float32" or torch.float32).
+        """
         self.dtype = str_to_dtype(dtype)
 
     def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -314,13 +359,8 @@ class ToType(HTCTransformation):
 
     @staticmethod
     def from_config(config: Config = None) -> Self:
-        if config is not None and "trainer_kwargs/precision" in config:
-            if config["trainer_kwargs/precision"] == "16-mixed":
-                return ToType(dtype=torch.float16)
-            elif config["trainer_kwargs/precision"] == 32:
-                return ToType(dtype=torch.float32)
-            else:
-                raise ValueError("Invalid precision value in config file")
+        if config is not None:
+            return ToType(dtype=dtype_from_config(config))
         else:
             return ToType(dtype=torch.float32)
 
@@ -354,6 +394,7 @@ class KorniaTransform(HTCTransformation):
             "spxs": "mask",
             "regions": "mask",
         }
+        self.skip_keys = ["meta"]
 
     def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """
@@ -366,7 +407,8 @@ class KorniaTransform(HTCTransformation):
         """
         assert "features" in batch, "Need features for the transformation"
         for key, value in batch.items():
-            if key.endswith("index") or type(value) != torch.Tensor:
+            # We only augment 2D+ images
+            if key.endswith("index") or type(value) != torch.Tensor or value.ndim == 1 or key in self.skip_keys:
                 continue
 
             for known_key, known_type in self.keys_to_type.items():

@@ -77,6 +77,25 @@ class HTCLightning(EvaluationMixin, LightningModule):
 
         return DataLoader(self.dataset_test, **dataloader_kwargs)
 
+    def paths_dataloader(self, paths: list[DataPath], **kwargs) -> DataLoader:
+        """
+        Create a dataloader which iterates over the provided paths the same way as the validation dataloader of this class.
+
+        Args:
+            paths: A list of data paths to batch-iterate over.
+            **kwargs: Additional keyword arguments which will be passed on to the dataloader class.
+
+        Returns:
+            DataLoader: The dataloader which can be iterated over.
+        """
+        # We want to use the existing code for deciding which dataloader to use (e.g., DataLoader or StreamDataLoader) and use the validation datasets for this use case
+        datasets_val_old = self.datasets_val
+        self.datasets_val = [self.dataset(paths=paths, train=False, config=self.config, fold_name=self.fold_name)]
+        dataloader = self.val_dataloader(**kwargs)[0]
+        self.datasets_val = datasets_val_old
+
+        return dataloader
+
     def configure_optimizers(self):
         return parse_optimizer(self.config, self.model)
 
@@ -124,7 +143,7 @@ class HTCLightning(EvaluationMixin, LightningModule):
         """
         assert (
             torch.is_autocast_enabled()
-            or torch.is_autocast_cpu_enabled()
+            or torch.is_autocast_enabled("cpu")
             or self.config["trainer_kwargs/precision"] == "32-true"
         ), "Please enable autocast"
         assert not torch.is_grad_enabled(), "Please disable gradients"

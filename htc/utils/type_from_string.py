@@ -4,6 +4,8 @@
 import importlib
 import re
 import sys
+from pathlib import Path
+from typing import Any
 
 _type_cache = {}
 
@@ -53,3 +55,52 @@ def type_from_string(class_definition: str) -> type:
         _type_cache[class_definition] = getattr(module, match.group(2))
 
     return _type_cache[class_definition]
+
+
+def variable_from_string(definition: str) -> Any:
+    """
+    Parses a string for a variable definition and imports the variable.
+
+    This works for any variable which can be imported
+    >>> mapping = variable_from_string("htc.settings_seg>label_mapping")
+    >>> len(mapping)
+    19
+
+    It is also possible to import a variable via the path to the script
+    >>> from htc.settings import settings
+    >>> mapping = variable_from_string(str(settings.htc_package_dir / "settings_seg.py") + ">label_mapping")
+    >>> len(mapping)
+    19
+
+    Args:
+        definition: Variable definition in the form module>variable (e.g. htc.settings_seg>label_mapping). The first part (module) may also be the full path to the Python file.
+
+    Returns: The imported variable.
+    """
+    match = re.search(r"^([^>]+)>(\w+)$", definition)
+    assert match is not None, (
+        f"Could not parse the string {definition} as a valid variable definition. It must be in the format"
+        " module>variable (e.g. htc.settings_seg>label_mapping) and must refer to a valid Python script"
+    )
+
+    try:
+        module = importlib.import_module(match.group(1))
+        is_path = False
+    except ModuleNotFoundError:
+        # Try path importing (https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly)
+        spec = importlib.util.spec_from_file_location(match.group(2), match.group(1))
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[match.group(2)] = module
+        spec.loader.exec_module(module)
+        is_path = True
+
+    if not hasattr(module, match.group(2)):
+        if is_path:
+            name = Path(match.group(1)).stem
+        else:
+            name = match.group(1).split(".")[-1]
+
+        # For example, if settings is an object
+        module = getattr(module, name)
+
+    return getattr(module, match.group(2))

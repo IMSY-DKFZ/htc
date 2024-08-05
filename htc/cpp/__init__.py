@@ -38,7 +38,15 @@ def automatic_numpy_conversion(func: Callable) -> Callable:
         # Call the actual function
         if conversion_happened:
             # Return value should probably be a numpy array (because at least one argument was a numpy array)
-            return func(*new_args, **new_kwargs).numpy()
+            res = func(*new_args, **new_kwargs)
+            if type(res) == tuple:
+                return tuple(r.numpy() for r in res)
+            elif type(res) == list:
+                return [r.numpy() for r in res]
+            elif type(res) == dict:
+                return {k: v.numpy() for k, v in res.items()}
+            else:
+                return res.numpy()
         else:
             return func(*new_args, **new_kwargs)
 
@@ -133,16 +141,22 @@ def tensor_mapping(tensor: Union[torch.Tensor, np.ndarray], mapping: dict[int, i
     assert all(
         type(k) == type(v) for k, v in mapping.items()
     ), "All keys and values of the mapping must have the same type"
-    first_value = next(iter(mapping.values()))
 
-    if isinstance(first_value, int):
-        assert not tensor.is_floating_point(), f"The tensor must have an integer type ({tensor.dtype = })"
-        return htc._cpp.tensor_mapping_integer(tensor, mapping)
-    elif isinstance(first_value, float):
-        assert tensor.is_floating_point(), f"The tensor must have an floating type ({tensor.dtype = })"
-        return htc._cpp.tensor_mapping_floating(tensor, mapping)
+    if tensor.ndim == 0:
+        # Map scalar values directly (in-place)
+        tensor.fill_(mapping.get(tensor.item(), tensor.item()))
+        return tensor
     else:
-        raise ValueError(f"Invalid type: {type(first_value)}")
+        first_value = next(iter(mapping.values()))
+
+        if isinstance(first_value, int):
+            assert not tensor.is_floating_point(), f"The tensor must have an integer type ({tensor.dtype = })"
+            return htc._cpp.tensor_mapping_integer(tensor, mapping)
+        elif isinstance(first_value, float):
+            assert tensor.is_floating_point(), f"The tensor must have an floating type ({tensor.dtype = })"
+            return htc._cpp.tensor_mapping_floating(tensor, mapping)
+        else:
+            raise ValueError(f"Invalid type: {type(first_value)}")
 
 
 @automatic_numpy_conversion
@@ -262,10 +276,11 @@ def hierarchical_bootstrapping(
 
 
 def hierarchical_bootstrapping_labels(
-    domain_mapping: dict[int, dict[int, list[int]]],
-    label_mapping: dict[int, dict[int, list[int]]],
+    domain_subjects_images_mapping: dict[int, dict[int, list[int]]],
+    label_images_mapping: dict[int, list[int]],
     n_labels: int,
     n_bootstraps: int = 1000,
+    oversampling: bool = False,
 ) -> torch.Tensor:
     """
     Creates bootstrap samples based on a three-level hierarchy (domain_name, subject_name, image_name) while always selecting all domains equally often in every bootstrap. Compared to `hierarchical_bootstrapping()`, this function takes the labels into account and always selects images with the same label for each domain tuple. For each domain and label, one subject and one image is selected, i.e. selection of different subjects is preferred over selecting many images per subject.
@@ -284,38 +299,46 @@ def hierarchical_bootstrapping_labels(
     >>> print('ignore_line'); seed_everything(0)  # doctest: +ELLIPSIS
     ignore_line...
     >>> domain_mapping = {
-    ...     0: {0: [10, 11]},          # First camera, one subject with two images
-    ...     1: {1: [20, 30], 2: [40]}  # Second camera, two subjects with two and one image each
+    ...     0: {0: [10, 11]},           # First camera, one subject with two images
+    ...     1: {1: [20, 30], 2: [40]},  # Second camera, two subjects with two and one image each
     ... }
-    >>> label_mapping = {
-    ...     100: {0: [10, 11], 1: [20]},      # Images 10, 11 and 20 have label 100
-    ...     200: {0: [10], 1: [30], 2: [40]}  # Images 10, 30 and 40 have label 200
+    >>> label_images_mapping = {
+    ...     100: [10, 11, 20],  # Images 10, 11 and 20 have label 100
+    ...     200: [10, 30, 40],  # Images 10, 30 and 40 have label 200
     ... }
-    >>> hierarchical_bootstrapping_labels(domain_mapping, label_mapping, n_labels=2, n_bootstraps=4)
+    >>> hierarchical_bootstrapping_labels(domain_mapping, label_images_mapping, n_labels=2, n_bootstraps=4)
     tensor([[20, 10, 30, 10],
             [20, 10, 20, 11],
             [20, 11, 20, 11],
             [30, 10, 20, 11]])
 
     Args:
-        domain_mapping: Domain to subjects to images mapping.
-        label_mapping: Label to subjects to images mapping.
-        n_labels: Number of labels to draw with replacement. For each label, images from n_domains will be selected.
+        domain_subjects_images_mapping: Domain to subjects to images mapping.
+        label_images_mapping: Label to images mapping. Every image must occur in the domain_subjects_images_mapping exactly once.
+        n_labels: Number of labels to draw with replacement per domain. For example, with 3 domains and 2 labels, 6 images will be selected per bootstrap sample.
         n_bootstraps: Total number of bootstraps.
+        oversampling: If True, instead selecting the labels randomly, the least currently chosen label is selected first. This is achieved by keeping an account for the already selected labels (including every label for each image) which is updated whenever selecting an image. This may still not yield a perfect balance across labels because some labels appear on nearly all images (e.g., background) but underrepresented classes are at least selected as often as possible.
 
     Returns: Matrix of shape (n_bootstraps, n_domains * n_labels) with the bootstraps. It contains the values provided for the images (final layer in the mappings).
     """
-    n_domains = len(set(domain_mapping.keys()))
-    subjects2domain = {s: d for d, subjects in domain_mapping.items() for s in subjects}
-    for label, subjects in label_mapping.items():
+    n_domains = len(set(domain_subjects_images_mapping.keys()))
+    images2domain = {
+        img: d
+        for d, subjects in domain_subjects_images_mapping.items()
+        for images in subjects.values()
+        for img in images
+    }
+    for label, images in label_images_mapping.items():
         assert (
-            len({subjects2domain[s] for s in subjects}) == n_domains
-        ), f"Label {label} is not present in all domains (only the subjects {subjects} have this label)"
+            len({images2domain[img] for img in images}) == n_domains
+        ), f"Label {label} is not present in all domains (only the images {images} have this label)"
 
     # We are generating a random number which will be used as seed during bootstraping
     # This produces different bootstraps when the user calls this function multiple times while still allowing to set a seed
     seed = torch.randint(0, torch.iinfo(torch.int32).max, (1,), dtype=torch.int32).item()
-    bootstraps = htc._cpp.hierarchical_bootstrapping_labels(domain_mapping, label_mapping, n_labels, n_bootstraps, seed)
+    bootstraps = htc._cpp.hierarchical_bootstrapping_labels(
+        domain_subjects_images_mapping, label_images_mapping, n_labels, n_bootstraps, oversampling, seed
+    )
     assert bootstraps.shape == (n_bootstraps, n_domains * n_labels)
 
     return bootstraps

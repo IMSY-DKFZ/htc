@@ -46,21 +46,21 @@ def compare_performance(
     mapping = LabelMapping.from_config(Config(experiment_dir / "config_reference.json"))
 
     # Select all dirs in the experiment dir that start with exp
-    all_subdir = list(experiment_dir.iterdir())
+    all_subdir = sorted(experiment_dir.iterdir())
     exp_subdirs = []
-    for dir in all_subdir:
-        if dir.name.startswith("exp"):
-            exp_subdirs.append(dir)
+    for subdir in all_subdir:
+        if subdir.name.startswith("exp"):
+            exp_subdirs.append(subdir)
     exp_subdirs = sorted(exp_subdirs, key=lambda i: int(i.name.removeprefix(exp_string)))
 
     # Get all the reference dirs
     if reference_experiment:
         assert reference_experiment.exists()
-        all_reference_subdir = list(reference_experiment.iterdir())
+        all_reference_subdir = sorted(reference_experiment.iterdir())
         ref_subdirs = []
-        for dir in all_reference_subdir:
-            if dir.name.startswith("exp"):
-                ref_subdirs.append(dir)
+        for subdir in all_reference_subdir:
+            if subdir.name.startswith("exp"):
+                ref_subdirs.append(subdir)
         ref_subdirs = sorted(ref_subdirs, key=lambda i: int(i.name.removeprefix(exp_string)))
         assert len(ref_subdirs) == len(exp_subdirs)
     else:

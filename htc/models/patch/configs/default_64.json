@@ -8,23 +8,27 @@
         "patch_sampling": "uniform",
         "patch_size": [64, 64],
         "background_undersampling": false,
-        "transforms_cpu": [{
-            "class": "KorniaTransform",
-            "transformation_name": "RandomAffine",
-            "translate": [0.0625, 0.0625],
-            "scale": [0.9, 1.1],
-            "degrees": 45,
-            "padding_mode": "reflection",
-            "p": 0.5
-        }, {
-            "class": "KorniaTransform",
-            "transformation_name": "RandomHorizontalFlip",
-            "p": 0.25
-        }, {
-            "class": "KorniaTransform",
-            "transformation_name": "RandomVerticalFlip",
-            "p": 0.25
-        }]
+        "transforms_cpu": [
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomAffine",
+                "translate": [0.0625, 0.0625],
+                "scale": [0.9, 1.1],
+                "degrees": 45,
+                "padding_mode": "reflection",
+                "p": 0.5
+            },
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomHorizontalFlip",
+                "p": 0.25
+            },
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomVerticalFlip",
+                "p": 0.25
+            }
+        ]
     },
     "label_mapping": "htc.settings_seg>label_mapping",
     "optimization": {

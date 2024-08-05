@@ -5,10 +5,10 @@
 
 torch::Tensor segmentation_mask(const torch::Tensor& label_image, std::map<std::tuple<int, int, int>, int>& color_mapping) {
     auto seg = torch::empty({label_image.size(0), label_image.size(1)}, torch::kUInt8);
-    
+
     auto seg_a = seg.accessor<unsigned char, 2>();
     auto label_a = label_image.accessor<unsigned char, 3>();
-    
+
     for (int row = 0; row < label_a.size(0); ++row) {
         for (int col = 0; col < label_a.size(1); ++col) {
             auto pixel = label_a[row][col];
@@ -20,6 +20,6 @@ torch::Tensor segmentation_mask(const torch::Tensor& label_image, std::map<std::
             }
         }
     }
-    
+
     return seg;
 }

@@ -5,11 +5,11 @@ import argparse
 import copy
 import filecmp
 import shutil
-from functools import partial
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from rich.progress import track
 
 from htc.models.data.DataSpecification import DataSpecification
 from htc.models.image.DatasetImage import DatasetImage
@@ -465,10 +465,7 @@ if __name__ == "__main__":
 
         if args.notebook != "":
             settings.log.info("Creating notebooks...")
-            p_map(
-                partial(create_experiment_notebooks, base_notebook=args.notebook),
-                run_dirs,
-                task_name="Generate notebooks",
-            )
+            for run_dir in track(run_dirs, description="Generate notebooks"):
+                create_experiment_notebooks(run_dir, base_notebook=args.notebook)
     else:
         settings.log.info("All runs complete. Nothing to do")
