@@ -11,7 +11,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macos-latest for arm64 and macos-13 for x86_64: https://cibuildwheel.pypa.io/en/stable/faq/#how
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
 
     steps:
       - uses: actions/checkout@v4
