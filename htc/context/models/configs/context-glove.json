@@ -1,6 +1,0 @@
-{
-    "inherits": "context/models/configs/context",
-    "input": {
-        "data_spec": "data/pigs_semantic-only_5foldsV2_glove.json"
-    }
-}
