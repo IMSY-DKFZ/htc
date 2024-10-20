@@ -45,6 +45,7 @@ class DatasetSuperpixelImage(DatasetImage):
         sample = {
             "image_size": torch.tensor(sample_img["features"].shape[:2]),
             "image_name": sample_img["image_name"],
+            "image_name_annotations": sample_img["image_name_annotations"],
             "features": torch.stack(features),
             "spxs_sizes": torch.tensor(spxs_sizes),
             # We already concatenate the ids since we make only full image assignments later

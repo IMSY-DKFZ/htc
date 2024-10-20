@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 
 from contextlib import ExitStack
-from typing import Union
 
 import torch
 import torch.multiprocessing as multiprocessing
@@ -20,7 +19,7 @@ class TestLeaveOneOutPredictor(Predictor):
     def __init__(
         self,
         *args,
-        paths: Union[list[DataPath], dict[str, list[DataPath]]] = None,
+        paths: list[DataPath] | dict[str, list[DataPath]],
         fold_names: list[str] = None,
         outputs: list[str] = None,
         **kwargs,
@@ -44,23 +43,15 @@ class TestLeaveOneOutPredictor(Predictor):
 
         folds_paths = []
         for fold_dir in folds:
-            if paths is None:
-                fold_data = specs.folds[fold_dir.name]
-                dataset_name = [name for name in fold_data.keys() if name.startswith("test")]
-                assert len(dataset_name) == 1, "Not exactly one test dataset found for this fold!"
-                dataset_name = dataset_name[0]
-
-                folds_paths.append(fold_data[dataset_name])
+            if type(paths) == list:
+                folds_paths.append(paths)
+            elif type(paths) == dict:
+                folds_paths.append(paths[fold_dir.name])
             else:
-                if type(paths) == list:
-                    folds_paths.append(paths)
-                elif type(paths) == dict:
-                    folds_paths.append(paths[fold_dir.name])
-                else:
-                    raise ValueError(f"Invalid type {type(paths)} for the paths argument")
+                raise ValueError(f"Invalid type {type(paths)} for the paths argument")
 
         self.models = {}
-        for fold_dir, fold_paths in zip(folds, folds_paths):
+        for fold_dir, fold_paths in zip(folds, folds_paths, strict=True):
             ckpt_file, _ = checkpoint_path(fold_dir)
 
             # Load dataset and lightning class based on model name

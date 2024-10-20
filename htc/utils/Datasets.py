@@ -6,7 +6,6 @@ import os
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Union
 
 from htc.utils.unify_path import unify_path
 
@@ -68,8 +67,8 @@ class Datasets:
             )
             dirs.append(f"""- {shortcut}
     * full name: {name}
-    * environment name: {self.path_to_env(entry['path_data'])}
-    * location: {entry['location']}""")
+    * environment name: {self.path_to_env(entry["path_data"])}
+    * location: {entry["location"]}""")
 
         msg = f"Network directory: {self.network if self.network is not None else '(not set)'}\n"
         msg += "Registered data directories:\n" + "\n".join(dirs)
@@ -179,7 +178,7 @@ class Datasets:
                 if name != name_upper and name_upper not in self._dirs:
                     self._dirs[name_upper] = path_entry
 
-    def get(self, item: str, local_only: bool = False) -> Union[dict, None]:
+    def get(self, item: str, local_only: bool = False) -> dict | None:
         """
         Access a data directory from this class.
 
@@ -233,10 +232,10 @@ class Datasets:
         else:
             return None
 
-    def __getitem__(self, item: str) -> Union[dict, None]:
+    def __getitem__(self, item: str) -> dict | None:
         return self.get(item)
 
-    def __getattr__(self, item: str) -> Union[dict, Path, None]:
+    def __getattr__(self, item: str) -> dict | Path | None:
         if item.startswith("_"):
             # __getattr__ may be called for built-ins, in which we are not interested
             return super().__getattr__(item)
@@ -285,12 +284,12 @@ class Datasets:
             else self.network_data / entry["path_dataset"].name
         )
 
-    def path_to_env(self, path: Union[str, Path]) -> Union[str, None]:
+    def path_to_env(self, path: str | Path) -> str | None:
         """
         Searches for the name of the environment variable which corresponds to the given path.
 
         >>> from htc.settings import settings
-        >>> path = settings.data_dirs['2021_02_05_Tivita_multiorgan_masks']
+        >>> path = settings.data_dirs["2021_02_05_Tivita_multiorgan_masks"]
         >>> settings.datasets.path_to_env(path)
         'PATH_Tivita_multiorgan_masks'
 
@@ -317,7 +316,7 @@ class Datasets:
         for _, entry in self:
             yield entry["env_name"]
 
-    def find_intermediates_dir(self, path: Union[str, Path], intermediates_folder: str = "intermediates") -> Path:
+    def find_intermediates_dir(self, path: str | Path, intermediates_folder: str = "intermediates") -> Path:
         """
         Searches for the intermediates directory given the path to a dataset or data folder by iterating over all known entry of this class.
 
@@ -343,7 +342,7 @@ class Datasets:
         # Last resort, relative to the parent
         return path.parent / intermediates_folder
 
-    def find_entry(self, path: Union[str, Path]) -> Union[dict, None]:
+    def find_entry(self, path: str | Path) -> dict | None:
         """
         Searches for a known entry given an arbitrary path (e.g. to an image folder). An entry matches if the given path is part of one of the known dataset paths.
 
@@ -361,7 +360,7 @@ class Datasets:
 
         return None
 
-    def _find_match(self, item: str) -> Union[dict, None]:
+    def _find_match(self, item: str) -> dict | None:
         matched_location = None
 
         if item in self._dirs:
@@ -416,14 +415,17 @@ class DatasetAccessor:
         self.datasets = datasets
         self.entry_field = entry_field
 
-    def __getitem__(self, item: str) -> Union[Path, None]:
+    def __repr__(self) -> str:
+        return repr(self.datasets)
+
+    def __getitem__(self, item: str) -> Path | None:
         entry = self.datasets.get(item)
         if entry is None:
             return None
         else:
             return entry[self.entry_field]
 
-    def __getattr__(self, item: str) -> Union[Path, None]:
+    def __getattr__(self, item: str) -> Path | None:
         return self[item]
 
     def __contains__(self, item: str) -> bool:

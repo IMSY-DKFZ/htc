@@ -1,12 +1,10 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from typing import Union
-
 from matplotlib.colors import LinearSegmentedColormap, to_hex
 
 
-def tivita_colorscale(library: str) -> Union[list, LinearSegmentedColormap]:
+def tivita_colorscale(library: str) -> list | LinearSegmentedColormap:
     """
     Returns the official colormap as used in the Tivita parameter images.
 

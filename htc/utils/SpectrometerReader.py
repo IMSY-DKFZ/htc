@@ -3,7 +3,6 @@
 
 import re
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 
@@ -43,7 +42,7 @@ class SpectrometerReader:
         normalization: int = None,
         adapt_to_tivita: bool = False,
         transform_to_tivita: bool = False,
-    ) -> Union[dict[str, np.ndarray], None]:
+    ) -> dict[str, np.ndarray] | None:
         """
         Reads the spectrometer measurements for a specific label.
 

@@ -39,7 +39,9 @@ class DatasetSuperpixelStream(HTCDatasetStream):
                 min_col, max_col = spx_indices_cols.min(), spx_indices_cols.max()
 
                 # Extract the relevant images for the superpixel
-                spx_features = sample_img["features"][
+                spx_features = sample_img[
+                    "features"
+                ][
                     min_row : max_row + 1, min_col : max_col + 1, :
                 ].clone()  # The clone here is important as we later set some of the features to 0 (and this would also affect the original image without a clone)
                 spx_valid_pixels = sample_img["valid_pixels"][min_row : max_row + 1, min_col : max_col + 1].clone()

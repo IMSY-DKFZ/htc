@@ -7,7 +7,7 @@ import itertools
 from datetime import datetime
 from pathlib import Path
 
-from htc.models.common.utils import cluster_command
+from htc.cluster.utils import cluster_command
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.utils.Config import Config
@@ -38,7 +38,7 @@ def generate_configs(
 #!/bin/bash
 
 # Run jobs
-ssh {settings.dkfz_userid}@bsub01.lsf.dkfz.de <<"BASH"
+ssh {settings.dkfz_userid}@{settings.cluster_submission_host} <<"BASH"
 """
 
     configs = []
@@ -50,7 +50,7 @@ ssh {settings.dkfz_userid}@bsub01.lsf.dkfz.de <<"BASH"
 
         # Adjust template config file
         filename_parts = []
-        for name, parameter in zip(params.keys(), parameters):
+        for name, parameter in zip(params.keys(), parameters, strict=True):
             new_config[f"{name}"] = parameter
 
             name_short = name.split("/")[-1]

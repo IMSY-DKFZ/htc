@@ -3,8 +3,10 @@
 
 import hashlib
 import inspect
+import itertools
+import re
 from pathlib import Path
-from typing import Union
+from types import MappingProxyType
 from zipfile import ZipFile
 
 import pandas as pd
@@ -28,7 +30,7 @@ class PostInitCaller(type):
 
 class HTCModel(nn.Module, metaclass=PostInitCaller):
     # Models from our MIA2022 paper
-    known_models = {
+    known_models = MappingProxyType({
         "pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison": {
             "sha256": "2f7acf8a4aed3938caf061aa15da559895bb7efd54a00db5deba1b8813614109",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip",
@@ -89,9 +91,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
             "sha256": "97604ba00c2cdd9b859f64884145f486c317b63be1f8160fa196ecbec6552350",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2022-02-03_22-58-44_generated_default_model_comparison.zip",
         },
-    }
-    # Models from our MICCAI2023 paper
-    known_models |= {
+        # Models from our MICCAI2023 paper
         "image@2023-01-29_11-31-04_organ_transplantation_0.8_rgb": {
             "sha256": "5d1a9d556c348f308570310f637058acfa8e0b14c9c4cd30d2b58d9a1cc12364",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2023-01-29_11-31-04_organ_transplantation_0.8_rgb.zip",
@@ -100,7 +100,104 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
             "sha256": "fd9e7c26e6fee477893a626e1c4bab47ca324fbc43028c858edf1a4e57073b1b",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2023-02-08_14-48-02_organ_transplantation_0.8.zip",
         },
-    }
+        # Models from our XenoLearning2024 paper
+        "image@2024-09-11_00-11-38_baseline_human_nested-0-2": {
+            "sha256": "da264251dfebc7d4d4d2821a436e57682300fa0c315887907868d8245d33f920",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_baseline_human_nested-0-2.zip",
+        },
+        "image@2024-09-11_00-11-38_baseline_human_nested-1-2": {
+            "sha256": "8a8c14c85fd97582e092e5df9d8e29465fb7a81ad8e2af040838859509f88dd9",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_baseline_human_nested-1-2.zip",
+        },
+        "image@2024-09-11_00-11-38_baseline_human_nested-2-2": {
+            "sha256": "9898d9547e9b41986b4c00787cb4031b1be96d42350465be16ddb18c9ad7c25f",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_baseline_human_nested-2-2.zip",
+        },
+        "image@2024-09-11_00-11-38_baseline_pig_nested-0-2": {
+            "sha256": "39fe496587f265c00037d9827893a1ed6ef64d24800ece087476b2e437f6978e",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_baseline_pig_nested-0-2.zip",
+        },
+        "image@2024-09-11_00-11-38_baseline_pig_nested-1-2": {
+            "sha256": "6102a76919ce3e8ba0d4eb997a108266bb04e0ecec5d94447e2fab3c0761bb50",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_baseline_pig_nested-1-2.zip",
+        },
+        "image@2024-09-11_00-11-38_baseline_pig_nested-2-2": {
+            "sha256": "11513635788d9307071478c2cf9a460aa07b638168eaa52da0d2d1979db10a3f",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_baseline_pig_nested-2-2.zip",
+        },
+        "image@2024-09-11_00-11-38_baseline_rat_nested-0-2": {
+            "sha256": "88cf57df0f3aeef93826d8f253be86dc366b5d83cc2848d4ce851f1e799c0dfa",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_baseline_rat_nested-0-2.zip",
+        },
+        "image@2024-09-11_00-11-38_baseline_rat_nested-1-2": {
+            "sha256": "f150b12447ef8277423615245cf5fdf9eca4247dee0427dcd6643a4c35f09a9f",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_baseline_rat_nested-1-2.zip",
+        },
+        "image@2024-09-11_00-11-38_baseline_rat_nested-2-2": {
+            "sha256": "745eee1ebddebaaa132ce751a5762d226c1ce349431800272f96442b265db424",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_baseline_rat_nested-2-2.zip",
+        },
+        "image@2024-09-11_00-11-38_joint_pig-p+rat-p2human_nested-0-2": {
+            "sha256": "8a1f6f31f2dbcc227b488584afb94486a4f3b335949c27e947982256bf20fda4",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_joint_pig-p+rat-p2human_nested-0-2.zip",
+        },
+        "image@2024-09-11_00-11-38_joint_pig-p+rat-p2human_nested-1-2": {
+            "sha256": "2be564e06821e3a7618f0050c4a4711fc16d92be0faffec453a1b5900b120cdd",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_joint_pig-p+rat-p2human_nested-1-2.zip",
+        },
+        "image@2024-09-11_00-11-38_joint_pig-p+rat-p2human_nested-2-2": {
+            "sha256": "5f21bc39468b618369ef8bf8a6c6a7ec036883d9b16eb54c446f733b3a628443",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_joint_pig-p+rat-p2human_nested-2-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_pig2human_nested-0-2": {
+            "sha256": "05ef15aee67d28f5bbb95554c90ff91c642871b6e2f3376a70e3a9acd4b274a5",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_pig2human_nested-0-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_pig2human_nested-1-2": {
+            "sha256": "480b40ed313f9af8a8c82abc156ae733681ba33b7f74553e4edc8dd05b987ff5",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_pig2human_nested-1-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_pig2human_nested-2-2": {
+            "sha256": "ad04b577a8b629279b50ffd0c000ad49218c20bf5dcedf604a4ae99b56b0ef31",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_pig2human_nested-2-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_pig2rat_nested-0-2": {
+            "sha256": "b50f7d0c26b15209ee0faa6bc2c6e1a40d04e0edad5aa3c25cc9e9cda70b4a4c",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_pig2rat_nested-0-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_pig2rat_nested-1-2": {
+            "sha256": "88b0090d0a7359d3f02ae0d7656e490679d46eb9852c316c076d917a071eef9c",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_pig2rat_nested-1-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_pig2rat_nested-2-2": {
+            "sha256": "dbc39220341747a44e810163f213d21f19e9d4974590ee5329f964bfb8bc2616",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_pig2rat_nested-2-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_rat2human_nested-0-2": {
+            "sha256": "bc25a6ad74abf647b31f057b23592d0fd387a7207888f9c5145e1e91a3159659",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_rat2human_nested-0-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_rat2human_nested-1-2": {
+            "sha256": "117504771dd2d7fe6fdf37bf88a5127c8f28bdb7517adb493fa04caaf1be1a37",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_rat2human_nested-1-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_rat2human_nested-2-2": {
+            "sha256": "ccc8210d2ca13e3bdfc0f810420bd936bafe49ebe4f3d9c4dc525703ac1044f2",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_rat2human_nested-2-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_rat2pig_nested-0-2": {
+            "sha256": "400e2eca725011e38d271206f5070572926f7bb6bf4f22634dafd4f37535b240",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_rat2pig_nested-0-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_rat2pig_nested-1-2": {
+            "sha256": "50987cb1d8f20cdb504cb10cf35331c04ccca289a6d12cb95c656424d63c4fa9",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_rat2pig_nested-1-2.zip",
+        },
+        "image@2024-09-11_00-11-38_projected_rat2pig_nested-2-2": {
+            "sha256": "73123ed6703071d1b9d9a9d1da97f6b9a571365bbe8342569ad9642e5af69a96",
+            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2024-09-11_00-11-38_projected_rat2pig_nested-2-2.zip",
+        },
+    })
 
     def __init__(self, config: Config, fold_name: str = None):
         """
@@ -163,8 +260,8 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                 self.register_forward_hook(self._temperature_scaling)
 
     def _temperature_scaling(
-        self, module: nn.Module, module_in: tuple, output: Union[torch.Tensor, dict[str, torch.Tensor]]
-    ) -> Union[torch.Tensor, dict[str, torch.Tensor]]:
+        self, module: nn.Module, module_in: tuple, output: torch.Tensor | dict[str, torch.Tensor]
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
         if type(output) == dict:
             logits = output["class"]
         else:
@@ -323,13 +420,13 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         cls,
         model: str = None,
         run_folder: str = None,
-        path: Union[str, Path] = None,
+        path: str | Path = None,
         fold_name: str = None,
         n_classes: int = None,
         n_channels: int = None,
         pretrained_weights: bool = True,
         **model_kwargs,
-    ) -> Self:
+    ) -> Self | list[Self]:
         """
         Load a pretrained segmentation model.
 
@@ -338,24 +435,26 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         For example, load the pretrained model for the image-based segmentation network:
         >>> from htc import ModelImage, Normalization
         >>> run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
-        >>> print("some log messages"); model = ModelImage.pretrained_model(model="image", run_folder=run_folder)  # doctest: +ELLIPSIS
-        some log messages...
+        >>> model = ModelImage.pretrained_model(model="image", run_folder=run_folder)  # doctest: +ELLIPSIS
+        [...]
         >>> input_data = torch.randn(1, 100, 480, 640)  # NCHW
         >>> input_data = Normalization(channel_dim=1)(input_data)  # Model expects L1 normalized input
         >>> model(input_data).shape
         torch.Size([1, 19, 480, 640])
 
         It is also possible to have a different number of classes as output or a different number of channels as input:
-        >>> print("some log messages"); model = ModelImage.pretrained_model(model="image", run_folder=run_folder, n_classes=3, n_channels=10)  # doctest: +ELLIPSIS
-        some log messages...
+        >>> model = ModelImage.pretrained_model(
+        ...     model="image", run_folder=run_folder, n_classes=3, n_channels=10
+        ... )  # doctest: +ELLIPSIS
+        [...]
         >>> input_data = torch.randn(1, 10, 480, 640)  # NCHW
         >>> model(input_data).shape
         torch.Size([1, 3, 480, 640])
 
         The patch-based models also use the `ModelImage` class but with a different input (here using the patch_64 model):
         >>> run_folder = "2022-02-03_22-58-44_generated_default_64_model_comparison"  # HSI model
-        >>> print("some log messages"); model = ModelImage.pretrained_model(model="patch", run_folder=run_folder)  # doctest: +ELLIPSIS
-        some log messages...
+        >>> model = ModelImage.pretrained_model(model="patch", run_folder=run_folder)  # doctest: +ELLIPSIS
+        [...]
         >>> input_data = torch.randn(1, 100, 64, 64)  # NCHW
         >>> input_data = Normalization(channel_dim=1)(input_data)  # Model expects L1 normalized input
         >>> model(input_data).shape
@@ -364,8 +463,10 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         The procedure is the same for the superpixel-based segmentation network but this time also using a different calling class (`ModelSuperpixelClassification`):
         >>> from htc import ModelSuperpixelClassification
         >>> run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
-        >>> print("some log messages"); model = ModelSuperpixelClassification.pretrained_model(model="superpixel_classification", run_folder=run_folder)  # doctest: +ELLIPSIS
-        some log messages...
+        >>> model = ModelSuperpixelClassification.pretrained_model(
+        ...     model="superpixel_classification", run_folder=run_folder
+        ... )  # doctest: +ELLIPSIS
+        [...]
         >>> input_data = torch.randn(2, 100, 32, 32)  # NCHW
         >>> input_data = Normalization(channel_dim=1)(input_data)  # Model expects L1 normalized input
         >>> model(input_data).shape
@@ -374,23 +475,31 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
         And also the pixel network:
         >>> from htc import ModelPixel
         >>> run_folder = "2022-02-03_22-58-44_generated_default_model_comparison"  # HSI model
-        >>> print("some log messages"); model = ModelPixel.pretrained_model(model="pixel", run_folder=run_folder)  # doctest: +ELLIPSIS
-        some log messages...
+        >>> model = ModelPixel.pretrained_model(model="pixel", run_folder=run_folder)  # doctest: +ELLIPSIS
+        [...]
         >>> input_data = torch.randn(2, 100)  # NC
         >>> input_data = Normalization(channel_dim=1)(input_data)  # Model expects L1 normalized input
-        >>> model(input_data)['class'].shape
+        >>> model(input_data)["class"].shape
         torch.Size([2, 19])
 
         For the pixel model, you can specify a different number of classes but you do not need to set the number of input channels because the underlying convolutional operations directly operate along the channel dimension. Hence, you can just supply input data with a different number of channels and it will work as well.
-        >>> print("some log messages"); model = ModelPixel.pretrained_model(model="pixel", run_folder=run_folder, n_classes=3)  # doctest: +ELLIPSIS
-        some log messages...
+        >>> model = ModelPixel.pretrained_model(model="pixel", run_folder=run_folder, n_classes=3)  # doctest: +ELLIPSIS
+        [...]
         >>> input_data = torch.randn(2, 90)  # NC
-        >>> model(input_data)['class'].shape
+        >>> model(input_data)["class"].shape
         torch.Size([2, 3])
+
+        Retrieve a collection of models as list:
+        >>> models = ModelImage.pretrained_model(
+        ...     model="image", run_folder="2024-09-11_00-11-38_baseline_rat_nested-*-2"
+        ... )  # doctest: +ELLIPSIS
+        [...]
+        >>> len(models)
+        3
 
         Args:
             model: Basic model type like image or pixel (first column in the pretrained models table). This corresponds to the folder name in the first hierarchy level of the training directory.
-            run_folder: Name of the training run from which the weights should be loaded, e.g. to select HSI or RGB models (fourth column in the pretrained models table). This corresponds to the folder name in the second hierarchy level of the training directory.
+            run_folder: Name of the training run from which the weights should be loaded, e.g. to select HSI or RGB models (fourth column in the pretrained models table). This corresponds to the folder name in the second hierarchy level of the training directory. If the run folder contains a wildcard `*` to indicate a collection of runs (e.g. "2024-09-11_00-11-38_baseline_rat_nested-*-2"), this function will return a list of models from this collection.
             path: Alternatively of specifying the model and run folder, you can also specify the path to the run directory, the fold directory or the path to the checkpoint file (*.ckpt) directly.
             fold_name: Name of the validation fold which defines the trained network of the run. If None, the model with the highest metric score will be used.
             n_classes: Number of classes for the network output. If None, uses the same setting as in the trained network (e.g. 18 organ classes + background for the organ segmentation networks).
@@ -400,31 +509,40 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
 
         Returns: Instance of the calling model class initialized with the pretrained weights. The model object will be an instance of `torch.nn.Module`.
         """
+
+        def _construct_model(run_dir: Path) -> Self:
+            config = Config(run_dir / "config.json")
+
+            if pretrained_weights:
+                if path is not None:
+                    config["model/pretrained_model/path"] = path
+                else:
+                    config["model/pretrained_model/model"] = model
+                    config["model/pretrained_model/run_folder"] = run_dir.name
+
+            if fold_name is not None:
+                config["model/pretrained_model/fold_name"] = fold_name
+            if n_classes is not None:
+                config["input/n_classes"] = n_classes
+            if n_channels is not None:
+                assert model != "pixel", (
+                    "The parameter n_channels cannot be used with the pixel model. The number of channels are solely"
+                    " determined by the input (see examples)"
+                )
+                config["input/n_channels"] = n_channels
+
+            return cls(config, **model_kwargs)
+
         run_dir = HTCModel.find_pretrained_run(model, run_folder, path)
-        config = Config(run_dir / "config.json")
-
-        if pretrained_weights:
-            if path is not None:
-                config["model/pretrained_model/path"] = path
-            else:
-                config["model/pretrained_model/model"] = model
-                config["model/pretrained_model/run_folder"] = run_folder
-
-        if fold_name is not None:
-            config["model/pretrained_model/fold_name"] = fold_name
-        if n_classes is not None:
-            config["input/n_classes"] = n_classes
-        if n_channels is not None:
-            assert model != "pixel", (
-                "The parameter n_channels cannot be used with the pixel model. The number of channels are solely"
-                " determined by the input (see examples)"
-            )
-            config["input/n_channels"] = n_channels
-
-        return cls(config, **model_kwargs)
+        if isinstance(run_dir, list):
+            return [_construct_model(r) for r in run_dir]
+        else:
+            return _construct_model(run_dir)
 
     @staticmethod
-    def find_pretrained_run(model_name: str = None, run_folder: str = None, path: Union[str, Path] = None) -> Path:
+    def find_pretrained_run(
+        model_name: str = None, run_folder: str = None, path: str | Path = None
+    ) -> Path | list[Path]:
         """
         Searches for a pretrained run either in the local results directory, in the local PyTorch model cache directory or it will attempt to download the model. For the local results directory, the following folders are searched:
         - `results/training/<model_name>/<run_folder>`
@@ -434,7 +552,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
 
         Args:
             model_name: Basic model type like image or pixel.
-            run_folder: Name of the training run directory (e.g. 2022-02-03_22-58-44_generated_default_model_comparison).
+            run_folder: Name of the training run directory (e.g. 2022-02-03_22-58-44_generated_default_model_comparison). If the run folder contains a wildcard `*` to indicate a collection of runs (e.g. "2024-09-11_00-11-38_baseline_rat_nested-*-2"), this function will return all matching run directories.
             path: Alternatively to model_name and run_folder, you can also specify the path to the run directory (may also be relative to the results directory in one of the folders from above). If the path points to the fold directory or the checkpoint file (*.ckpt), the corresponding run directory will be returned.
 
         Returns: Path to the requested training run (run directory usually starting with a timestamp).
@@ -474,61 +592,85 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                 " `model/pretrained_model/model` and `model/pretrained_model/run_folder`) if no path is given"
             )
 
-            # Option 1: local results directory
-            if settings.results_dir is not None:
-                possible_locations = HTCModel._get_possible_locations(Path(model_name) / run_folder)
-                for run_dir in possible_locations:
-                    if run_dir.is_dir():
-                        settings.log_once.info(f"Found pretrained run in the local results dir at {run_dir}")
-                        return run_dir
+            def _load_run_folder(run_folder: str) -> Path:
+                # Option 1: local results directory
+                if settings.results_dir is not None:
+                    possible_locations = HTCModel._get_possible_locations(Path(model_name) / run_folder)
+                    for run_dir in possible_locations:
+                        if run_dir.is_dir():
+                            settings.log_once.info(f"Found pretrained run in the local results dir at {run_dir}")
+                            return run_dir
 
-            # Option 2: local hub dir (cache folder)
-            hub_dir = Path(torch.hub.get_dir()) / "htc_checkpoints"
-            run_dir = hub_dir / model_name / run_folder
-            if run_dir.is_dir():
-                settings.log_once.info(f"Found pretrained run in the local hub dir at {run_dir}")
+                # Option 2: local hub dir (cache folder)
+                hub_dir = Path(torch.hub.get_dir()) / "htc_checkpoints"
+                run_dir = hub_dir / model_name / run_folder
+                if run_dir.is_dir():
+                    settings.log_once.info(f"Found pretrained run in the local hub dir at {run_dir}")
+                    return run_dir
+
+                # Option 3: download the model to the local hub dir
+                name = f"{model_name}@{run_folder}"
+                assert (
+                    name in HTCModel.known_models
+                ), f"Could not find the training run for {model_name}/{run_folder} (neither locally nor as download option)"
+                model_info = HTCModel.known_models[name]
+
+                hub_dir.mkdir(parents=True, exist_ok=True)
+
+                # Download the archive containing all trained models for the run (i.e. a model per fold)
+                zip_path = hub_dir / f"{name}.zip"
+                settings.log.info(f"Downloading pretrained model {name} since it is not locally available")
+                torch.hub.download_url_to_file(model_info["url"], zip_path)
+
+                # Extract the archive in the models dir with the usual structure (e.g. image/run_folder/fold_name)
+                with ZipFile(zip_path) as f:
+                    f.extractall(hub_dir)
+                zip_path.unlink()
+
+                assert run_dir.is_dir(), "run folder not available even after download"
+
+                # Check file contents to catch download errors
+                hash_cat = ""
+                for f in sorted(run_dir.rglob("*"), key=lambda x: str(x).lower()):
+                    if f.is_file():
+                        hash_cat += sha256_file(f)
+
+                hash_folder = hashlib.sha256(hash_cat.encode()).hexdigest()
+                if model_info["sha256"] != hash_folder:
+                    settings.log.error(
+                        f"The hash of the folder (hash of the file hashes, {hash_folder}) does not match the expected hash"
+                        f" ({model_info['sha256']}). The download of the model was likely not successful. The downloaded"
+                        f" files are not deleted and are still available at {hub_dir}. Please check the files manually"
+                        " (e.g. for invalid file sizes). If you want to re-trigger the download process, just delete the"
+                        f" corresponding run directory {run_dir}"
+                    )
+                else:
+                    settings.log.info(f"Successfully downloaded the pretrained run to the local hub dir at {run_dir}")
+
                 return run_dir
 
-            # Option 3: download the model to the local hub dir
-            name = f"{model_name}@{run_folder}"
-            assert (
-                name in HTCModel.known_models
-            ), f"Could not find the training run for {model_name}/{run_folder} (neither locally nor as download option)"
-            model_info = HTCModel.known_models[name]
+            if "*" in run_folder:
+                # Find all * from left to right
+                max_indices = []
+                for match in re.findall(r"\*-(\d+)", run_folder):
+                    max_indices.append(int(match))
 
-            hub_dir.mkdir(parents=True, exist_ok=True)
+                assert (
+                    len(max_indices) > 0
+                ), f"Could not infer any maximum index from {run_folder} for the run folder collection. The collection must for example be be named nested-0-2, nested-1-2, nested-2-2."
 
-            # Download the archive containing all trained models for the run (i.e. a model per fold)
-            zip_path = hub_dir / f"{name}.zip"
-            settings.log.info(f"Downloading pretrained model {name} since it is not locally available")
-            torch.hub.download_url_to_file(model_info["url"], zip_path)
+                run_folders = []
+                for indices in itertools.product(*[range(i + 1) for i in max_indices]):
+                    nested_run_folder = run_folder
+                    for i in indices:
+                        nested_run_folder = nested_run_folder.replace("*", str(i), 1)
 
-            # Extract the archive in the models dir with the usual structure (e.g. image/run_folder/fold_name)
-            with ZipFile(zip_path) as f:
-                f.extractall(hub_dir)
-            zip_path.unlink()
+                    assert "*" not in nested_run_folder, f"Could not replace all * in {run_folder} with {indices}"
+                    run_folders.append(_load_run_folder(nested_run_folder))
 
-            assert run_dir.is_dir(), "run folder not available even after download"
-
-            # Check file contents to catch download errors
-            hash_cat = ""
-            for f in sorted(run_dir.rglob("*"), key=lambda x: str(x).lower()):
-                if f.is_file():
-                    hash_cat += sha256_file(f)
-
-            hash_folder = hashlib.sha256(hash_cat.encode()).hexdigest()
-            if model_info["sha256"] != hash_folder:
-                settings.log.error(
-                    f"The hash of the folder (hash of the file hashes, {hash_folder}) does not match the expected hash"
-                    f" ({model_info['sha256']}). The download of the model was likely not successful. The downloaded"
-                    f" files are not deleted and are still available at {hub_dir}. Please check the files manually"
-                    " (e.g. for invalid file sizes). If you want to re-trigger the download process, just delete the"
-                    f" corresponding run directory {run_dir}"
-                )
+                return run_folders
             else:
-                settings.log.info(f"Successfully downloaded the pretrained run to the local hub dir at {run_dir}")
-
-            return run_dir
+                return _load_run_folder(run_folder)
 
     @staticmethod
     def best_checkpoint(path: Path) -> Path:
@@ -620,9 +762,25 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
             class_name = ModelClass.__name__
             class_path = Path(inspect.getfile(ModelClass)).relative_to(settings.src_dir)
 
+            run_folder_md = ""
+            if "nested" in run_folder:
+                if "nested-0" not in run_folder:
+                    # We only add one collection item to the table (not all nested runs)
+                    continue
+
+                run_folder_collection = re.sub(r"nested-\d+", "nested-*", run_folder)
+                run_folders = HTCModel.find_pretrained_run(model_type, run_folder_collection)
+                links = ", ".join(
+                    f"[{i}]({HTCModel.known_models[f'{model_type}@{f.name}']['url']})"
+                    for i, f in enumerate(run_folders)
+                )
+                run_folder_md = f"`{run_folder_collection}` (outer folds: {links})"
+            else:
+                run_folder_md = f"[`{run_folder}`]({download_info['url']})"
+
             model_lines.append(
                 f"| {model_type} | {model_info['model_type']} | [`{class_name}`](./{class_path}) |"
-                f" [{run_folder}]({download_info['url']}) |"
+                f" {run_folder_md} |"
             )
 
         table_lines += reversed(model_lines)

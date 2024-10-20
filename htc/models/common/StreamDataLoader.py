@@ -138,7 +138,10 @@ class StreamDataLoader:
 
         if not self.dataset.train and "image_name" not in batch:
             assert "image_index" in batch
-            batch["image_name"] = [self.dataset.image_names[idx] for idx in batch["image_index"]]
+            batch["image_name"] = [self.dataset.paths[idx].image_name() for idx in batch["image_index"]]
+            batch["image_name_annotations"] = [
+                self.dataset.paths[idx].image_name_annotations() for idx in batch["image_index"]
+            ]
 
         return batch
 
@@ -189,6 +192,9 @@ class StreamDataLoader:
 
         if not self.dataset.train and "image_name" not in batch:
             assert "image_index" in batch
-            batch["image_name"] = [self.dataset.image_names[idx] for idx in batch["image_index"]]
+            batch["image_name"] = [self.dataset.paths[idx].image_name() for idx in batch["image_index"]]
+            batch["image_name_annotations"] = [
+                self.dataset.paths[idx].image_name_annotations() for idx in batch["image_index"]
+            ]
 
         return batch

@@ -73,7 +73,7 @@ class MedianSpectra(DatasetIteration):
             if not label_key.startswith("labels"):
                 continue
 
-            for label_index, counts in zip(*sample[label_key].unique(return_counts=True)):
+            for label_index, counts in zip(*sample[label_key].unique(return_counts=True), strict=True):
                 label_index = label_index.item()
 
                 # We skip unlabeled pixels as median spectra do not make sense in this case (consist of multiple labels)

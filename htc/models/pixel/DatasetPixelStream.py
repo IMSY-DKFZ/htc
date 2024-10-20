@@ -17,17 +17,17 @@ class DatasetPixelStream(HTCDatasetStream):
     >>> from htc.utils.Config import Config
     >>> from htc.tivita.DataPath import DataPath
     >>> config = Config({
-    ...     'input/epoch_size': 10,
-    ...     'input/n_channels': 100,
-    ...     'dataloader_kwargs/num_workers': 1,
-    ...     'dataloader_kwargs/batch_size': 5
+    ...     "input/epoch_size": 10,
+    ...     "input/n_channels": 100,
+    ...     "dataloader_kwargs/num_workers": 1,
+    ...     "dataloader_kwargs/batch_size": 5,
     ... })
-    >>> paths = [DataPath.from_image_name('P043#2019_12_20_12_38_35')]
+    >>> paths = [DataPath.from_image_name("P043#2019_12_20_12_38_35")]
     >>> dataset = DatasetPixelStream(paths, train=False, config=config)
     >>> dataloader = StreamDataLoader(dataset, config)
     >>> for sample in dataloader:
-    ...     print(sample['features'].shape)
-    ...     print(sample['labels'].shape)
+    ...     print(sample["features"].shape)
+    ...     print(sample["labels"].shape)
     ...     break
     torch.Size([5, 100])
     torch.Size([5])

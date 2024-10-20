@@ -3,7 +3,6 @@
 
 from abc import abstractmethod
 from collections.abc import Iterable
-from typing import Union
 
 import torch
 from torch.utils.data import get_worker_info
@@ -16,11 +15,11 @@ from htc.utils.Config import Config
 
 
 class SharedMemoryDatasetMixin:
-    def __init__(self, *args, sampler: Union[Sampler, Iterable] = None, **kwargs):
+    def __init__(self, *args, sampler: Sampler | Iterable = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.sampler = sampler
         self.shared_dict: dict[str, torch.Tensor] = {}
-        self.pointer_keys: Union[list[str], None] = None
+        self.pointer_keys: list[str] | None = None
 
         # Each worker operates on its own set of paths and we use a shared memory tensor which stores a random set of path indices
         if self.sampler is None:
@@ -57,7 +56,6 @@ class SharedMemoryDatasetMixin:
     @abstractmethod
     def buffer_size(self) -> int:
         """Total size of the buffer which should be allocated."""
-        pass
 
     def init_shared(self) -> None:
         """

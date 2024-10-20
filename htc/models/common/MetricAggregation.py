@@ -3,7 +3,6 @@
 
 from functools import partial
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -17,7 +16,7 @@ from htc.utils.LabelMapping import LabelMapping
 
 
 class MetricAggregation:
-    def __init__(self, path_or_df: Union[Path, pd.DataFrame], config: Config = None, metrics: list[str] = None):
+    def __init__(self, path_or_df: Path | pd.DataFrame, config: Config = None, metrics: list[str] = None):
         """
         Class for calculating metrics for validation while respecting the hierarchical structure of the data. The metrics include dice metric for checkpointing and domain accuracy for domain adaptation problems.
 
@@ -58,7 +57,7 @@ class MetricAggregation:
 
         assert "subject_name" in self.df.columns, "The dataframe misses some of the required columns"
 
-    def checkpoint_metric(self, domains: Union[str, list[str], bool] = None, mode: str = None) -> float:
+    def checkpoint_metric(self, domains: str | list[str] | bool = None, mode: str = None) -> float:
         """
         Calculates a metric value for checkpointing optionally utilizing one or more domains. Depending on the 'validation/checkpoint_metric_mode' in the config, image or class scores are obtained. Aggregation is always performed along the hierarchy (image, subject, domains).
 
@@ -74,7 +73,7 @@ class MetricAggregation:
         Returns: Metric values which can be used for checkpointing.
         """
         assert all(
-            c in self.df.columns for c in ["used_labels"] + self.metrics
+            c in self.df.columns for c in ["used_labels", *self.metrics]
         ), "The dataframe misses some of the required columns"
 
         domains = self._domain_defaults(domains)
@@ -86,18 +85,18 @@ class MetricAggregation:
             df = df[df["dataset_index"] == self.config["validation/dataset_index"]]
 
         if mode == "class_level":
-            df_g = df.explode(self.metrics + ["used_labels"])
-            df_g = df_g.groupby(domains + ["subject_name", "used_labels"], as_index=False)[self.metrics].agg(
+            df_g = df.explode([*self.metrics, "used_labels"])
+            df_g = df_g.groupby([*domains, "subject_name", "used_labels"], as_index=False)[self.metrics].agg(
                 self._default_aggregator
             )
-            df_g = df_g.groupby(domains + ["used_labels"], as_index=False)[self.metrics].agg(self._default_aggregator)
+            df_g = df_g.groupby([*domains, "used_labels"], as_index=False)[self.metrics].agg(self._default_aggregator)
             df_g = df_g.groupby(["used_labels"], as_index=False)[self.metrics].agg(self._default_aggregator)
         elif mode == "image_level":
-            df_g = df.explode(self.metrics + ["used_labels"])
-            df_g = df_g.groupby(domains + ["subject_name", "image_name"], as_index=False)[self.metrics].agg(
+            df_g = df.explode([*self.metrics, "used_labels"])
+            df_g = df_g.groupby([*domains, "subject_name", "image_name"], as_index=False)[self.metrics].agg(
                 self._default_aggregator
             )
-            df_g = df_g.groupby(domains + ["subject_name"], as_index=False)[self.metrics].agg(self._default_aggregator)
+            df_g = df_g.groupby([*domains, "subject_name"], as_index=False)[self.metrics].agg(self._default_aggregator)
             df_g = df_g.groupby(["subject_name"], as_index=False)[self.metrics].agg(self._default_aggregator)
         else:
             raise ValueError(f"Invalid mode {mode}")
@@ -106,11 +105,11 @@ class MetricAggregation:
 
     def grouped_metrics(
         self,
-        domains: Union[str, list[str], bool] = None,
+        domains: str | list[str] | bool = None,
         keep_subjects: bool = False,
         no_aggregation: bool = False,
         mode: str = None,
-        dataset_index: Union[int, None] = 0,
+        dataset_index: int | None = 0,
         best_epoch_only: bool = True,
         n_bootstraps: int = None,
     ) -> pd.DataFrame:
@@ -169,10 +168,10 @@ class MetricAggregation:
                 assert (
                     "used_labels" in self.df.columns
                 ), "used_labels columns is required for class-level aggregation mode"
-                df_g = df.explode(self.metrics + ["used_labels"])
+                df_g = df.explode([*self.metrics, "used_labels"])
 
                 if not no_aggregation:
-                    df_g = df_g.groupby(domains + ["subject_name", "used_labels"], as_index=False)[self.metrics].agg(
+                    df_g = df_g.groupby([*domains, "subject_name", "used_labels"], as_index=False)[self.metrics].agg(
                         self._default_aggregator
                     )
 
@@ -182,11 +181,11 @@ class MetricAggregation:
                             " scores are based on re-sampling of the subject scores followed by averaging those scores"
                             " (to obtain multiple class-level scores)"
                         )
-                        df_g = df_g.groupby(domains + ["used_labels"], as_index=False)[self.metrics].apply(
+                        df_g = df_g.groupby([*domains, "used_labels"], as_index=False)[self.metrics].apply(
                             partial(self._aggregator_bootstrapping, n_bootstraps=n_bootstraps)
                         )
                     elif not keep_subjects:
-                        df_g = df_g.groupby(domains + ["used_labels"], as_index=False)[self.metrics].agg(
+                        df_g = df_g.groupby([*domains, "used_labels"], as_index=False)[self.metrics].agg(
                             self._default_aggregator
                         )
             elif mode == "image_level":
@@ -197,10 +196,10 @@ class MetricAggregation:
                     df_g = df.explode(self.metrics + additional)
 
                 if not no_aggregation:
-                    df_g = df_g.groupby(domains + ["subject_name", "image_name"], as_index=False)[self.metrics].agg(
+                    df_g = df_g.groupby([*domains, "subject_name", "image_name"], as_index=False)[self.metrics].agg(
                         self._default_aggregator
                     )
-                    df_g = df_g.groupby(domains + ["subject_name"], as_index=False)[self.metrics].agg(
+                    df_g = df_g.groupby([*domains, "subject_name"], as_index=False)[self.metrics].agg(
                         self._default_aggregator
                     )
             else:
@@ -208,7 +207,7 @@ class MetricAggregation:
 
         return self._resolve_id_columns(df_g, domains)
 
-    def grouped_metrics_epochs(self, domains: Union[str, list[str], bool] = None, mode: str = None) -> pd.DataFrame:
+    def grouped_metrics_epochs(self, domains: str | list[str] | bool = None, mode: str = None) -> pd.DataFrame:
         """
         Similar to grouped_metrics but aggregates the results per epoch.
 
@@ -231,8 +230,8 @@ class MetricAggregation:
 
     def grouped_cm(
         self,
-        domains: Union[str, list[str], bool] = None,
-        dataset_index: Union[int, None] = 0,
+        domains: str | list[str] | bool = None,
+        dataset_index: int | None = 0,
         best_epoch_only: bool = True,
         additional_metrics: list[str] = None,
     ) -> pd.DataFrame:
@@ -257,7 +256,7 @@ class MetricAggregation:
 
         domains = self._domain_defaults(domains)
 
-        df_g = df.groupby(domains + ["subject_name"], as_index=False)["confusion_matrix"].agg(self._default_aggregator)
+        df_g = df.groupby([*domains, "subject_name"], as_index=False)["confusion_matrix"].agg(self._default_aggregator)
 
         if additional_metrics is not None and len(additional_metrics) > 0:
             agg = MetricAggregation(self.df, self.config, metrics=additional_metrics)
@@ -327,7 +326,7 @@ class MetricAggregation:
 
         return df
 
-    def _domain_defaults(self, domains: Union[str, list[str], None, bool]) -> list[str]:
+    def _domain_defaults(self, domains: str | list[str] | None | bool) -> list[str]:
         if domains is False:
             domains = []
         elif domains is None:
@@ -342,7 +341,7 @@ class MetricAggregation:
 
         return domains
 
-    def _default_aggregator(self, series: pd.Series) -> Union[float, np.ndarray]:
+    def _default_aggregator(self, series: pd.Series) -> float | np.ndarray:
         if series.name == "confusion_matrix":
             return np.sum(np.stack(series), axis=0)
         else:

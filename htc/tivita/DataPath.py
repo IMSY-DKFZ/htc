@@ -3,11 +3,11 @@
 
 import importlib
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Union
 
 import numpy as np
 import pandas as pd
@@ -23,22 +23,22 @@ from htc.utils.JSONSchemaMeta import JSONSchemaMeta
 from htc.utils.LabelMapping import LabelMapping
 
 if TYPE_CHECKING:
-    from htc.cameras.calibration.CalibrationSwap import CalibrationFiles
+    from htc_projects.camera.calibration.CalibrationSwap import CalibrationFiles
 
 
 class DataPath:
-    _local_meta_cache = None
-    _network_meta_cache = None
-    _meta_labels_cache = {}
-    _data_paths_cache = {}
+    _local_meta_cache: ClassVar[dict[str, Any]] = None
+    _network_meta_cache: ClassVar[dict[str, Any]] = None
+    _meta_labels_cache: ClassVar[dict[str, dict[str, Any]]] = {}
+    _data_paths_cache: ClassVar[dict[str, Self]] = {}
 
     def __init__(
         self,
-        image_dir: Union[str, Path, None],
-        data_dir: Union[str, Path] = None,
-        intermediates_dir: Union[str, Path] = None,
+        image_dir: str | Path | None,
+        data_dir: str | Path = None,
+        intermediates_dir: str | Path = None,
         dataset_settings: DatasetSettings = None,
-        annotation_name_default: Union[str, list[str]] = None,
+        annotation_name_default: str | list[str] = None,
     ):
         """
         Base class for working with Tivita data files with the main design goal to easily access all the individual files (e.g. HSI cube or RGB image) and extract data path attributes (e.g. subject_name).
@@ -73,7 +73,7 @@ class DataPath:
         >>> path = DataPath.from_image_name("P091#2021_04_24_12_02_50")
         >>> path.meta("annotation_name")
         ['polygon#annotator1', 'polygon#annotator2', 'polygon#annotator3']
-        >>> seg2 = path.read_segmentation('polygon#annotator2')
+        >>> seg2 = path.read_segmentation("polygon#annotator2")
         >>> seg2.shape
         (480, 640)
 
@@ -123,7 +123,7 @@ class DataPath:
         """
         Converts the data path to a pathlib.Path object pointing to the folder with the image data.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> str(path())  # doctest: +ELLIPSIS
         '/.../subjects/P043/2019_12_20_12_38_35'
 
@@ -160,7 +160,7 @@ class DataPath:
         """
         Path to the HSI data cube (*.dat file) for this image.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> path.cube_path().name
         '2019_12_20_12_38_35_SpecCube.dat'
 
@@ -182,7 +182,7 @@ class DataPath:
         cube_path = self.cube_path()
 
         if getattr(self, "calibration_target", None) is not None:
-            from htc.cameras.calibration.CalibrationSwap import CalibrationSwap
+            from htc_projects.camera.calibration.CalibrationSwap import CalibrationSwap
 
             cube = read_tivita_hsi(self.cube_path())  # We need unnormalized cubes
 
@@ -212,7 +212,7 @@ class DataPath:
 
         # find matching white calibration file
         if calibration_original is None:
-            from htc.cameras.calibration.CalibrationSwap import CalibrationSwap
+            from htc_projects.camera.calibration.CalibrationSwap import CalibrationSwap
 
             t = CalibrationSwap()
             calibration_original = t.original_calibration_files(self)
@@ -235,7 +235,7 @@ class DataPath:
         """
         Checks whether the HSI cube is valid, i.e. not broken. Unfortunately, the Tivita camera may produce broken images due to unknown reasons. Here, we basically check whether we can read the cube and whether it contains invalid values (zero, negative pixels, infinite numbers).
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> path.is_cube_valid()
         True
 
@@ -298,7 +298,7 @@ class DataPath:
         """
         Path to the Tivita RGB image file.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> path.rgb_path_reconstructed().name
         '2019_12_20_12_38_35_RGB-Image.png'
 
@@ -380,11 +380,11 @@ class DataPath:
 
         return align_rgb_sensor(self.rgb_path_reconstructed(), self.rgb_path_sensor(), *args, **kwargs)
 
-    def segmentation_path(self) -> Union[Path, None]:
+    def segmentation_path(self) -> Path | None:
         """
         Path to the file which stores the segmentation image(s). These are not the raw annotations but the processed images, i.e. numpy array with the same shape as the image and annotations for all labels merged in one file.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> path.segmentation_path().name
         'P043#2019_12_20_12_38_35.blosc'
 
@@ -395,13 +395,11 @@ class DataPath:
         else:
             return self.intermediates_dir / "segmentations" / f"{self.image_name()}.blosc"
 
-    def read_segmentation(
-        self, annotation_name: Union[str, list[str]] = None
-    ) -> Union[np.ndarray, dict[str, np.ndarray], None]:
+    def read_segmentation(self, annotation_name: str | list[str] = None) -> np.ndarray | dict[str, np.ndarray] | None:
         """
         Read the segmentation as numpy array(s).
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> seg = path.read_segmentation()
         >>> seg.shape
         (480, 640)
@@ -455,7 +453,7 @@ class DataPath:
         else:
             return None
 
-    def colorchecker_annotation_path(self) -> Union[Path, None]:
+    def colorchecker_annotation_path(self) -> Path | None:
         """
         Path to the colorchecker annotation file (automatically or manually created).
 
@@ -480,7 +478,7 @@ class DataPath:
 
     def read_colorchecker_mask(
         self, return_spectra: bool = False, normalization: int = None
-    ) -> Union[dict[str, Union[np.ndarray, pd.DataFrame, LabelMapping]], None]:
+    ) -> dict[str, np.ndarray | pd.DataFrame | LabelMapping] | None:
         """
         Reads a precomputed colorchecker mask.
 
@@ -624,11 +622,11 @@ class DataPath:
 
             return res
 
-    def annotated_labels(self, annotation_name: Union[str, list[str]] = None) -> list[str]:
+    def annotated_labels(self, annotation_name: str | list[str] = None) -> list[str]:
         """
         Gives a list of all label names which are part of the segmentation mask (based on the corresponding *.blosc file).
 
-        >>> path = DataPath.from_image_name('P070#2020_07_25_00_29_02')
+        >>> path = DataPath.from_image_name("P070#2020_07_25_00_29_02")
         >>> path.annotated_labels()
         ['anorganic_artifact', 'fat_subcutaneous', 'foil', 'heart', 'lung', 'metal', 'muscle', 'organic_artifact', 'skin', 'unsure']
 
@@ -667,7 +665,7 @@ class DataPath:
 
         return names
 
-    def _code_from_official(self, name: str) -> Union[ModuleType, None]:
+    def _code_from_official(self, name: str) -> ModuleType | None:
         """
         Loads a function from the official code provided by Diaspective Vision.
 
@@ -690,7 +688,7 @@ class DataPath:
         else:
             return None
 
-    def _load_precomputed_parameters(self) -> Union[Union[np.ndarray, int], dict[Any, Union[np.ndarray, int]]]:
+    def _load_precomputed_parameters(self) -> np.ndarray | int | dict[Any, np.ndarray | int]:
         """
         Loads the precomputed parameter images from the corresponding *.blosc file. A `ValueError` is thrown if the *.blosc file does not exist.
         """
@@ -711,7 +709,7 @@ class DataPath:
         """
         Computes the Tissue oxygen saturation (StO2) for the image.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> sto2 = path.compute_sto2()
         >>> sto2.shape
         (480, 640)
@@ -765,7 +763,7 @@ class DataPath:
         """
         Computes the NIR Perfusion Index for the image.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> nir = path.compute_nir()
         >>> nir.shape
         (480, 640)
@@ -795,7 +793,7 @@ class DataPath:
         """
         Computes the Tissue Water Index (TWI) for the image.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> twi = path.compute_twi()
         >>> twi.shape
         (480, 640)
@@ -823,7 +821,7 @@ class DataPath:
         """
         Computes the Organ Hemoglobin Index (OHI) for the image.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> ohi = path.compute_ohi()
         >>> ohi.shape
         (480, 640)
@@ -851,7 +849,7 @@ class DataPath:
         """
         Computes the Tissue Lipid Index (TLI) for the image.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> tli = path.compute_tli()
         >>> tli.shape
         (480, 640)
@@ -879,7 +877,7 @@ class DataPath:
         """
         Computes the Tissue Hemoglobin Index (THI) for the image.
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> thi = path.compute_thi()
         >>> thi.shape
         (480, 640)
@@ -908,7 +906,7 @@ class DataPath:
         """
         Path to the camera meta data file (*_meta.log).
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> path.camera_meta_path().name
         '2019_12_20_12_38_35_meta.log'
 
@@ -918,7 +916,7 @@ class DataPath:
         """
         return self() / f"{self.timestamp}_meta.log"
 
-    def read_camera_meta(self) -> Union[dict, None]:
+    def read_camera_meta(self) -> dict | None:
         """
         Read the camera meta data (see read_meta_file()).
 
@@ -934,7 +932,7 @@ class DataPath:
         else:
             return read_meta_file(camera_meta_path)
 
-    def patient_meta_path(self) -> Union[Path, None]:
+    def patient_meta_path(self) -> Path | None:
         """
         Path to the patient meta data file (*.xml).
 
@@ -953,7 +951,7 @@ class DataPath:
         else:
             return None
 
-    def read_patient_meta(self) -> Union[dict, None]:
+    def read_patient_meta(self) -> dict | None:
         """
         Read the patient meta data (see read_meta_patient()).
 
@@ -973,7 +971,7 @@ class DataPath:
         """
         Path to a file with additional meta data (meta labels) for this image (custom, non-Tivita extension).
 
-        >>> path = DataPath.from_image_name('P093#2021_04_28_08_49_29')
+        >>> path = DataPath.from_image_name("P093#2021_04_28_08_49_29")
         >>> path.annotation_meta_path().name
         '2021_04_28_08_49_29_meta.json'
 
@@ -981,15 +979,15 @@ class DataPath:
         """
         return self() / "annotations" / f"{self.timestamp}_meta.json"
 
-    def read_annotation_meta(self) -> Union[dict, None]:
+    def read_annotation_meta(self) -> dict | None:
         """
         Read additional meta labels if available.
 
         Note: Only use this function if you want to read all meta labels at once. Otherwise, you can also use the meta() method to read meta labels. The meta labels are always cached in this class.
 
-        >>> path = DataPath.from_image_name('P093#2021_04_28_08_49_29')
+        >>> path = DataPath.from_image_name("P093#2021_04_28_08_49_29")
         >>> meta_labels = path.read_annotation_meta()
-        >>> meta_labels['image_labels']
+        >>> meta_labels["image_labels"]
         ['stomach', 'gallbladder', 'peritoneum']
 
         Returns: Dictionary with the meta labels or None if not available.
@@ -1005,11 +1003,11 @@ class DataPath:
 
         return DataPath._meta_labels_cache[self.image_name()]
 
-    def annotation_meta_schema(self) -> Union[JSONSchemaMeta, None]:
+    def annotation_meta_schema(self) -> JSONSchemaMeta | None:
         """
         Read the associated JSON schema for the annotation meta labels if available (`meta.schema` file in the `data` directory). This is useful to retrieve additional information about the meta labels (e.g. description, type, unit, etc.).
 
-        >>> path = DataPath.from_image_name('P087#2021_04_16_10_12_31')
+        >>> path = DataPath.from_image_name("P087#2021_04_16_10_12_31")
         >>> schema = path.annotation_meta_schema()
         >>> schema["label_meta/kidney/angle"].meta("unit")
         'degree'
@@ -1025,7 +1023,7 @@ class DataPath:
         """
         Read meta information about the image (e.g. camera_name). This makes use of the meta table in intermediates/tables/*meta.feather if it exists instead of extracting the information from the meta files directly (faster). The information is always on the image level (and e.g. not on the label level).
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> path.meta("Camera_CamID")
         '0102-00085'
 
@@ -1091,8 +1089,8 @@ class DataPath:
         """
         Constructs a path to the experiment folder based on the properties of the data path:
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
-        >>> base_folder = Path('/test')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
+        >>> base_folder = Path("/test")
         >>> str(path.build_path(base_folder))
         '/test/P043/2019_12_20_12_38_35'
 
@@ -1103,7 +1101,6 @@ class DataPath:
 
         Returns: The complete path up to the level of the experiment folder.
         """
-        pass
 
     def image_name(self) -> str:
         """
@@ -1128,7 +1125,7 @@ class DataPath:
         """
         Names of the image_name parts (e.g. folder names from the root to the image).
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> path.image_name_parts()
         ['subject_name', 'timestamp']
 
@@ -1140,13 +1137,23 @@ class DataPath:
         """
         The image_name of the path together with its parts:
 
-        >>> path = DataPath.from_image_name('P043#2019_12_20_12_38_35')
+        >>> path = DataPath.from_image_name("P043#2019_12_20_12_38_35")
         >>> path.image_name_typed()
-        {'subject_name': 'P043', 'timestamp': '2019_12_20_12_38_35'}
+        {'subject_name': 'P043', 'timestamp': '2019_12_20_12_38_35', 'annotation_name': 'semantic#primary'}
 
         Returns: Dictionary with the image_name parts (values) and its common names (keys).
         """
-        return dict(zip(self.image_name_parts(), self.image_name().split("#")))
+        image_name = self.image_name()
+        annotations = self.annotation_names()
+        if len(annotations) > 0:
+            annotation_name = "&".join(annotations)
+        else:
+            annotation_name = None
+
+        parts = dict(zip(self.image_name_parts(), image_name.split("#"), strict=True))
+        parts["annotation_name"] = annotation_name
+
+        return parts
 
     def image_name_annotations(self) -> str:
         """
@@ -1169,7 +1176,7 @@ class DataPath:
         return name
 
     def datetime(self) -> datetime:
-        return datetime.strptime(self.timestamp, "%Y_%m_%d_%H_%M_%S")
+        return datetime.strptime(self.timestamp, settings.tivita_timestamp_format)
 
     def is_timestamp_folder(self) -> bool:
         """
@@ -1297,7 +1304,7 @@ class DataPath:
         """
         Checks whether the image name can be found.
 
-        >>> DataPath.image_name_exists('P043#2019_12_20_12_38_35')
+        >>> DataPath.image_name_exists("P043#2019_12_20_12_38_35")
         True
 
         Args:
@@ -1317,7 +1324,7 @@ class DataPath:
             return match is not None
 
     @staticmethod
-    def from_image_name(image_name: str) -> Self:
+    def from_image_name(image_name: str) -> "DataPath":
         """
         Constructs a data path based on its unique identifier.
 
@@ -1373,10 +1380,10 @@ class DataPath:
 
     @staticmethod
     def iterate(
-        data_dir: Union[str, Path],
-        filters: Union[list[Callable[[Self], bool]], None] = None,
-        annotation_name: Union[str, list[str]] = None,
-    ) -> Iterator[Self]:
+        data_dir: str | Path,
+        filters: list[Callable[["DataPath"], bool]] = None,
+        annotation_name: str | list[str] = None,
+    ) -> Iterator["DataPath"]:
         """
         Helper function to iterate over the folder structure of a dataset (e.g. subjects folder), yielding one image at a time.
 
@@ -1385,7 +1392,7 @@ class DataPath:
         506
 
         Only images from one pig:
-        >>> filter_pig = lambda p: p.subject_name == 'P041'
+        >>> filter_pig = lambda p: p.subject_name == "P041"
         >>> paths = list(DataPath.iterate(settings.data_dirs.semantic, filters=[filter_pig]))
         >>> len(paths)
         4
@@ -1401,21 +1408,7 @@ class DataPath:
 
         Returns: Generator with all path objects.
         """
-        if type(data_dir) == str:
-            data_dir = Path(data_dir)
-        if filters is None:
-            filters = []
-
-        if type(annotation_name) == str:
-            annotation_name = annotation_name.split("&")
-
-        if annotation_name is not None:
-            annotation_name = set(annotation_name)
-            # We keep the path if it has at least one of the requested annotations
-            filters.append(
-                lambda p: p.meta("annotation_name") is not None
-                and len(set(p.meta("annotation_name")).intersection(annotation_name)) > 0
-            )
+        data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
 
         dsettings = DatasetSettings(data_dir / "dataset_settings.json")
         DataPathClass = dsettings.data_path_class()
@@ -1454,10 +1447,85 @@ class DataPath:
 
             DataPathClass = DataPathTivita
 
+        yield from DataPathClass.iterate(data_dir, filters, annotation_name)
+
+    @staticmethod
+    def _iterate_parse_inputs(
+        data_dir: str | Path,
+        filters: list[Callable[["DataPath"], bool]] = None,
+        annotation_name: str | list[str] = None,
+    ) -> tuple[Path, list[Callable[["DataPath"], bool]], str | list[str]]:
+        if type(data_dir) == str:
+            data_dir = Path(data_dir)
+        if filters is None:
+            filters = []
+
+        if type(annotation_name) == str:
+            annotation_name = annotation_name.split("&")
+
+        if annotation_name is not None:
+            annotation_name = set(annotation_name)
+            # We keep the path if it has at least one of the requested annotations
+            if filter_annotation_name not in filters:
+                filters.append(filter_annotation_name)
+
         if annotation_name is not None:
             annotation_name = list(annotation_name)
-            annotation_name_subclass = annotation_name[0] if len(annotation_name) == 1 else annotation_name
-        else:
-            annotation_name_subclass = None
+            annotation_name = annotation_name[0] if len(annotation_name) == 1 else annotation_name
 
-        yield from DataPathClass.iterate(data_dir, filters, annotation_name_subclass)
+        return data_dir, filters, annotation_name
+
+    @staticmethod
+    def from_table(df: pd.DataFrame) -> list["DataPath"]:
+        """
+        Constructs a list of data paths based on a table with image names and annotation names.
+
+        >>> df = pd.DataFrame({"image_name": ["P041#2019_12_14_13_33_30"], "annotation_name": ["semantic#primary"]})
+        >>> paths = DataPath.from_table(df)
+        >>> len(paths)
+        1
+        >>> paths[0].image_name_annotations()
+        'P041#2019_12_14_13_33_30@semantic#primary'
+
+        Args:
+            df: Table which must at least contain an image_name and an annotation_name column. The annotation_name column will be used to set the default annotation name(s) for the respective image. All other columns are ignored.
+
+        Returns: The data path object.
+        """
+        assert "image_name" in df.columns, "The DataFrame must contain an image_name column."
+        assert "annotation_name" in df.columns, "The DataFrame must contain an annotation_name column."
+
+        df_selection = df[["image_name", "annotation_name"]]
+        df_selection = df_selection.drop_duplicates()
+
+        # If an image appears multiple times with different annotation names, keep only one image but make sure all annotations are associated with this image
+        df_selection = df_selection.groupby("image_name", as_index=False).apply(
+            lambda x: pd.Series({"annotation_name": "&".join(x.annotation_name.unique())}), include_groups=False
+        )
+
+        return [
+            DataPath.from_image_name(f"{row.image_name}@{row.annotation_name}") for _, row in df_selection.iterrows()
+        ]
+
+
+def filter_annotation_name(path: DataPath) -> bool:
+    """
+    Filter for the DataPath.iterate() function to include only paths which have the specified annotation name.
+
+    Args:
+        path: The DataPath object to filter.
+
+    Returns: True if the path contains the requested annotation name, False otherwise.
+    """
+    if path.meta("annotation_name") is None:
+        return False
+
+    annotation_name_requested = path.annotation_name_default
+    if annotation_name_requested is None:
+        return False
+
+    if type(annotation_name_requested) == str:
+        annotation_name_requested = [annotation_name_requested]
+    annotation_name_requested = set(annotation_name_requested)
+
+    return len(set(path.meta("annotation_name")).intersection(annotation_name_requested)) > 0

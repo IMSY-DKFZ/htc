@@ -85,7 +85,7 @@ htc multiple --filter "<YOUR_TIMESTAMP>" --script "run_tables.py"
 It is now time to take a look at the final results. The main figures are produced by a notebook and you can generate a HTML version via [≈ 5 minutes]
 
 ```bash
-HTC_MODEL_COMPARISON_TIMESTAMP="<YOUR_TIMESTAMP>" jupyter nbconvert --to html --execute --output-dir=~/htc ~/htc/src/paper/MIA2022/Benchmarking.ipynb
+HTC_MODEL_TIMESTAMP="<YOUR_TIMESTAMP>" jupyter nbconvert --to html --execute --output-dir=~/htc ~/htc/src/paper/MIA2022/Benchmarking.ipynb
 ```
 
 Fig. 5, Fig. 7 and Fig. 11 are directly shown in the notebook. Fig 6 is stored in `~/htc/results/paper/ranking_bootstrapped_test_dice_metric_image.pdf`. Due to non-determinism in our machine learning, the results cannot be expected to be exactly the same, but as long as the results are roughly similar to the paper, everything is good :-)

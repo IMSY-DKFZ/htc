@@ -3,7 +3,6 @@
 
 import math
 import types
-from typing import Union
 
 import torch
 import torch.nn as nn
@@ -12,9 +11,9 @@ import torch.nn.functional as F
 
 def pad_tensors(
     tensors: list[torch.Tensor],
-    dim: Union[tuple[int, ...], int] = (0, 1),
+    dim: tuple[int, ...] | int = (0, 1),
     pad_value: float = 0.0,
-    size_multiple: Union[tuple[int, ...], int] = None,
+    size_multiple: tuple[int, ...] | int = None,
 ) -> list[torch.Tensor]:
     """
     Pads a list of tensors and appends new values to the right/bottom for the shape dimensions provided. This can be used to stack/cat tensors of different shape.
@@ -65,7 +64,7 @@ def pad_tensors(
     for tensor in tensors:
         # For each dimension, we must specify two padding values (left, right)
         padding = [0] * len(tensor.shape) * 2
-        for d, target in zip(dim, target_sizes):
+        for d, target in zip(dim, target_sizes, strict=True):
             padding[2 * d] = target - tensor.shape[d]
         padding.reverse()  # For some reason, Pytorch F.pad reads the paddings from right to left
         padding = tuple(padding)
@@ -191,10 +190,13 @@ def minmax_pos_neg_scaling(tensor: torch.Tensor, dim: int = 0) -> torch.Tensor:
 
     All negative values are scaled to [-1, 0] and all positive values to [0, 1]. In total, the values in the tensor are in the range [-1, 1].
 
-    >>> x = torch.tensor([
-    ...     [-1, 0, -3],
-    ...     [4, -5, 6],
-    ... ], dtype=torch.float32)
+    >>> x = torch.tensor(
+    ...     [
+    ...         [-1, 0, -3],
+    ...         [4, -5, 6],
+    ...     ],
+    ...     dtype=torch.float32,
+    ... )
     >>> minmax_pos_neg_scaling(x, dim=0)
     tensor([[-0.3333,  0.0000, -1.0000],
             [ 0.6667, -1.0000,  1.0000]])
@@ -317,7 +319,7 @@ def cpu_only_tensor(tensor: torch.Tensor) -> None:
     return tensor
 
 
-def str_to_dtype(dtype: Union[str, torch.dtype]) -> torch.dtype:
+def str_to_dtype(dtype: str | torch.dtype) -> torch.dtype:
     """
     Converts a string type to a PyTorch data type.
 

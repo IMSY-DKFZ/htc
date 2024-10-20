@@ -1,9 +1,8 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Callable, Union
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -89,7 +88,7 @@ class DataPathSepsis(DataPath):
     def image_name_parts(self) -> list[str]:
         return list(self.image_name_typed().keys())
 
-    def image_name_typed(self) -> dict[str, Union[str, bool]]:
+    def image_name_typed(self) -> dict[str, str | bool]:
         return {
             "health_status": self.health_status,
             "subject_name": self.subject_name,
@@ -100,44 +99,55 @@ class DataPathSepsis(DataPath):
 
     @staticmethod
     def iterate(
-        data_dir: Path,
-        filters: list[Callable[["DataPath"], bool]],
-        annotation_name: Union[str, list[str]],
+        data_dir: str | Path,
+        filters: list[Callable[["DataPathSepsis"], bool]] = None,
+        annotation_name: str | list[str] = None,
     ) -> Iterator["DataPathSepsis"]:
+        data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
+
         if data_dir.name == "data":
-            dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
-            intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
+            yield from DataPathSepsis.iterate(data_dir / "hand_posture_study", filters, annotation_name)
+            yield from DataPathSepsis.iterate(data_dir / "sepsis_study", filters, annotation_name)
+        else:
+            root_data_dir = data_dir.parent
+            dataset_settings = DatasetSettings(root_data_dir / "dataset_settings.json")
+            intermediates_dir = settings.datasets.find_intermediates_dir(root_data_dir)
 
-            study_dir = data_dir / "hand_posture_study"
-            for subject_name_path in sorted((study_dir / "healthy").iterdir()):
-                for location_path in sorted(subject_name_path.iterdir()):
-                    for image_dir in sorted(location_path.iterdir()):
-                        path = DataPathSepsis(image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name)
-                        if all(f(path) for f in filters):
-                            yield path
+            if data_dir.name == "hand_posture_study":
+                for subject_name_path in sorted((data_dir / "healthy").iterdir()):
+                    for location_path in sorted(subject_name_path.iterdir()):
+                        for image_dir in sorted(location_path.iterdir()):
+                            path = DataPathSepsis(
+                                image_dir, root_data_dir, intermediates_dir, dataset_settings, annotation_name
+                            )
+                            if all(f(path) for f in filters):
+                                yield path
+            elif data_dir.name == "sepsis_study":
+                for health_status_path in sorted(data_dir.iterdir()):
+                    if health_status_path.name in ["annotations", "meta"]:
+                        continue
 
-            study_dir = data_dir / "sepsis_study"
-            for health_status_path in sorted(study_dir.iterdir()):
-                if health_status_path.name in ["annotations", "meta"]:
-                    continue
-
-                for subject_name_path in sorted(health_status_path.iterdir()):
-                    if health_status_path.name == "healthy":
-                        for location_path in sorted(subject_name_path.iterdir()):
-                            for image_dir in sorted(location_path.iterdir()):
-                                path = DataPathSepsis(
-                                    image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name
-                                )
-                                if all(f(path) for f in filters):
-                                    yield path
-                    else:
-                        for timepoint_path in sorted(subject_name_path.iterdir()):
-                            for location_path in sorted(timepoint_path.iterdir()):
+                    for subject_name_path in sorted(health_status_path.iterdir()):
+                        if health_status_path.name == "healthy":
+                            for location_path in sorted(subject_name_path.iterdir()):
                                 for image_dir in sorted(location_path.iterdir()):
                                     path = DataPathSepsis(
-                                        image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name
+                                        image_dir, root_data_dir, intermediates_dir, dataset_settings, annotation_name
                                     )
                                     if all(f(path) for f in filters):
                                         yield path
-        else:
-            yield from DataPathTivita.iterate(data_dir, filters, annotation_name)
+                        else:
+                            for timepoint_path in sorted(subject_name_path.iterdir()):
+                                for location_path in sorted(timepoint_path.iterdir()):
+                                    for image_dir in sorted(location_path.iterdir()):
+                                        path = DataPathSepsis(
+                                            image_dir,
+                                            root_data_dir,
+                                            intermediates_dir,
+                                            dataset_settings,
+                                            annotation_name,
+                                        )
+                                        if all(f(path) for f in filters):
+                                            yield path
+            else:
+                yield from DataPathTivita.iterate(data_dir, filters, annotation_name)

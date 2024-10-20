@@ -13,6 +13,9 @@ class Task(Enum):
     SEGMENTATION = "segmentation"
     CLASSIFICATION = "classification"
 
+    def __str__(self) -> str:
+        return self.value
+
     def labels_name(self) -> str:
         """Returns the name of the labels attribute (e.g., used in DatasetMedianPixel) or the name of the key in the batch which stores the labels."""
         if self == Task.SEGMENTATION:

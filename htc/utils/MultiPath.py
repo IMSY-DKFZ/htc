@@ -1,9 +1,12 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import sys
+from collections.abc import Callable
 from difflib import SequenceMatcher
+from functools import partial
 from pathlib import Path
-from typing import Callable, Union
+from typing import Union
 
 from htc.utils.unify_path import unify_path
 
@@ -18,7 +21,7 @@ class MultiPathSequence:
 
         path = self.path
         for _ in range(idx + 1):
-            if len(path._parts) == 1:
+            if len(path.parts) == 1:
                 raise IndexError("Already reached the root path")
 
             path = path.parent
@@ -26,99 +29,27 @@ class MultiPathSequence:
         return path
 
 
-class MultiPath(type(Path())):
-    """
-    This class can be used as an substitute for Path objects. It offers the possibility to have multiple root paths defined. If a new path is constructed and used, all alternatives are checked and the first which exists is used. This works best if relative file paths are unique across all alternatives.
-
-    >>> path = MultiPath('/a/b')  # This path does not exist
-    >>> path.add_alternative('/home')  # This path does exist
-    >>> str(path)  # Print the string representation of the path which exists
-    '/home'
-    >>> path.name
-    'home'
-
-    For read operations, the path can be used as-is without further considerations. It will go over all locations and return the first one which exist.
-
-    For write operations, the situation is a bit more complex, however. In principle, you also write to the best match, e.g. an existing location. However, you may want to explicitly write to a specific directory. For this, you need to make sure that you have a needle set. Then, you can either construct your path and mkdir your folders in which case a matching needle will always be used even if the match does not exist or explicitly construct your path and resolve it via `find_best_location(writing=True)`. Usually, the mkdir approach is sufficient.
-    """
-
-    def __new__(cls, *args, **kwargs):
-        if len(args) == 1:
-            if type(args[0]) == dict:
-                # Construction from pickled object
-
-                # e.g. .../2021_02_05_Tivita_multiorgan_masks/intermediates/preprocessing/L1
-                path = super().__new__(cls, args[0]["path"])
-                # e.g. [.../2021_02_05_Tivita_multiorgan_semantic/intermediates, .../2021_02_05_Tivita_multiorgan_masks/intermediates, ...]
-                path._alternatives = args[0]["alternatives"]
-                # e.g. 2021_02_05_Tivita_multiorgan_masks
-                path._default_needle = args[0]["default_needle"]
-
-                return path
-            else:
-                # Default construction, we just make sure that the path is expanded
-
-                # Normalize the path and make it absolute without resolving symbolic links as this may break the logic of the MultiPath class which relies on path replacements
-                # For example, after resolving a symlink the path may not contain any of the alternatives anymore so it is impossible to do the replacements
-                new_args = [str(unify_path(args[0], resolve_symlinks=False))]
-        else:
-            # Construction from parts
-            new_args = args
-
-        super_path = super().__new__(cls, *new_args, **kwargs)
-
-        # Custom attributes
-        super_path._alternatives = [str(super_path)]
-        super_path._default_needle = None
-        super_path._set_attributes()
-
-        return super_path
-
-    def _make_child(self, args):
-        if len(args) == 1 and Path(args[0]).is_absolute():
-            # If the child path is already absolute, we can just use it as-is
-            abs_path = args[0]
-            if type(abs_path) == str:
-                abs_path = Path(abs_path)
-            return abs_path
-        else:
-            # Any child path which is created via base / new should also receive the additional class attributes
-            child = super()._make_child(args)
-            child._alternatives = self._alternatives
-            child._default_needle = self._default_needle
-            child._set_attributes()
-
-            return child
-
-    def _set_attributes(self):
-        # The attributes are always based on the current best location
-        location = self.find_best_location()
-        self._drv = location._drv
-        self._root = location._root
-        self._parts = location._parts
-
+class MultiPathMixin:
     def __repr__(self):
         """
         Generates a user-friendly description of this multi-path instance.
 
-        >>> path = MultiPath('/a/b')
-        >>> path.add_alternative('/')
-        >>> path.add_alternative('/x')
+        >>> path = MultiPath("/a/b")
+        >>> path.add_alternative("/")
+        >>> path.add_alternative("/x")
         >>> print(repr(path))
         Class: MultiPath
-        Root location: /a/b (exists=False)
-        Best location: / (exists=True)
+        Used location: / (exists=True)
         All locations:
         /a/b (exists=False)
         / (exists=True)
         /x (exists=False)
 
         >>> subpath = path / "y"
-        >>> subpath.set_default_location('x')
+        >>> subpath.set_default_location("x")
         >>> print(repr(subpath))
         Class: MultiPath
-        Root location: /a/b/y (exists=False)
-        Best location (considering needle x): /x/y (exists=False)
+        Used location (considering needle x): /x/y (exists=False)
         All locations:
         /a/b/y (exists=False)
         /y (exists=False)
@@ -126,29 +57,17 @@ class MultiPath(type(Path())):
         """
         text = f"Class: {self.__class__.__name__}\n"
 
-        root_location = Path(super().__str__())
-        text += f"Root location: {root_location} (exists={root_location.exists()})\n"
-
         if self._default_needle is not None:
             repr_needle = f" (considering needle {self._default_needle})"
         else:
             repr_needle = ""
         best_location = self.find_best_location()
-        text += f"Best location{repr_needle}: {best_location} (exists={best_location.exists()})\n"
+        text += f"Used location{repr_needle}: {best_location} (exists={best_location.exists()})\n"
 
         text += "All locations:\n"
         text += "\n".join([str(a) + f" (exists={a.exists()})" for a in self.possible_locations()])
 
         return text
-
-    def __reduce__(self):
-        # Called when pickling path objects (e.g. multiprocessing)
-        kwargs = {
-            "path": super().__str__(),
-            "alternatives": self._alternatives,
-            "default_needle": self._default_needle,
-        }
-        return (self.__class__, (kwargs,))
 
     def __str__(self):
         # Paths are always converted to strings when they are used, e.g. on open or on .exists()
@@ -238,7 +157,7 @@ class MultiPath(type(Path())):
     def resolve(self, *args, **kwargs) -> "Path":
         return self.find_best_location().resolve(*args, **kwargs)
 
-    def add_alternative(self, path: Union[Path, str]) -> None:
+    def add_alternative(self, path: Path | str) -> None:
         """Adds an alternative location to this path which will be replaced with the root location."""
         self._alternatives.append(str(unify_path(path, resolve_symlinks=False)))
 
@@ -255,9 +174,9 @@ class MultiPath(type(Path())):
         """
         Searches all locations for the given needle.
 
-        >>> path = MultiPath('/a/c')
-        >>> path.add_alternative('/b/c')
-        >>> str(path.find_location('b'))
+        >>> path = MultiPath("/a/c")
+        >>> path.add_alternative("/b/c")
+        >>> str(path.find_location("b"))
         '/b/c'
 
         Args:
@@ -334,8 +253,8 @@ class MultiPath(type(Path())):
         """
         Lists all locations which can be accessed by this multi path.
 
-        >>> path = MultiPath('/a/b')
-        >>> path.add_alternative('/xx/a')
+        >>> path = MultiPath("/a/b")
+        >>> path.add_alternative("/xx/a")
         >>> [str(p) for p in path.possible_locations()]
         ['/a/b', '/xx/a']
 
@@ -353,21 +272,146 @@ class MultiPath(type(Path())):
             if path_str.startswith(alternative):
                 alternatives_root = alternative
                 break
-        assert (
-            alternatives_root is not None
-        ), f"Could not find the alternatives root for {path_str}\n{self._alternatives}"
 
-        # Replace the root with all alternatives to get all possible locations (including the main location)
-        locations = []
-        for alternative in self._alternatives:
-            new = path_str.replace(alternatives_root, alternative)
-            new = unify_path(new, resolve_symlinks=False)
-            locations.append(new)
+        if alternatives_root is None:
+            # The base path is not part of any alternative so it is the only location (e.g., happens if a path is combined with an absolute path)
+            return [Path(path_str)]
+        else:
+            # Replace the root with all alternatives to get all possible locations (including the main location)
+            locations = []
+            for alternative in self._alternatives:
+                new = path_str.replace(alternatives_root, alternative)
+                new = unify_path(new, resolve_symlinks=False)
+                locations.append(new)
 
-        if filter_func is not None:
-            locations = [l for l in locations if filter_func(l)]
+            if filter_func is not None:
+                locations = [l for l in locations if filter_func(l)]
 
-        if only_existing:
-            locations = [l for l in locations if l.exists()]
+            if only_existing:
+                locations = [l for l in locations if l.exists()]
 
-        return locations
+            return locations
+
+
+if sys.version_info >= (3, 12):
+
+    class MultiPath(MultiPathMixin, Path):
+        """
+        This class can be used as an substitute for Path objects. It offers the possibility to have multiple root paths defined. If a new path is constructed and used, all alternatives are checked and the first which exists is used. This works best if relative file paths are unique across all alternatives.
+
+        >>> path = MultiPath("/a/b")  # This path does not exist
+        >>> path.add_alternative("/home")  # This path does exist
+        >>> str(path)  # Print the string representation of the path which exists
+        '/home'
+        >>> path.name
+        'home'
+
+        For read operations, the path can be used as-is without further considerations. It will go over all locations and return the first one which exist.
+
+        For write operations, the situation is a bit more complex, however. In principle, you also write to the best match, e.g. an existing location. However, you may want to explicitly write to a specific directory. For this, you need to make sure that you have a needle set. Then, you can either construct your path and mkdir your folders in which case a matching needle will always be used even if the match does not exist or explicitly construct your path and resolve it via `find_best_location(writing=True)`. Usually, the mkdir approach is sufficient.
+        """
+
+        def __init__(self, *pathsegments, _alternatives=None, _default_needle=None):
+            super().__init__(*pathsegments)
+
+            self._alternatives = _alternatives if _alternatives is not None else [str(self)]
+            self._default_needle = _default_needle
+
+            if self._alternatives is not None:
+                # Always make sure that the path is set to the best location
+                location = self.find_best_location()
+                super().__init__(location)
+
+        def with_segments(self, *pathsegments):
+            # Called whenever a derivative of a path is created (https://docs.python.org/3.12/library/pathlib.html#pathlib.PurePath.with_segments)
+            return type(self)(*pathsegments, _alternatives=self._alternatives, _default_needle=self._default_needle)
+
+        def __reduce__(self):
+            # Called when pickling path objects (e.g. multiprocessing)
+            deserializer = partial(
+                self.__class__, _alternatives=self._alternatives, _default_needle=self._default_needle
+            )
+            args = self.parts
+            return deserializer, args
+
+else:
+
+    class MultiPath(MultiPathMixin, type(Path())):
+        """
+        This class can be used as an substitute for Path objects. It offers the possibility to have multiple root paths defined. If a new path is constructed and used, all alternatives are checked and the first which exists is used. This works best if relative file paths are unique across all alternatives.
+
+        >>> path = MultiPath("/a/b")  # This path does not exist
+        >>> path.add_alternative("/home")  # This path does exist
+        >>> str(path)  # Print the string representation of the path which exists
+        '/home'
+        >>> path.name
+        'home'
+
+        For read operations, the path can be used as-is without further considerations. It will go over all locations and return the first one which exist.
+
+        For write operations, the situation is a bit more complex, however. In principle, you also write to the best match, e.g. an existing location. However, you may want to explicitly write to a specific directory. For this, you need to make sure that you have a needle set. Then, you can either construct your path and mkdir your folders in which case a matching needle will always be used even if the match does not exist or explicitly construct your path and resolve it via `find_best_location(writing=True)`. Usually, the mkdir approach is sufficient.
+        """
+
+        def __new__(cls, *args, **kwargs):
+            if len(args) == 1:
+                if type(args[0]) == dict:
+                    # Construction from pickled object
+
+                    # e.g. .../2021_02_05_Tivita_multiorgan_masks/intermediates/preprocessing/L1
+                    path = super().__new__(cls, args[0]["path"])
+                    # e.g. [.../2021_02_05_Tivita_multiorgan_semantic/intermediates, .../2021_02_05_Tivita_multiorgan_masks/intermediates, ...]
+                    path._alternatives = args[0]["alternatives"]
+                    # e.g. 2021_02_05_Tivita_multiorgan_masks
+                    path._default_needle = args[0]["default_needle"]
+
+                    return path
+                else:
+                    # Default construction, we just make sure that the path is expanded
+
+                    # Normalize the path and make it absolute without resolving symbolic links as this may break the logic of the MultiPath class which relies on path replacements
+                    # For example, after resolving a symlink the path may not contain any of the alternatives anymore so it is impossible to do the replacements
+                    new_args = [str(unify_path(args[0], resolve_symlinks=False))]
+            else:
+                # Construction from parts
+                new_args = args
+
+            super_path = super().__new__(cls, *new_args, **kwargs)
+
+            # Custom attributes
+            super_path._alternatives = [str(super_path)]
+            super_path._default_needle = None
+            super_path._set_attributes()
+
+            return super_path
+
+        def _make_child(self, args):
+            if len(args) == 1 and Path(args[0]).is_absolute():
+                # If the child path is already absolute, we can just use it as-is
+                abs_path = args[0]
+                if type(abs_path) == str:
+                    abs_path = Path(abs_path)
+                return abs_path
+            else:
+                # Any child path which is created via base / new should also receive the additional class attributes
+                child = super()._make_child(args)
+                child._alternatives = self._alternatives
+                child._default_needle = self._default_needle
+                child._set_attributes()
+
+                return child
+
+        def _set_attributes(self):
+            # The attributes are always based on the current best location
+            location = self.find_best_location()
+            self._drv = location._drv
+            self._root = location._root
+            self._parts = location._parts
+
+        def __reduce__(self):
+            # Called when pickling path objects (e.g. multiprocessing)
+            kwargs = {
+                "path": super().__str__(),
+                "alternatives": self._alternatives,
+                "default_needle": self._default_needle,
+            }
+            return (self.__class__, (kwargs,))

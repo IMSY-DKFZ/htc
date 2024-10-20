@@ -31,6 +31,11 @@
             "enum": ["segmentation", "classification"],
             "default": "segmentation"
         },
+        "seed": {
+            "description": "Sets the seed for the network training and can for example be used for computing different seed runs. The default seed is 1337.",
+            "type": "integer",
+            "default": 1337
+        },
         "input": {
             "description": "Common attributes which affect the loading of the data.",
             "type": "object",
@@ -163,6 +168,17 @@
                 "epoch_size": {
                     "description": "Length of one training epoch in terms of number of images. Can also be a string like '500 images' and then it will translate automatically for non-image based models (like the pixel model) to the appropriate number depending on the image size.",
                     "type": ["integer", "string"]
+                },
+                "table_name": {
+                    "description": "Identifer for the subtable for selecting the median table spectra (see median_table() function for details).",
+                    "type": "string"
+                },
+                "feature_columns": {
+                    "description": "Name of the columns which should be selected as features for the median pixel dataset (cf. DatasetMedianPixel). The resulting column values are concatenated for each sample. Per default, either median_spectrum or median_normalized_spectrum is used, depending on the normalization settings input/normalization or input/preprocessing.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "target_domain": {
                     "description": "Specifies the target domain which should be taken into account in the model or for the sampling. If set to \"no_domain\", assigns each image to the same domain.",
@@ -297,9 +313,21 @@
                     "type": "string"
                 },
                 "checkpoint_saving": {
-                    "description": "Strategy for checkpoint saving. Either the best (default) or the last checkpoint is saved. If set to false, no checkpoints are saved.",
+                    "description": "Strategy for checkpoint saving. Either the best or the last checkpoint is saved. If set to false, no checkpoints are saved.",
                     "type": ["string", "boolean"],
-                    "enum": ["best", "last", false]
+                    "enum": ["best", "last", false],
+                    "default": "last"
+                },
+                "checkpoint_mode": {
+                    "description": "Whether the checkpoint with the highest or lowest score should be saved (only relevant if the best instead of the last checkpoint is saved).",
+                    "type": "string",
+                    "enum": ["min", "max"],
+                    "default": "max"
+                },
+                "checkpoint_weights_only": {
+                    "description": "If set to true, only the model weights will be saved. Otherwise, other training statistics (e.g., optimizer sate) will be saved as well. Saving only the model weights can drastically reduce the model size (e.g., from 480 MiB to 120 MiB) which can be especially important if many networks are trained. Weights are enough to do inference with the model but if you want to continue training at a later point, you should save everything.",
+                    "type": "boolean",
+                    "default": true
                 }
             }
         }

@@ -29,13 +29,13 @@ def nsd_thresholds() -> pd.DataFrame:
     dataset_true = DatasetImage(paths_true, train=False, config=config)
 
     last_valid_label_index = paths_rater[0].dataset_settings["last_valid_label_index"]
-    n_classes = len(
-        [l for l in paths_rater[0].dataset_settings["label_mapping"].values() if l <= last_valid_label_index]
-    )
+    n_classes = len([
+        l for l in paths_rater[0].dataset_settings["label_mapping"].values() if l <= last_valid_label_index
+    ])
     estimator = NSDToleranceEstimation(n_classes, n_groups=len(pigs))
 
     # Collect distances for each image
-    for sample_rater, sample_true in zip(dataset_rater, dataset_true):
+    for sample_rater, sample_true in zip(dataset_rater, dataset_true, strict=True):
         assert sample_rater["image_name"] == sample_true["image_name"]
 
         subject_name = sample_true["image_name"].split("#")[0]

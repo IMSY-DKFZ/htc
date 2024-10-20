@@ -6,7 +6,7 @@ This document will guide you through the process of reproducing the main results
 
 Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) according to the [README](../../README.md).
 
-> The instructions of this document were tested on the `paper_tissue_atlas_v1` tag. However, for reproducing, we recommend to use the latest master instead as there are some general dependencies (e.g. dataset version, cluster access) which are not guaranteed to work on an old tag in the future. Further, the following hardware was used for reproducing:
+> The instructions of this document were tested on the `paper_atlas_v1` tag. However, for reproducing, we recommend to use the latest master instead as there are some general dependencies (e.g. dataset version, cluster access) which are not guaranteed to work on an old tag in the future. Further, the following hardware was used for reproducing:
 >
 > -   GPU: NVIDIA GeForce RTX 3090
 > -   CPU: Intel(R) Xeon(R) W-2145 CPU @ 3.70GHz
@@ -15,7 +15,7 @@ Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) accordin
 You need the masks datasets for this paper. Please copy it from the network drive to your computer, for example via: [≈ 12–16 hours]
 
 ```bash
-rsync -a --delete --info=progress2 --exclude=".git" /mnt/E130-Projekte/Biophotonics/Data/2021_02_05_Tivita_multiorgan_masks/ ~/htc/2021_02_05_Tivita_multiorgan_masks/
+rsync -a --delete --info=progress2 --exclude=".git*" /mnt/E130-Projekte/Biophotonics/Data/2021_02_05_Tivita_multiorgan_masks/ ~/htc/2021_02_05_Tivita_multiorgan_masks/
 ```
 
 Additionally, please create an empty results folder. In the end, your `.env` may look like:
@@ -38,21 +38,21 @@ The confusion matrix is created via the [ConfusionMatrix.ipynb](./ConfusionMatri
 We will only re-train the best-performing network, i.e. we will not redo the complete grid search to reduce the required number of training runs. To start the training, you only need the following command: [≈ 4–6 hours]
 
 ```bash
-htc training --model median_pixel --config tissue_atlas/median_pixel/configs/default.json --test
+htc training --model median_pixel --config atlas/median_pixel/configs/default.json --test
 ```
 
-which takes the [default configuration](../../htc/tissue_atlas/median_pixel/configs/default.json) file and trains all folds subsequently.
+which takes the [default configuration](../../htc/models/median_pixel/configs/default.json) file and trains all folds subsequently.
 
 After the training is complete, combine the results from the different folds including test fold ensembling [≈ 15 minutes]
 
 ```bash
-htc tissue_atlas.test_table_generation
-htc table_generation --notebook htc/tissue_atlas/ExperimentAnalysis.ipynb
+htc atlas.test_table_generation
+htc table_generation --notebook htc_projects/atlas/ExperimentAnalysis.ipynb
 ```
 
 The trained network is stored in `$PATH_HTC_RESULTS/training/median_pixel`. Every folder contains an `ExperimentAnalysis.html` notebook with some statistics of the trained run. Feel free to take a look.
 
-The used network of the paper is defined in [settings_atlas.py](../../htc/tissue_atlas/settings_atlas.py). Please replace the variable `best_run` with the name of your training run folder (the folder name which starts with a timestamp).
+The used network of the paper is defined in [settings_atlas.py](../../htc_projects/atlas/settings_atlas.py). Please replace the variable `best_run` with the name of your training run folder (the folder name which starts with a timestamp).
 
 ## Figure
 

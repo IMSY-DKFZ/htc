@@ -13,8 +13,8 @@ from htc.models.common.HTCLightning import HTCLightning
 from htc.models.common.StreamDataLoader import StreamDataLoader
 from htc.models.common.utils import get_n_classes
 from htc.models.image.DatasetImage import DatasetImage
+from htc.models.median_pixel.DatasetMedianPixel import DatasetMedianPixel
 from htc.models.pixel.DatasetPixelStream import DatasetPixelStream
-from htc.tissue_atlas.median_pixel.DatasetMedianPixel import DatasetMedianPixel
 
 
 class LightningPixel(HTCLightning):

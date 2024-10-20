@@ -5,7 +5,11 @@ import json
 from abc import abstractmethod
 from pathlib import Path
 
+import numpy as np
+
 from htc.models.data.DataSpecification import DataSpecification
+from htc.tivita.DataPath import DataPath
+from htc.utils.LabelMapping import LabelMapping
 
 
 class SpecsGeneration:
@@ -39,4 +43,25 @@ class SpecsGeneration:
 
         Returns: List with different folds.
         """
-        pass
+
+    @staticmethod
+    def compute_label_distribution(paths: list[DataPath], mapping: LabelMapping) -> tuple[list[str], np.ndarray]:
+        """
+        Computes the label distribution per subject for a list of paths. This is useful to create stratified folds for multi-labelled images (i.e., segmentation images).
+
+        Args:
+            paths: A list of data paths.
+            mapping: The label mapping object.
+
+        Returns: List of subjects and the label distribution as count array (n_subjects, n_classes).
+        """
+        subjects = sorted({p.subject_name for p in paths})
+        label_distribution = np.zeros((len(subjects), len(mapping)), dtype=np.int64)
+
+        for p in paths:
+            for label_name in p.annotated_labels():
+                label_index = mapping.name_to_index(label_name)
+                if mapping.is_index_valid(label_index):
+                    label_distribution[subjects.index(p.subject_name), label_index] = 1
+
+        return subjects, label_distribution

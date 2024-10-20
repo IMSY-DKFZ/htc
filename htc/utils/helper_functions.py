@@ -6,7 +6,7 @@ import json
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import nbformat
 import numpy as np
@@ -29,16 +29,20 @@ from htc.utils.Task import Task
 
 def basic_statistics(
     dataset_name: str = None,
-    specs_name: str = None,
+    spec: str | Path | DataSpecification = None,
     label_mapping: LabelMapping = None,
-    annotation_name: Union[str, list[str]] = None,
+    annotation_name: str | list[str] = None,
     paths: list[DataPath] = None,
     image_names: list[str] = None,
 ) -> pd.DataFrame:
     """
     Basic statistics about a dataset.
 
-    >>> df = basic_statistics("2021_02_05_Tivita_multiorgan_semantic", "pigs_semantic-only_5foldsV2.json", label_mapping=settings_seg.label_mapping)
+    >>> df = basic_statistics(
+    ...     "2021_02_05_Tivita_multiorgan_semantic",
+    ...     "pigs_semantic-only_5foldsV2.json",
+    ...     label_mapping=settings_seg.label_mapping,
+    ... )
     >>> print(df.head().to_string())
                      image_name  label_index        label_name  label_valid set_type subject_name            timestamp  n_pixels
     0  P041#2019_12_14_12_00_16            0        background         True    train         P041  2019_12_14_12_00_16    158786
@@ -49,7 +53,7 @@ def basic_statistics(
 
     Args:
         dataset_name: Name of the dataset (folder name on the network drive).
-        specs_name: Name or path to a data specification file. A set_type column will be added indicating for each image whether it is part of the train, test set or not part of the specification. Please note that the specification is not used to select images.
+        spec: Name or path to a data specification file or an existing data specification object. A set_type column will be added indicating for each image whether it is part of the train, test set or not part of the specification. Please note that the specification is not used to select images.
         label_mapping: Optional label mapping which is applied to the statistics table. It will rename all labels, remove invalid labels and give the sum of pixels for the new labels (in case multiple labels like blue_cloth or metal map to the same name like background).
         annotation_name: Optional parameter. If not None, the table will only include the annotations corresponding zu the given annotation_name. Otherwise, all available annotations will be included.
         paths: List of DataPath objects which should be included in the table. Passed on to the `median_table()` function.
@@ -67,12 +71,13 @@ def basic_statistics(
     df = df_median[["image_name", "subject_name", "timestamp", "label_name", "n_pixels"]].copy()
 
     # Add a set_type column based on the data specification file
-    if specs_name is not None:
-        specs = DataSpecification(specs_name)
-        specs.activate_test_set()
+    if spec is not None:
+        if isinstance(spec, str):
+            spec = DataSpecification(spec)
 
-        image_names_train = [p.image_name() for p in specs.paths("^train")]
-        image_names_test = [p.image_name() for p in specs.paths("^test")]
+        with spec.activated_test_set():
+            image_names_train = [p.image_name() for p in spec.paths("^train")]
+            image_names_test = [p.image_name() for p in spec.paths("^test")]
     else:
         image_names_train = []
         image_names_test = []
@@ -108,9 +113,10 @@ def median_table(
     paths: list[DataPath] = None,
     image_names: list[str] = None,
     label_mapping: LabelMapping = None,
-    annotation_name: Union[str, list[str]] = None,
+    keep_mapped_columns: bool = True,
+    annotation_name: str | list[str] = None,
     additional_mappings: dict[str, LabelMapping] = None,
-    image_labels_column: list[dict[str, Union[list[str], LabelMapping]]] = None,
+    image_labels_column: list[dict[str, list[str] | LabelMapping]] = None,
     config: Config = None,
 ) -> pd.DataFrame:
     """
@@ -132,7 +138,9 @@ def median_table(
     ['semantic#intra1']
 
     or individually per image:
-    >>> df = median_table(image_names=["P091#2021_04_24_12_02_50@polygon#annotator1&polygon#annotator2", "P041#2019_12_14_12_01_39"])
+    >>> df = median_table(
+    ...     image_names=["P091#2021_04_24_12_02_50@polygon#annotator1&polygon#annotator2", "P041#2019_12_14_12_01_39"]
+    ... )
     >>> sorted(df["annotation_name"].unique())
     ['polygon#annotator1', 'polygon#annotator2', 'semantic#primary']
 
@@ -144,6 +152,7 @@ def median_table(
         paths: List of DataPath objects from which you want to have the median spectra. If annotation names are specified with a data path object, those names will be used. If specified, image_names must be None.
         image_names: List of image names to search for (similar to the paths parameter). Image names may also include annotation names (e.g. subject#timestamp@name1&name2). It is not ensured that the resulting table contains all requested images because some images may lack annotations or are filtered out by the label_mapping. If specified, paths must be None.
         label_mapping: The target label mapping. There will be a new label_index_mapped column (and a new label_name_mapped column with the new names defined by the mapping) and the old label_index column will be removed (since the label_index is not unique across datasets). Only valid labels will be included in the resulting table. If set to None, then mapping is not carried out.
+        keep_mapped_columns: If True, the columns label_index_mapped and label_name_mapped are kept in the table. If False, they are removed and replace the label_index and label_name columns. This parameter has no effect if no label mapping is given.
         annotation_name: Unique name of the annotation(s) for cases where multiple annotations exist (e.g. inter-rater variability). If None, will use the default from the dataset. If the dataset does not have a default (i.e. the annotation_name_default is missing in the dataset_settings.json file), all annotations are returned. It is also possible to explicitly retrieve all annotations by setting this parameter to 'all'.
         additional_mappings: Additional label mappings for other columns. The keys are the column names and the values are the LabelMapping objects for the respective columns. For each specified column, a new column with _index appended will be added.
         image_labels_column: Specify how multiple columns should be mapped into one `image_labels` column indicating one or more image labels. Each entry in the list specifies one dimension in the `image_labels` columns and the dictionary contains information from which columns values should be mapped from. It is possible to map values from different columns to one image label and to have multiple image labels. The specification is similar to `input/image_labels` in the config file. See tests for examples.
@@ -208,7 +217,7 @@ def median_table(
     def read_table(
         dataset_name: str,
         table_name: str,
-        annotation_name: Union[str, list[str], None],
+        annotation_name: str | list[str] | None,
         requested_image_names: list[str] = None,
     ) -> pd.DataFrame:
         table_identifier = (dataset_name, table_name)
@@ -278,8 +287,8 @@ def median_table(
     if dataset_name is not None:
         if (dataset_name, table_name) not in tables:
             error_message = (
-                f"Could not find the table {dataset_name}@{table_name} in the registered median tables (from all"
-                f" available datasets):\n{tables.keys()}"
+                f"Could not find the table {dataset_name}{'@' + table_name if table_name != '' else ''} in the"
+                f" registered median tables (from all available datasets):\n{tables.keys()}"
             )
             if "#" not in dataset_name:
                 # If the dataset consists only of subdatasets but the main dataset is requested, collect all tables and merge them, e.g.
@@ -289,7 +298,7 @@ def median_table(
                     if _dataset_name.startswith(dataset_name) and table_name == _table_name:
                         parent_tables.append(read_table(_dataset_name, _table_name, annotation_name))
                 if len(parent_tables) > 0:
-                    return pd.concat(parent_tables, ignore_index=True)
+                    df = pd.concat(parent_tables, ignore_index=True)
                 else:
                     raise ValueError(error_message)
             else:
@@ -477,6 +486,15 @@ def median_table(
 
         df["image_labels"] = image_labels
 
+    if label_mapping is not None and not keep_mapped_columns:
+        df = df.drop(columns=["label_index", "label_name"])
+        df = df.rename(
+            columns={
+                "label_index_mapped": "label_index",
+                "label_name_mapped": "label_name",
+            }
+        )
+
     return df
 
 
@@ -646,11 +664,11 @@ def utilization_table(run_dir: Path) -> pd.DataFrame:
 
 
 def sort_labels(
-    storage: Union[np.ndarray, list, set, dict, pd.DataFrame],
-    label_ordering: Union[dict[str, Union[str, int]], list[str]] = None,
+    storage: np.ndarray | list | set | dict | pd.DataFrame,
+    label_ordering: dict[str, str | int] | list[str] = None,
     sorting_cols: list[str] = None,
     dataset_name: str = None,
-) -> Union[np.ndarray, list, dict, pd.DataFrame]:
+) -> np.ndarray | list | dict | pd.DataFrame:
     """
     Sort the organs in the storage according to the label ordering of the surgeons.
 
@@ -717,14 +735,14 @@ def sort_labels(
 
 @automatic_numpy_conversion
 def sort_labels_cm(
-    cm: Union[torch.Tensor, np.ndarray], cm_order: list[str], target_order: list[str]
-) -> Union[torch.Tensor, np.ndarray]:
+    cm: torch.Tensor | np.ndarray, cm_order: list[str], target_order: list[str]
+) -> torch.Tensor | np.ndarray:
     """
     Sorts the rows/columns in a cm to a target order.
 
     >>> cm = np.array([[0, 10, 3], [1, 2, 3], [8, 6, 4]])
-    >>> cm_order = ['b', 'a', 'c']
-    >>> target_order = ['a', 'b', 'c']
+    >>> cm_order = ["b", "a", "c"]
+    >>> target_order = ["a", "b", "c"]
     >>> sort_labels_cm(cm, cm_order, target_order)
     array([[ 2,  1,  3],
            [10,  0,  3],

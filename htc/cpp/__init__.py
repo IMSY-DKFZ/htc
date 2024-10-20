@@ -3,7 +3,6 @@
 
 import functools
 from collections.abc import Callable
-from typing import Union
 
 import matplotlib as mpl
 import numpy as np
@@ -58,11 +57,11 @@ def automatic_numpy_conversion(func: Callable) -> Callable:
 
 @automatic_numpy_conversion
 def spxs_predictions(
-    spxs: Union[torch.Tensor, np.ndarray],
-    labels: Union[torch.Tensor, np.ndarray],
-    mask: Union[torch.Tensor, np.ndarray],
+    spxs: torch.Tensor | np.ndarray,
+    labels: torch.Tensor | np.ndarray,
+    mask: torch.Tensor | np.ndarray,
     n_classes: int = None,
-) -> tuple[Union[torch.Tensor, np.ndarray], Union[torch.Tensor, np.ndarray]]:
+) -> tuple[torch.Tensor | np.ndarray, torch.Tensor | np.ndarray]:
     """
     Calculates a prediction based on the superpixel labels by taking the mode of all labels inside the superpixel and then assigning this label to each pixel in the superpixel.
 
@@ -91,8 +90,8 @@ def spxs_predictions(
 
 @automatic_numpy_conversion
 def segmentation_mask(
-    label_image: Union[torch.Tensor, np.ndarray], color_mapping: dict[tuple[int, int, int], int]
-) -> Union[torch.Tensor, np.ndarray]:
+    label_image: torch.Tensor | np.ndarray, color_mapping: dict[tuple[int, int, int], int]
+) -> torch.Tensor | np.ndarray:
     """
     Calculates the segmentation mask based on a color image and a defined color mapping. Every color in the label_image must get a new value in color_mapping defined.
 
@@ -120,7 +119,7 @@ def segmentation_mask(
 
 
 @automatic_numpy_conversion
-def tensor_mapping(tensor: Union[torch.Tensor, np.ndarray], mapping: dict[int, int]) -> Union[torch.Tensor, np.ndarray]:
+def tensor_mapping(tensor: torch.Tensor | np.ndarray, mapping: dict[int, int]) -> torch.Tensor | np.ndarray:
     """
     General function to efficiently remap values of a tensor in-place.
 
@@ -185,10 +184,7 @@ def nunique(inp: torch.Tensor, dim: int = None) -> torch.Tensor:
     """
     Counts the unique elements along dimension dim.
 
-    >>> tensor = torch.tensor(
-    ...     [[1, 2],
-    ...      [1, 3]]
-    ... )
+    >>> tensor = torch.tensor([[1, 2], [1, 3]])
     >>> nunique(tensor, dim=0)
     tensor([1, 2])
     >>> nunique(tensor, dim=1)
@@ -216,7 +212,7 @@ def map_label_image(label_image: torch.Tensor, label_mapping: "LabelMapping") ->
     Creates a colored segmentation mask based on a label image and a correspond color mapping (defined as part of a label mapping).
 
     >>> from htc.utils.LabelMapping import LabelMapping
-    >>> mapping = LabelMapping({'a': 0, 'b': 1}, last_valid_label_index=1, label_colors={'a': '#FFFFFF', 'b': '#000000'})
+    >>> mapping = LabelMapping({"a": 0, "b": 1}, last_valid_label_index=1, label_colors={"a": "#FFFFFF", "b": "#000000"})
     >>> map_label_image(torch.tensor([[0, 1, 1]]), mapping)
     tensor([[[1., 1., 1., 1.],
              [0., 0., 0., 1.],
@@ -246,11 +242,11 @@ def hierarchical_bootstrapping(
     Note: This function is not deterministic but you can set a seed.
 
     >>> from lightning import seed_everything
-    >>> print('ignore_line'); seed_everything(0)  # doctest: +ELLIPSIS
-    ignore_line...
+    >>> seed_everything(0)  # doctest: +ELLIPSIS
+    [...]
     >>> mapping = {
-    ...     0: {0: [10]},              # First camera, one subject with one image
-    ...     1: {1: [20, 30], 2: [40]}  # Second camera, two subjects with two and one image each
+    ...     0: {0: [10]},  # First camera, one subject with one image
+    ...     1: {1: [20, 30], 2: [40]},  # Second camera, two subjects with two and one image each
     ... }
     >>> hierarchical_bootstrapping(mapping, n_subjects=2, n_images=1, n_bootstraps=4)
     tensor([[30, 20, 10, 10],
@@ -296,10 +292,10 @@ def hierarchical_bootstrapping_labels(
     Note: This function is not deterministic but you can set a seed.
 
     >>> from lightning import seed_everything
-    >>> print('ignore_line'); seed_everything(0)  # doctest: +ELLIPSIS
-    ignore_line...
+    >>> seed_everything(0)  # doctest: +ELLIPSIS
+    [...]
     >>> domain_mapping = {
-    ...     0: {0: [10, 11]},           # First camera, one subject with two images
+    ...     0: {0: [10, 11]},  # First camera, one subject with two images
     ...     1: {1: [20, 30], 2: [40]},  # Second camera, two subjects with two and one image each
     ... }
     >>> label_images_mapping = {

@@ -7,12 +7,12 @@ RUN curl -fsSL https://get.docker.com -o /get-docker.sh \
 
 # Install the Libertinus font
 RUN apt install -y fontconfig wget \
- && mkdir /usr/share/fonts/opentype \
- && wget -O /usr/share/fonts/opentype/libertinus.tar.xz https://github.com/alerque/libertinus/releases/download/v7.040/Libertinus-7.040.tar.xz \
- && tar -xvf /usr/share/fonts/opentype/libertinus.tar.xz --directory /usr/share/fonts/opentype \
- && mv /usr/share/fonts/opentype/Libertinus-7.040/static/OTF /usr/share/fonts/opentype/libertinus \
- && rm -d -R -f /usr/share/fonts/opentype/Libertinus-7.040 \
- && rm /usr/share/fonts/opentype/libertinus.tar.xz \
+ && mkdir -p /usr/share/fonts/opentype \
+ && wget -O /usr/share/fonts/opentype/libertinus.tar.zst https://github.com/alerque/libertinus/releases/download/v7.051/Libertinus-7.051.tar.zst \
+ && tar -xvf /usr/share/fonts/opentype/libertinus.tar.zst --directory /usr/share/fonts/opentype \
+ && mv /usr/share/fonts/opentype/Libertinus-7.051/static/OTF /usr/share/fonts/opentype/libertinus \
+ && rm -d -R -f /usr/share/fonts/opentype/Libertinus-7.051 \
+ && rm /usr/share/fonts/opentype/libertinus.tar.zst \
  && fc-cache -f -v
 
 # ImageMagick for PDF image comparison (used in paper tests)

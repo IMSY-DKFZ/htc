@@ -4,7 +4,6 @@
 import logging
 import os
 from pathlib import Path
-from typing import Union
 
 from appdirs import user_config_dir
 from dotenv import load_dotenv
@@ -19,7 +18,7 @@ from htc.utils.MultiPath import MultiPath
 
 
 class ColoredFormatter(logging.Formatter):
-    def format(self, record):  # noqa: A003
+    def format(self, record):
         # Apply level-specific color
         levelname_prev = record.levelname
         record.levelname = f"[logging.level.{record.levelname.lower()}]{record.levelname}[/]"
@@ -44,7 +43,7 @@ class Settings:
 
     Create a test environment with our two results directories and some test files
     >>> from htc.settings import settings
-    >>> tmp_dir = getfixture('tmp_path')
+    >>> tmp_dir = getfixture("tmp_path")
     >>> results_semantic = tmp_dir / "results_semantic"
     >>> results_semantic.mkdir(parents=True, exist_ok=True)
     >>> n_bytes = (results_semantic / "testfile_semantic.txt").write_text("test")
@@ -53,21 +52,20 @@ class Settings:
     >>> n_bytes = (results_atlas / "testfile_atlas.txt").write_text("test")
 
     Mock our environment to use our temporary results directories. We also set results_semantic in `PATH_HTC_RESULTS` because we want new files to be written to this directory
-    >>> monkeypatch = getfixture('monkeypatch')
+    >>> monkeypatch = getfixture("monkeypatch")
     >>> for k in os.environ.keys():  # Make sure no other results directory is set
     ...     if k.startswith("PATH_HTC_RESULTS"):
     ...         monkeypatch.setenv(k, "")
     >>> monkeypatch.setenv("HTC_ADD_NETWORK_ALTERNATIVES", "false")
-    >>> monkeypatch.setenv('PATH_HTC_RESULTS', str(results_semantic))
-    >>> monkeypatch.setenv('PATH_HTC_RESULTS_SEMANTIC', str(results_semantic))
-    >>> monkeypatch.setenv('PATH_HTC_RESULTS_ATLAS', str(results_atlas))
+    >>> monkeypatch.setenv("PATH_HTC_RESULTS", str(results_semantic))
+    >>> monkeypatch.setenv("PATH_HTC_RESULTS_SEMANTIC", str(results_semantic))
+    >>> monkeypatch.setenv("PATH_HTC_RESULTS_ATLAS", str(results_atlas))
     >>> monkeypatch.setattr(settings, "_results_dir", None)  # May already exists from other doctests
 
     We can access our results directories via our settings
     >>> settings.results_dir  # doctest: +ELLIPSIS
     Class: MultiPath
-    Root location: .../results_semantic (exists=True)
-    Best location (considering needle .../results_semantic): .../results_semantic (exists=True)
+    Used location (considering needle .../results_semantic): .../results_semantic (exists=True)
     All locations:
     .../results_semantic (exists=True)
     .../results_atlas (exists=True)
@@ -87,7 +85,7 @@ class Settings:
     ['.../results_atlas/testfile_atlas.txt', '.../results_semantic/new_testfile.txt', '.../results_semantic/testfile_semantic.txt']
 
     The above behavior is useful for general scripts like `htc training` which can be used in any project. If you have a script or notebook which can only be used for one project, then it is also possible to access the specific results directory for this project explicitly
-    >>> from htc.tissue_atlas.settings_atlas import settings_atlas
+    >>> from htc_projects.atlas.settings_atlas import settings_atlas
     >>> n_bytes = (settings_atlas.results_dir / "new_testfile_atlas.txt").write_text("test")
     >>> [str(f) for f in sorted(settings_atlas.results_dir.rglob("*"))]  # doctest: +ELLIPSIS
     ['.../results_atlas/new_testfile_atlas.txt', '.../results_atlas/testfile_atlas.txt']
@@ -97,8 +95,8 @@ class Settings:
     - `PATH_HTC_DOCKER_RESULTS`: If you compute something in our Docker container, results will only be stored in the container and deleted as soon as the container exits (since the container is only intended for testing). Let this variable point to a directory of your choice to keep your Docker results. Example: `PATH_HTC_DOCKER_RESULTS="/my/results/folder"`
     - `HTC_ADD_NETWORK_ALTERNATIVES`: If set to the string `true`, will include results and intermediate directories on the network drive (default `false`). This is usually only required for testing. Example: `HTC_ADD_NETWORK_ALTERNATIVES="true"`
     - `HTC_ENV_OVERRIDE`: Whether environment variables defined in the .env file or in your user settings override existing variables (default `true`). Set this to `false` if you want that variables defined elsewhere (e.g. before the command: `ENV_NAME htc command`) have precedence. Example: `HTC_ENV_OVERRIDE="false"`
-    - `HTC_MODEL_COMPARISON_TIMESTAMP`: Variable is read in settings_seg and can be used to overwrite the default comparison timestamp (e.g. used for the reproducibility of our MIA2022 paper). Example: `HTC_MODEL_COMPARISON_TIMESTAMP="2022-02-03_22-58-44"`
-    - `HTC_BENCHMARKING_TIMESTAMP`: Variable is read in settings_bench and can be used to overwrite the default timestamp for the benchmarking networks (e.g. used for the reproducibility of our PyTorchConf2023 poster). Example: `HTC_BENCHMARKING_TIMESTAMP="2023-09-03_22-48-13"`
+    - `HTC_MODEL_TIMESTAMP`: Variable is read in settings_seg and can be used to overwrite the default comparison timestamp (e.g. used for the reproducibility of our MIA2022 paper). Example: `HTC_MODEL_TIMESTAMP="2022-02-03_22-58-44"`
+    - `HTC_BENCHMARKING_TIMESTAMP`: Variable is read in settings_benchmarking and can be used to overwrite the default timestamp for the benchmarking networks (e.g. used for the reproducibility of our PyTorchConf2023 poster). Example: `HTC_BENCHMARKING_TIMESTAMP="2023-09-03_22-48-13"`
     - `HTC_CUDA_MEM_FRACTION`: Used in run_training.py to limit the GPU memory to a fraction of the available GPU memory (e.g. to simulate GPUs with less memory). Example: `HTC_CUDA_MEM_FRACTION="0.5"`
     - `HTC_SYSTEM_MONITOR_REFRESH_RATE`: Refresh rate x in seconds for the system monitor (an event will be logged every x seconds). Example: `HTC_SYSTEM_MONITOR_REFRESH="0.15"`
     - `DKFZ_USERID`: Name of your AD account (DKFZ internal). This is useful for the communication with our cluster. Example: `DKFZ_USERID="a267c"`
@@ -207,12 +205,18 @@ class Settings:
 
         # Cluster settings
         self.dkfz_userid = os.getenv("DKFZ_USERID")
-        self.cluster_folder = os.getenv("CLUSTER_FOLDER", f"OE0176/{self.dkfz_userid}")
-        self.shared_folder = os.getenv("SHARED_FOLDER", "OE0176/shared_htc")
+        self.cluster_user_folder = os.getenv("CLUSTER_FOLDER", f"OE0176/{self.dkfz_userid}")
+        self.cluster_shared_folder = os.getenv("SHARED_FOLDER", "OE0176/shared_htc")
+        self.cluster_checkpoints_dir = ""
+        self.cluster_data_dir = ""
+        self.cluster_worker_host = ""
+        self.cluster_worker_host_alternative = ""
+        self.cluster_submission_host = ""
 
         # General
         self.default_seed = 1337
         self.label_index_thresh = 100
+        self.tivita_timestamp_format = "%Y_%m_%d_%H_%M_%S"
 
         # Colors for common labels
         # (label, color) mapping as generated by color_organs() in htc.utils.colors
@@ -287,6 +291,8 @@ class Settings:
             "tag_malperfused": "#03ffff",
             "tag_tumor": "#ff5100",
             "instrument": "#636363",
+            "ischemia": "#773100",
+            "penumbra": "#FFB200",
             "fur": "#FF7830",
             "ligament_pat": "#FFB46D",
             "pleura": "#FFF893",
@@ -314,7 +320,7 @@ class Settings:
             "PATH_HTC_DOCKER_RESULTS",
             "HTC_ADD_NETWORK_ALTERNATIVES",
             "HTC_ENV_OVERRIDE",
-            "HTC_MODEL_COMPARISON_TIMESTAMP",
+            "HTC_MODEL_TIMESTAMP",
             "HTC_CUDA_MEM_FRACTION",
             "DKFZ_USERID",
             "CLUSTER_FOLDER",
@@ -408,7 +414,7 @@ class Settings:
         return DatasetAccessor(self.datasets, "path_intermediates")
 
     @property
-    def intermediates_dir_all(self) -> Union[MultiPath, None]:
+    def intermediates_dir_all(self) -> MultiPath | None:
         """
         This property can be used to access files in any of the registered intermediate directories (from all datasets which are available).
 
@@ -449,7 +455,6 @@ class Settings:
                             f"The data directory {found_dir} is available but not accessible (permission denied). The"
                             " directory will be skipped"
                         )
-                        pass
 
             if len(dirs) == 0:
                 self._intermediates_dir_all = False
@@ -464,7 +469,7 @@ class Settings:
         return None if not self._intermediates_dir_all else self._intermediates_dir_all
 
     @property
-    def results_dir(self) -> Union[MultiPath, None]:
+    def results_dir(self) -> MultiPath | None:
         """
         This property can be used to read or write to your results directories (`PATH_HTC_RESULTS` and `PATH_HTC_RESULTS_*` environment variables).
 
@@ -504,7 +509,7 @@ class Settings:
         return None if not self._results_dir else self._results_dir
 
     @property
-    def training_dir(self) -> Union[MultiPath, None]:
+    def training_dir(self) -> MultiPath | None:
         """
         This property can be used to access the training directory of all registered datasets.
 
@@ -516,6 +521,20 @@ class Settings:
         Returns: Multi path object for the training directories. None if no results directory is set.
         """
         return self.results_dir / "training" if self.results_dir is not None else None
+
+    @property
+    def htc_projects_dir(self) -> Path:
+        """
+        This property can be used to locate the directory where the htc_projects package is installed.
+
+        >>> settings.htc_projects_dir.exists()
+        True
+
+        Returns: Path to the htc_projects directory.
+        """
+        import htc_projects
+
+        return Path(htc_projects.__file__).parent
 
 
 settings = Settings()

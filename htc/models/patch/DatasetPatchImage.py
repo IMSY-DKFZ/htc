@@ -72,9 +72,7 @@ class DatasetPatchImage(DatasetImage):
             output_size=image_size_expanded,
             kernel_size=(self.patch_height, self.patch_width),
             stride=(self.patch_height, self.patch_width),
-        )(
-            tensor.type(torch.float32)
-        )  # [1, 100, 480, 640]
+        )(tensor.type(torch.float32))  # [1, 100, 480, 640]
         tensor = tensor.type(original_type).squeeze()
 
         if len(tensor.shape) == 3:

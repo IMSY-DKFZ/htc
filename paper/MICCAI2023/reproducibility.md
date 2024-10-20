@@ -8,7 +8,7 @@ Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) accordin
 
 > These instructions were tested on the `paper_context_v1` tag. However, for reproducing, we recommend to use the latest master instead as there are some general dependencies (e.g. dataset version, cluster access) which are not guaranteed to work on an old tag in the future.
 
-You also need the semantic, masks and unsorted datasets. Please copy them from `E130-Projekte/Biophotonics/Data` to your computer if not already done (e.g. `rsync -a --delete --info=progress2 --exclude=".git" /mnt/E130-Projekte/Biophotonics/Data/2021_02_05_Tivita_multiorgan_semantic/ ~/htc/2021_02_05_Tivita_multiorgan_semantic/`). Additionally, please create an empty results folder. In the end, your `.env` may look like:
+You also need the semantic, masks and unsorted datasets. Please copy them from `E130-Projekte/Biophotonics/Data` to your computer if not already done (e.g. `rsync -a --delete --info=progress2 --exclude=".git*" /mnt/E130-Projekte/Biophotonics/Data/2021_02_05_Tivita_multiorgan_semantic/ ~/htc/2021_02_05_Tivita_multiorgan_semantic/`). Additionally, please create an empty results folder. In the end, your `.env` may look like:
 
 ```bash
 export DKFZ_USERID=j562r
@@ -21,7 +21,7 @@ export PATH_HTC_RESULTS=~/htc/results
 
 > If you are already using this repository, it is recommend to clone it to a new folder and use a fresh conda environment. Existing results folder should not be available for the reproduction.
 
-You also need access to the cluster, i.e. `ssh $DKFZ_USERID@bsub02.lsf.dkfz.de` should work (cf. our [cluster documentation](../../cluster/cluster_usage.md) for more details). You may want to run the (short) tests to ensure that everything works (cf. [README](../../README.md)).
+You also need access to the cluster, i.e. `ssh $DKFZ_USERID@$WORKER_NODE` should work (cf. our [cluster documentation](../../htc/cluster/cluster_usage.md) for more details). You may want to run the (short) tests to ensure that everything works (cf. [README](../../README.md)).
 
 > Please use a [`screen`](https://linuxize.com/post/how-to-use-linux-screen/) environment for all of the following commands since they may take a while to complete.
 
@@ -47,9 +47,9 @@ htc move_results
 htc table_generation
 ```
 
-The trained networks are stored in `$PATH_HTC_RESULTS/training/image`. The [settings_context.py](../../htc/context/settings_context.py) file lists all the networks which are used for our paper. During the reproducibility, you need to change the run folder names with the updated names from the new training runs. For now, please update the `baseline` network names of the `glove_runs` and `glove_runs_rgb` properties since you just re-trained them.
+The trained networks are stored in `$PATH_HTC_RESULTS/training/image`. The [settings_context.py](../../htc_projects/context/settings_context.py) file lists all the networks which are used for our paper. During the reproducibility, you need to change the run folder names with the updated names from the new training runs. For now, please update the `baseline` network names of the `glove_runs` and `glove_runs_rgb` properties since you just re-trained them.
 
-> Please do not commit changes to the [settings_context.py](../../htc/context/settings_context.py) file which are due to the run folder name changes. This is just for the reproducibility.
+> Please do not commit changes to the [settings_context.py](../../htc_projects/context/settings_context.py) file which are due to the run folder name changes. This is just for the reproducibility.
 
 For the second part, we need to run some inference tasks on the existing MIA2022 networks as well as your freshly trained glove runs (HSI and RGB image models) [≈ 1 day]:
 
@@ -73,22 +73,22 @@ Similar to before, after all jobs succeeded, copy the trained models from the cl
 
 ```bash
 htc move_results
-htc table_generation --notebook "htc/context/models/ExperimentAnalysis.ipynb"
+htc table_generation --notebook "htc_projects/context/models/ExperimentAnalysis.ipynb"
 ```
 
 The trained networks are stored in `$PATH_HTC_RESULTS/training/image`. Every folder contains an `ExperimentAnalysis.html` notebook (which is different to the previous training runs) with some statistics of the trained run. Feel free to take a look.
 
-You have now re-trained all networks of our paper. Please update all remaining run folder names in [settings_context.py](../../htc/context/settings_context.py) of the properties `best_transform_runs`, `best_transform_runs_rgb`, `glove_runs` and `glove_runs_rgb` (everything except the `baseline` runs because you already updated those properties in the previous step). In the end, you should have changed the following properties in the [settings_context.py](../../htc/context/settings_context.py) file:
+You have now re-trained all networks of our paper. Please update all remaining run folder names in [settings_context.py](../../htc_projects/context/settings_context.py) of the properties `best_transform_runs`, `best_transform_runs_rgb`, `glove_runs` and `glove_runs_rgb` (everything except the `baseline` runs because you already updated those properties in the previous step). In the end, you should have changed the following properties in the [settings_context.py](../../htc_projects/context/settings_context.py) file:
 
 <details>
 <summary>Show changes</summary>
 
 ```diff
-src » git diff htc/context/settings_context.py                                                                                  ~/htc/src
-diff --git a/htc/context/settings_context.py b/htc/context/settings_context.py
+src » git diff htc_projects/context/settings_context.py                                                                                  ~/htc/src
+diff --git a/htc_projects/context/settings_context.py b/htc_projects/context/settings_context.py
 index 4c207d7d..b478c9ad 100644
---- a/htc/context/settings_context.py
-+++ b/htc/context/settings_context.py
+--- a/htc_projects/context/settings_context.py
++++ b/htc_projects/context/settings_context.py
 @@ -287,40 +287,40 @@ class SettingContext:
      def best_transform_runs(self) -> dict[str, MultiPath]:
          # Best runs for each transformation (found via find_best_transform_run())

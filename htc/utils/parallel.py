@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 import multiprocessing.pool as mpp
-from collections.abc import Generator, Iterable
-from typing import Callable, Union
+from collections.abc import Callable, Generator, Iterable
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import psutil
 from rich.progress import Progress, ProgressColumn, Task, Text, TimeElapsedColumn
@@ -34,22 +34,23 @@ def istarmap(pool: mpp.Pool, func: Callable, iterable: Iterable, chunksize: int 
     return (item for chunk in result for item in chunk)
 
 
-def p_imap(
+def p_map(
     func: Callable,
     *iterables: Iterable,
-    num_cpus: Union[int, float] = None,
+    num_cpus: int | float = None,
     task_name: str = "Working...",
     hide_progressbar: bool = False,
     use_threads: bool = False,
+    use_executor: bool = False,
 ) -> Generator:
     """
-    Iterate in parallel over a function with one or more iterables. Items are processed and returned in order as soon as they are finished. A progress bar (using the rich library) will be printed during execution.
+    Iterate in parallel over a function with one or more iterables. Items are processed and returned in order. A progress bar (using the rich library) will be printed during execution.
 
-    This function is similar to p_imap from the p_tqdm package (https://github.com/swansonk14/p_tqdm) but offers Python 3.10+ support and uses rich for the progress bar.
+    This function is similar to p_map from the p_tqdm package (https://github.com/swansonk14/p_tqdm) but offers Python 3.10+ support and uses rich for the progress bar.
 
     >>> a = [1, 2, 3]
     >>> b = [1, 2, 3]
-    >>> list(p_imap(pow, a, b))  # doctest: +ELLIPSIS
+    >>> p_map(pow, a, b)  # doctest: +ELLIPSIS
     Working...
     [1, 4, 27]
 
@@ -60,8 +61,9 @@ def p_imap(
         task_name: Name of the task which will be printed left to the progress bar.
         hide_progressbar: If True, do not show a progress bar.
         use_threads: If True, use a thread pool instead of a processing pool. Python does not have real multi-threading (due to the GIL) but multiple threads may still result in better CPU utilization if external libraries (like numpy or torch) are used or if the task is I/O-heavy. Threads may be more stable than processes which is useful in Jupyter notebooks (e.g. cells can be executed multiple times without kernel restarts).
+        use_executor: If True, use an executor class instead of the multiprocessing pools. There are many differences between those two (cf. [this article](https://superfastpython.com/multiprocessing-pool-vs-processpoolexecutor/) for an overview) but one key difference is that with executors it is possible that processes can have child-processes. For default multiprocessing pools, this would not be possible because they are daemonic (leading to errors like `daemonic processes are not allowed to have children`).
 
-    Yields: Processed items.
+    Returns: List of processed items.
     """
     iterable_lengths = {len(i) for i in iterables}
     assert len(iterable_lengths) == 1, "All iterables must have the same length"
@@ -71,6 +73,7 @@ def p_imap(
     elif type(num_cpus) == float:
         num_cpus = int(round(num_cpus * psutil.cpu_count(logical=False)))
 
+    items = []
     with Progress(
         *Progress.get_default_columns(),
         TimeElapsedColumn(),
@@ -80,18 +83,22 @@ def p_imap(
     ) as progress:
         task_id = progress.add_task(f"[cyan]{task_name}[/]", total=next(iter(iterable_lengths)))
 
-        pool = mpp.ThreadPool(num_cpus) if use_threads else mpp.Pool(num_cpus)
-        for item in istarmap(pool, func, zip(*iterables)):
-            progress.advance(task_id)
-            yield item
+        if use_executor:
+            PoolClass = ThreadPoolExecutor if use_threads else ProcessPoolExecutor
+            with PoolClass(num_cpus) as executor:
+                for item in executor.map(func, *iterables):
+                    progress.advance(task_id)
+                    items.append(item)
+        else:
+            pool = mpp.ThreadPool(num_cpus) if use_threads else mpp.Pool(num_cpus)
+            for item in istarmap(pool, func, zip(*iterables, strict=True)):
+                progress.advance(task_id)
+                items.append(item)
 
-        # We need to properly close the pool for correct coverage (https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html)
-        pool.close()
-        pool.join()
+            # We need to properly close the pool for correct coverage (https://pytest-cov.readthedocs.io/en/latest/subprocess-support.html)
+            pool.close()
+            pool.join()
 
         progress.refresh()
 
-
-def p_map(*args, **kwargs) -> list:
-    """Similar to p_imap but all results are returned as a list (instead of using a generator)."""
-    return list(p_imap(*args, **kwargs))
+    return items

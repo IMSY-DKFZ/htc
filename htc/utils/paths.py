@@ -2,13 +2,14 @@
 # SPDX-License-Identifier: MIT
 
 import argparse
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Union
 
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.settings_seg import settings_seg
 from htc.tivita.DataPath import DataPath
+from htc.utils.LabelMapping import LabelMapping
 
 
 def filter_semantic_labels_only(path: "DataPath") -> bool:
@@ -26,6 +27,24 @@ def filter_min_labels(path: "DataPath", min_labels: int = 1) -> bool:
         return True
     else:
         return False
+
+
+def filter_labels(path: "DataPath", mapping: LabelMapping) -> bool:
+    labels = set(mapping.label_names(all_names=True))
+    return len(set(path.annotated_labels()).intersection(labels)) > 0
+
+
+def filter_is_in_situ(p: DataPath) -> bool:
+    label_meta_data = p.meta("label_meta")
+    if label_meta_data is None:
+        # An image is in_situ per default
+        return True
+
+    for label_meta in label_meta_data.values():
+        if label_meta.get("in_situ", True) is True:
+            return True
+
+    return False
 
 
 def all_masks_paths() -> list[DataPath]:
@@ -108,7 +127,7 @@ class ParserPreprocessing:
             ),
         )
 
-    def get_paths(self, filters: Union[list[Callable[["DataPath"], bool]], None] = None) -> list[DataPath]:
+    def get_paths(self, filters: list[Callable[["DataPath"], bool]] | None = None) -> list[DataPath]:
         self.args = self.parser.parse_args()
         if self.args.spec is not None:
             assert self.args.dataset_path is None, "--dataset-path is not used if --spec is given"
@@ -119,11 +138,9 @@ class ParserPreprocessing:
             assert self.args.spec is None, "--spec is not used if --dataset-path is given"
             paths = list(DataPath.iterate(self.args.dataset_path))
         else:
-            if self.args.dataset_name == "2021_02_05_Tivita_multiorgan_masks":
-                paths = list(DataPath.iterate(settings.data_dirs[self.args.dataset_name], filters))
-                paths += list(DataPath.iterate(settings.data_dirs[self.args.dataset_name] / "overlap", filters))
-            else:
-                paths = list(DataPath.iterate(settings.data_dirs[self.args.dataset_name], filters))
+            paths = list(DataPath.iterate(settings.data_dirs[self.args.dataset_name], filters))
+            if (overlap_dir := settings.data_dirs[self.args.dataset_name] / "overlap").exists():
+                paths += list(DataPath.iterate(overlap_dir, filters))
 
         if self.args.dataset_name is not None:
             # From now on, we write to the intermediates directory of the selected dataset

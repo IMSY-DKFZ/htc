@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 
 from functools import partial
-from typing import Union
 
 import torch
 
@@ -12,7 +11,6 @@ from htc.model_processing.TestPredictor import TestPredictor
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 from htc.utils.blosc_compression import compress_file
-from htc.utils.Config import Config
 from htc.utils.visualization import compress_html, prediction_figure_html
 
 
@@ -28,7 +26,7 @@ class InferenceConsumer(ImageConsumer):
 
         self.config.save_config(self.target_dir / "config.json")
 
-    def handle_image_data(self, image_data: dict[str, Union[torch.Tensor, DataPath, str]]) -> None:
+    def handle_image_data(self, image_data: dict[str, torch.Tensor | DataPath | str]) -> None:
         path = image_data["path"]
 
         confidence, predictions = image_data["predictions"].max(dim=0)
@@ -60,28 +58,20 @@ if __name__ == "__main__":
             " output directory."
         )
     )
-    runner.add_argument("--input-dir")
     runner.add_argument("--output-dir")
     runner.add_argument("--annotation-name")
-    runner.add_argument("--spec")
-    runner.add_argument("--spec-fold")
-    runner.add_argument("--spec-split")
-    runner.add_argument("--paths-variable")
     runner.add_argument("--predictions-type", type=str, choices=["softmax", "labels"], default="labels")
 
-    paths = runner.paths
-    assert paths is not None, "Either --input-dir or --spec must be provided"
-    settings.log.info(f"Compute the prediction for {len(paths)} images")
-
-    config = Config(runner.run_dir / "config.json")
+    settings.log.info(f"Compute the prediction for {len(runner.paths)} images")
 
     # This is a general script which should work for arbitrary images so we might not have access to the intermediate files
     # Hence, we compute the L1 normalization on the fly
+    config = runner.config
     if config["input/preprocessing"] == "L1":
         config["input/preprocessing"] = None
         config["input/normalization"] = "L1"
 
     runner.start(
-        partial(TestPredictor, paths=paths, config=config),
+        partial(TestPredictor, paths=runner.paths, config=config),
         partial(InferenceConsumer),
     )

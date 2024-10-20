@@ -9,27 +9,29 @@ from htc.model_processing.Predictor import Predictor
 from htc.model_processing.TestEnsemble import TestEnsemble
 from htc.models.common.HTCLightning import HTCLightning
 from htc.models.common.torch_helpers import move_batch_gpu
-from htc.models.data.DataSpecification import DataSpecification
 from htc.tivita.DataPath import DataPath
 
 
 class TestPredictor(Predictor):
-    def __init__(self, *args, paths: list[DataPath] = None, fold_names: list[str] = None, **kwargs):
+    def __init__(self, *args, paths: list[DataPath], fold_names: list[str] = None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if fold_names is None:
-            model_paths = sorted(self.run_dir.glob("fold*"))  # All folds per default
+        if isinstance(self.run_dir, list):
+            model_paths = []
+            for r in self.run_dir:
+                if fold_names is None:
+                    model_paths += sorted(r.glob("fold*"))  # All folds per default
+                else:
+                    model_paths += [r / f for f in fold_names]
         else:
-            model_paths = [self.run_dir / f for f in fold_names]
+            if fold_names is None:
+                model_paths = sorted(self.run_dir.glob("fold*"))  # All folds per default
+            else:
+                model_paths = [self.run_dir / f for f in fold_names]
         assert len(model_paths) > 0, "At least one fold required"
 
         # We do not need pretrained model during testing
         self.config["model/pretrained_model"] = None
-
-        if paths is None:
-            specs = DataSpecification(self.run_dir / "data.json")
-            specs.activate_test_set()
-            paths = specs.paths("^test")
 
         self.name_path_mapping = {p.image_name(): p for p in paths}
         self.model = TestEnsemble(model_paths, paths, self.config)
@@ -45,7 +47,7 @@ class TestPredictor(Predictor):
 
             for batch in dataloader:
                 remaining_image_names = []
-                for b, image_name in enumerate(batch["image_name"]):
+                for image_name in batch["image_name"]:
                     predictions = self.load_predictions(image_name)
                     if predictions is not None:
                         task_queue.put({

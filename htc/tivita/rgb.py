@@ -16,7 +16,7 @@ def read_tivita_rgb(path: Path, target_shape: tuple = (480, 640)) -> np.ndarray:
 
     >>> from htc.settings import settings
     >>> from htc.tivita.DataPath import DataPath
-    >>> paths = DataPath.iterate(settings.data_dirs['PATH_Tivita_multiorgan_semantic'])
+    >>> paths = DataPath.iterate(settings.data_dirs["PATH_Tivita_multiorgan_semantic"])
     >>> path = next(iter(paths))
     >>> rgb = path.read_rgb_reconstructed()
     >>> rgb.shape

@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import importlib
 import sys
 from typing import TYPE_CHECKING
 
@@ -10,6 +9,7 @@ from lazy_imports import LazyImporter
 # Cannot be imported lazily because they would be misinterpreted as a module by LazyImporter
 from htc.settings import settings
 from htc.settings_seg import settings_seg
+from htc_projects.atlas.settings_atlas import settings_atlas
 
 # If you want to add new imports to this file, please add them both, to the _import_structure dict and inside the TYPE_CHECKING check
 
@@ -52,6 +52,7 @@ _import_structure = {
     "models.common.HTCLightning": ["HTCLightning"],
     "models.common.HTCModel": ["HTCModel"],
     "models.common.MetricAggregation": ["MetricAggregation"],
+    "models.common.MetricAggregationClassification": ["MetricAggregationClassification"],
     "models.common.StreamDataLoader": ["StreamDataLoader"],
     "models.common.torch_helpers": [
         "FlexibleIdentity",
@@ -73,6 +74,8 @@ _import_structure = {
     "models.image.DatasetImageStream": ["DatasetImageStream"],
     "models.image.LightningImage": ["LightningImage"],
     "models.image.ModelImage": ["ModelImage"],
+    "models.median_pixel.DatasetMedianPixel": ["DatasetMedianPixel"],
+    "models.median_pixel.LightningMedianPixel": ["LightningMedianPixel"],
     "models.patch.DatasetPatchImage": ["DatasetPatchImage"],
     "models.patch.DatasetPatchStream": ["DatasetPatchStream"],
     "models.patch.LightningPatch": ["LightningPatch"],
@@ -84,11 +87,6 @@ _import_structure = {
     "models.superpixel_classification.DatasetSuperpixelStream": ["DatasetSuperpixelStream"],
     "models.superpixel_classification.LightningSuperpixelClassification": ["LightningSuperpixelClassification"],
     "models.superpixel_classification.ModelSuperpixelClassification": ["ModelSuperpixelClassification"],
-    "tissue_atlas": ["tissue_atlas"],
-    "tissue_atlas.median_pixel.DatasetMedianPixel": ["DatasetMedianPixel"],
-    "tissue_atlas.median_pixel.LightningMedianPixel": ["LightningMedianPixel"],
-    "tissue_atlas.MetricAggregationClassification": ["MetricAggregationClassification"],
-    "tissue_atlas.settings_atlas": ["settings_atlas"],
     "tivita": ["tivita"],
     "tivita.colorscale": ["tivita_colorscale"],
     "tivita.DataPath": ["DataPath"],
@@ -100,7 +98,6 @@ _import_structure = {
     "utils.AdvancedJSONEncoder": ["AdvancedJSONEncoder"],
     "utils.blosc_compression": ["compress_file", "decompress_file"],
     "utils.ColorcheckerReader": ["ColorcheckerReader"],
-    "utils.ColoredFileLog": ["ColoredFileLog"],
     "utils.colors": ["generate_distinct_colors"],
     "utils.Config": ["Config"],
     "utils.Datasets": ["Datasets"],
@@ -127,7 +124,7 @@ _import_structure = {
     "utils.LDA": ["LDA"],
     "utils.MeasureTime": ["MeasureTime"],
     "utils.MultiPath": ["MultiPath"],
-    "utils.parallel": ["p_imap", "p_map"],
+    "utils.parallel": ["p_map"],
     "utils.SpectrometerReader": ["SpectrometerReader"],
     "utils.sqldf": ["sqldf"],
     "utils.Task": ["Task"],
@@ -188,6 +185,7 @@ if TYPE_CHECKING:
     from htc.models.common.HTCLightning import HTCLightning
     from htc.models.common.HTCModel import HTCModel
     from htc.models.common.MetricAggregation import MetricAggregation
+    from htc.models.common.MetricAggregationClassification import MetricAggregationClassification
     from htc.models.common.StreamDataLoader import StreamDataLoader
     from htc.models.common.torch_helpers import (
         FlexibleIdentity,
@@ -208,6 +206,8 @@ if TYPE_CHECKING:
     from htc.models.image.DatasetImageStream import DatasetImageStream
     from htc.models.image.LightningImage import LightningImage
     from htc.models.image.ModelImage import ModelImage
+    from htc.models.median_pixel.DatasetMedianPixel import DatasetMedianPixel
+    from htc.models.median_pixel.LightningMedianPixel import LightningMedianPixel
     from htc.models.patch.DatasetPatchImage import DatasetPatchImage
     from htc.models.patch.DatasetPatchStream import DatasetPatchStream
     from htc.models.patch.LightningPatch import LightningPatch
@@ -219,10 +219,6 @@ if TYPE_CHECKING:
     from htc.models.superpixel_classification.DatasetSuperpixelStream import DatasetSuperpixelStream
     from htc.models.superpixel_classification.LightningSuperpixelClassification import LightningSuperpixelClassification
     from htc.models.superpixel_classification.ModelSuperpixelClassification import ModelSuperpixelClassification
-    from htc.tissue_atlas.median_pixel.DatasetMedianPixel import DatasetMedianPixel
-    from htc.tissue_atlas.median_pixel.LightningMedianPixel import LightningMedianPixel
-    from htc.tissue_atlas.MetricAggregationClassification import MetricAggregationClassification
-    from htc.tissue_atlas.settings_atlas import settings_atlas
     from htc.tivita.colorscale import tivita_colorscale
     from htc.tivita.DataPath import DataPath
     from htc.tivita.DatasetSettings import DatasetSettings
@@ -232,7 +228,6 @@ if TYPE_CHECKING:
     from htc.utils.AdvancedJSONEncoder import AdvancedJSONEncoder
     from htc.utils.blosc_compression import compress_file, decompress_file
     from htc.utils.ColorcheckerReader import ColorcheckerReader
-    from htc.utils.ColoredFileLog import ColoredFileLog
     from htc.utils.colors import generate_distinct_colors
     from htc.utils.Config import Config
     from htc.utils.Datasets import Datasets
@@ -259,7 +254,7 @@ if TYPE_CHECKING:
     from htc.utils.LDA import LDA
     from htc.utils.MeasureTime import MeasureTime
     from htc.utils.MultiPath import MultiPath
-    from htc.utils.parallel import p_imap, p_map
+    from htc.utils.parallel import p_map
     from htc.utils.SpectrometerReader import SpectrometerReader
     from htc.utils.sqldf import sqldf
     from htc.utils.Task import Task
@@ -282,11 +277,9 @@ if TYPE_CHECKING:
         visualize_dict,
     )
 else:
-    spec = importlib.util.find_spec("htc")
     sys.modules[__name__] = LazyImporter(
         __name__,
-        globals()["__file__"],
+        __file__,
         _import_structure,
-        extra_objects={"settings": settings, "settings_seg": settings_seg},
+        extra_objects={"settings": settings, "settings_seg": settings_seg, "settings_atlas": settings_atlas},
     )
-    sys.modules[__name__].__spec__ = spec

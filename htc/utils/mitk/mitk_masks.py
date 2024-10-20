@@ -1,15 +1,16 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import io
 import json
 import re
 import xml.etree.ElementTree as ET
 from copy import deepcopy
 from pathlib import Path
-from typing import Union
 
 import numpy as np
-from matplotlib.colors import to_rgb
+from matplotlib.colors import to_hex, to_rgb
+from typing_extensions import Buffer
 
 from htc.cpp import nunique
 from htc.utils.import_extra import requires_extra
@@ -23,8 +24,14 @@ except ImportError:
     _missing_library = "nrrd"
 
 
+# keeping track of relevant header attribute names, so that these variables can be used in other scripts
+# related to reading and analyzing of nrrd files
+header_attribute_version = "org.mitk.multilabel.segmentation.version"
+header_attribute_labelgroups = "org.mitk.multilabel.segmentation.labelgroups"
+
+
 @requires_extra(_missing_library)
-def nrrd_mask(nrrd_file: Path) -> dict[str, Union[np.ndarray, LabelMapping]]:
+def nrrd_mask(nrrd_file: Path) -> dict[str, np.ndarray | LabelMapping]:
     """
     Read an nrrd mask file from MITK. This file contains all the information from the annotation process.
 
@@ -62,6 +69,8 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, Union[np.ndarray, LabelMapping]]:
     Returns: Dictionary with the following content:
         - mask: Array with the raw label indices per pixel.
         - label_mapping: Label mapping to interpret the label indices.
+        - labels_per_layer: A list containing label names present in each layer of the nrrd file
+        - conflicting_label_found: A boolean which indicates if a label value conflict i.e. same label value specified more than once in the nrrd file metadata, is found
     """
     data, header = nrrd.read(nrrd_file)
 
@@ -74,11 +83,19 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, Union[np.ndarray, LabelMapping]]:
         mask = mask.transpose(2, 0, 1)
 
     mapping_nrrd = {}
+    mapping_nrrd_colors = {}
     max_label_index = 0  # used to keep track of iterating label index in different layers. MITK assigns labels starting from 0 in each layer.
 
+    # keep track of labels within each layer in the nrrd metadata. This is useful for validating nrrd files.
+    labels_per_layer = []
+
+    # keep track of all indexes and the corresponding labels in the nrrd file. This is useful for validating nrrd files
+    index_to_label_layers = {}
+    conflicting_label_found = False
+
     # new MITK version NRRD files have to handled separately as they contain JSON meta data
-    if "org.mitk.multilabel.segmentation.version" in header:
-        label_groups = json.loads(header["org.mitk.multilabel.segmentation.labelgroups"])
+    if header_attribute_version in header:
+        label_groups = json.loads(header[header_attribute_labelgroups])
         n_layers = len(label_groups)
 
         # in the new format there is no exterior label, so the total n labels are incremented here
@@ -86,7 +103,7 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, Union[np.ndarray, LabelMapping]]:
         mapping_nrrd["unlabeled"] = 0
 
         for layer in range(n_layers):
-
+            labels_per_layer.append([])
             if label_groups[layer]["labels"] is not None:
                 total_n_labels += len(label_groups[layer]["labels"])
             else:
@@ -101,16 +118,23 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, Union[np.ndarray, LabelMapping]]:
             for label in label_groups[layer]["labels"]:
                 label_name = label["name"]
                 label_index = label["value"]
+                label_color = to_hex(label["color"]["value"])
 
                 # in case the label name has the label order number as a prefix e.g. 12_kidney, then extract the label name
                 match = re.search(r"^\d+_", label_name)
                 if match is not None:
                     label_name = label_name.removeprefix(match.group(0))
 
+                labels_per_layer[layer].append(label_name)
+
+                if label_index in index_to_label_layers:
+                    conflicting_label_found = True
+
+                index_to_label_layers.update({label_index: label_name})
                 if label_name not in mapping_nrrd:
-                    mapping_nrrd[label_name] = (
-                        max(mapping_nrrd.values()) + 1
-                    )  # remapping to the smallest unassigned label_index
+                    # remapping to the smallest unassigned label_index
+                    mapping_nrrd[label_name] = max(mapping_nrrd.values()) + 1
+                    mapping_nrrd_colors[label_name] = label_color
 
                 if mask.ndim == 3:
                     mask[layer, layer_mask == label_index] = mapping_nrrd[label_name]
@@ -122,6 +146,7 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, Union[np.ndarray, LabelMapping]]:
         n_layers = int(header["layers"])
 
         for layer in range(n_layers):
+            labels_per_layer.append([])
             n_labels = int(header[f"layer_00{layer}"])
             total_n_labels += n_labels
 
@@ -139,11 +164,22 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, Union[np.ndarray, LabelMapping]]:
                 if match is not None:
                     label_name = label_name.removeprefix(match.group(0))
 
+                labels_per_layer[layer].append(label_name)
+
+                if label_index in index_to_label_layers:
+                    conflicting_label_found = True
+
+                index_to_label_layers.update({label_index: label_name})
+                colors = root.find("property[@key='color']/color").attrib
+                label_color = to_hex((float(colors["r"]), float(colors["g"]), float(colors["b"])))
+
                 if i == 0:
                     mapping_nrrd["unlabeled"] = label_index
+                    mapping_nrrd_colors["unlabeled"] = label_color
                 else:
                     if label_name not in mapping_nrrd:
                         mapping_nrrd[label_name] = max(mapping_nrrd.values()) + 1
+                        mapping_nrrd_colors[label_name] = label_color
 
                     if mask.ndim == 3:
                         mask[layer, layer_mask == label_index] = mapping_nrrd[label_name]
@@ -152,18 +188,23 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, Union[np.ndarray, LabelMapping]]:
 
             max_label_index = max(mapping_nrrd.values())
 
-    mappings_nrrd = LabelMapping(mapping_nrrd, last_valid_label_index=max_label_index, zero_is_invalid=True)
+    mappings_nrrd = LabelMapping(
+        mapping_nrrd, last_valid_label_index=max_label_index, zero_is_invalid=True, label_colors=mapping_nrrd_colors
+    )
 
     assert nunique(mask) <= total_n_labels
 
-    return {"mask": mask, "label_mapping": mappings_nrrd}
+    return {
+        "mask": mask,
+        "label_mapping": mappings_nrrd,
+        "labels_per_layer": labels_per_layer,
+        "conflicting_label_found": conflicting_label_found,
+    }
 
 
 @requires_extra(_missing_library)
 def segmentation_to_nrrd(
-    nrrd_file: Path,
-    mask: np.ndarray,
-    mapping_mask: LabelMapping,
+    nrrd_file: Path, mask: np.ndarray, mapping_mask: LabelMapping, mask_labels_only: bool = True
 ) -> None:
     """
     Converts an existing segmentation mask to an nrrd file which can be read by MITK. This is useful if existing masks should be loaded into MITK for visualization or adaptations.
@@ -171,12 +212,12 @@ def segmentation_to_nrrd(
     >>> from htc.tivita.DataPath import DataPath
     >>> import tempfile
     >>> with tempfile.NamedTemporaryFile() as tmpfile:
-    ...    tmpfile = Path(tmpfile.name)
-    ...    path = DataPath.from_image_name("SPACE_000001#2020_08_14_11_11_22")
-    ...    segmentation_dict = path.read_segmentation(annotation_name="all")
-    ...    mask = np.stack(list(segmentation_dict.values()))
-    ...    segmentation_to_nrrd(nrrd_file=tmpfile, mask=mask, mapping_mask=LabelMapping.from_path(path))
-    ...    labels = nrrd_mask(nrrd_file=tmpfile)['label_mapping'].label_names()
+    ...     tmpfile = Path(tmpfile.name)
+    ...     path = DataPath.from_image_name("SPACE_000001#2020_08_14_11_11_22")
+    ...     segmentation_dict = path.read_segmentation(annotation_name="all")
+    ...     mask = np.stack(list(segmentation_dict.values()))
+    ...     segmentation_to_nrrd(nrrd_file=tmpfile, mask=mask, mapping_mask=LabelMapping.from_path(path))
+    ...     labels = nrrd_mask(nrrd_file=tmpfile)["label_mapping"].label_names()
     >>> labels
     ['colon', 'omentum', 'small_bowel', 'fat', 'instrument', 'background', 'blue_cloth', 'unclear_organic', 'tag_blood']
 
@@ -184,6 +225,7 @@ def segmentation_to_nrrd(
         nrrd_file: Path where the nrrd file should be stored.
         mask: a dict of masks, each key representing an annotation name e.g. {{annotation_name1: mask, annotation_name2: mask...}}. If None, path must be given.
         mapping_mask: Label mapping for the segmentation mask which gives every label index in the segmentation mask a name. If None, path must be given.
+        mask_labels_only: ensures that the nrrd file only contains labels in the metadata that are found in the mask, as opposed to adding all labels in the mapping to the metadata
     """
 
     # create a copy of mask
@@ -201,7 +243,14 @@ def segmentation_to_nrrd(
         else:
             mapping_mitk[mapping_mask.index_to_name(label_index)] = 0
 
-    mapping_mitk = LabelMapping(mapping_mitk, zero_is_invalid=True)
+    # if not only the labels available in masks, but all labels should be added to the nrrd files' metadata
+    if not mask_labels_only:
+        missing_labels = sorted(set(mapping_mask.label_names()) - set(mapping_mitk.keys()))
+        for label in missing_labels:
+            mapping_mitk[label] = i
+            i += 1
+
+    mapping_mitk = LabelMapping(mapping_mitk, zero_is_invalid=True, label_colors=mapping_mask.label_colors)
     assert mapping_mitk.last_valid_label_index == i - 1
     assert len(mapping_mitk) <= len(mapping_mask)
 
@@ -241,9 +290,9 @@ def segmentation_to_nrrd(
         "modality": "org.mitk.multilabel.segmentation",
         "DICOM_0008_0060": '{"values":[{"z":0, "t":0, "value":"SEG"}]}',
         "DICOM_0008_103E": '{"values":[{"z":0, "t":0, "value":"MITK Segmentation"}]}',
-        "org.mitk.multilabel.segmentation.labelgroups": [],
+        header_attribute_labelgroups: [],
         "org.mitk.multilabel.segmentation.unlabeledlabellock": "0",
-        "org.mitk.multilabel.segmentation.version": "1",
+        header_attribute_version: "1",
         "type": "unsigned short",
         "space": "left-posterior-superior",
         "space origin": [0, 0, 0],
@@ -282,13 +331,30 @@ def segmentation_to_nrrd(
             )
 
             curr_label_index += 1
-        header["org.mitk.multilabel.segmentation.labelgroups"].append(labelgroup)
+        header[header_attribute_labelgroups].append(labelgroup)
 
-    header["org.mitk.multilabel.segmentation.labelgroups"] = json.dumps(
-        header["org.mitk.multilabel.segmentation.labelgroups"]
-    )
+    header[header_attribute_labelgroups] = json.dumps(header[header_attribute_labelgroups])
 
-    nrrd.write(str(nrrd_file), data=mask_copy.astype(np.ushort), header=header)
+    # Unfortunately, the pynrrd library writes the current timestamp into the file as comment which (for example) breaks git diffs
+    # The solution here is to remove those comments manually from the NRRD file
+    class NRRDBytesIO(io.BytesIO):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+            self.write_call_counts = 0
+
+        def write(self, buffer: Buffer) -> int:
+            self.write_call_counts += 1
+            if 2 <= self.write_call_counts <= 3:
+                assert buffer.decode("ascii").startswith("#")
+                return 0
+            else:
+                return super().write(buffer)
+
+    io_stream = NRRDBytesIO()
+    nrrd.write(io_stream, data=mask_copy.astype(np.ushort), header=header)
+
+    with nrrd_file.open("wb") as f:
+        f.write(io_stream.getbuffer())
 
 
 def segmentation_to_nrrd_annotation_name(
@@ -304,11 +370,16 @@ def segmentation_to_nrrd_annotation_name(
     >>> from htc.tivita.DataPath import DataPath
     >>> import tempfile
     >>> with tempfile.NamedTemporaryFile() as tmpfile:
-    ...    tmpfile = Path(tmpfile.name)
-    ...    path = DataPath.from_image_name("SPACE_000001#2020_08_14_11_11_22")
-    ...    mask = path.read_segmentation(annotation_name="all")
-    ...    segmentation_to_nrrd_annotation_name(nrrd_file=tmpfile, mask=mask, mapping_mask=LabelMapping.from_path(path), annotation_name_to_layer={"semantic#primary": 0, "polygon#annotator1": 1})
-    ...    labels = nrrd_mask(nrrd_file=tmpfile)['label_mapping'].label_names()
+    ...     tmpfile = Path(tmpfile.name)
+    ...     path = DataPath.from_image_name("SPACE_000001#2020_08_14_11_11_22")
+    ...     mask = path.read_segmentation(annotation_name="all")
+    ...     segmentation_to_nrrd_annotation_name(
+    ...         nrrd_file=tmpfile,
+    ...         mask=mask,
+    ...         mapping_mask=LabelMapping.from_path(path),
+    ...         annotation_name_to_layer={"semantic#primary": 0, "polygon#annotator1": 1},
+    ...     )
+    ...     labels = nrrd_mask(nrrd_file=tmpfile)["label_mapping"].label_names()
     >>> labels
     ['background', 'blue_cloth', 'colon', 'omentum', 'small_bowel', 'unclear_organic']
 

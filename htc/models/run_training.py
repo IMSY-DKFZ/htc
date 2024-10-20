@@ -11,7 +11,6 @@ import subprocess
 import sys
 import warnings
 from datetime import datetime
-from typing import Union
 
 import numpy as np
 import torch
@@ -20,8 +19,9 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Ri
 from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 from threadpoolctl import threadpool_limits
 
+from htc.cluster.utils import adjust_num_workers
 from htc.models.common.HTCLightning import HTCLightning
-from htc.models.common.utils import adjust_num_workers, infer_swa_lr
+from htc.models.common.utils import infer_swa_lr
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.utils.Config import Config
@@ -32,7 +32,7 @@ from htc.utils.Task import Task
 
 
 class FoldTrainer:
-    def __init__(self, model_name: str, config_name: str, config_extends: Union[str, None]):
+    def __init__(self, model_name: str, config_name: str, config_extends: str | None):
         self.model_name = model_name
         self.config = Config.from_model_name(config_name, model_name, use_shared_dict=True)
         if config_extends is not None:
@@ -52,7 +52,7 @@ class FoldTrainer:
         self.spec = DataSpecification.from_config(self.config)
         self.LightningClass = HTCLightning.class_from_config(self.config)
 
-    def train_fold(self, run_folder: Union[str, None], fold_name: str, *args) -> None:
+    def train_fold(self, run_folder: str | None, fold_name: str, *args) -> None:
         if run_folder is None:
             run_folder = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_{self.config["config_name"]}')
 
@@ -80,7 +80,7 @@ class FoldTrainer:
         model_dir_tmp.rename(run_path / fold_name)
 
     def _train_fold(self, model_dir: str, fold_name: str, test: bool, file_log_handler: DelayedFileHandler) -> None:
-        settings.log.info("The following config will be used for training:")
+        settings.log.info(f"The following config will be used for training the {Task.from_config(self.config)} task:")
         settings.log.info(f"{self.config}")
 
         seed_everything(self.config.get("seed", settings.default_seed), workers=True)
@@ -163,7 +163,7 @@ class FoldTrainer:
         callbacks = [lr_monitor]
 
         if self.config["validation/checkpoint_saving"] is not False:
-            checkpoint_saving = self.config.get("validation/checkpoint_saving", "best")
+            checkpoint_saving = self.config.get("validation/checkpoint_saving", "last")
             if checkpoint_saving == "best":
                 save_top_k = 1
                 save_last = False
@@ -182,6 +182,7 @@ class FoldTrainer:
                 save_last=save_last,
                 monitor=self.config["validation/checkpoint_metric"],
                 mode=self.config.get("validation/checkpoint_mode", "max"),
+                save_weights_only=self.config.get("validation/checkpoint_weights_only", True),
             )
             callbacks.append(checkpoint_callback)
         else:
@@ -213,14 +214,6 @@ class FoldTrainer:
                 "ignore", message="Checkpoint directory.*exists and is not empty", category=UserWarning
             )
             warnings.filterwarnings("ignore", message=".*`IterableDataset` has `__len__` defined", category=UserWarning)
-            warnings.filterwarnings(
-                "ignore",
-                message=(
-                    ".*from an ambiguous collection. The batch size we found is"
-                    f" {self.config['dataloader_kwargs/batch_size']}.*"
-                ),
-                category=UserWarning,
-            )
             warnings.filterwarnings(
                 "ignore",
                 message=(
@@ -264,8 +257,8 @@ class FoldTrainer:
 def train_all_folds(
     model_name: str,
     config_name: str,
-    config_extends: Union[str, None],
-    run_folder: Union[str, None],
+    config_extends: str | None,
+    run_folder: str | None,
     test: bool,
     file_log_handler: DelayedFileHandler,
 ) -> None:

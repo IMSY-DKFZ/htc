@@ -3,7 +3,6 @@
 
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Union
 
 import torch
 
@@ -22,37 +21,41 @@ class SinglePredictor:
         self,
         model: str = None,
         run_folder: str = None,
-        path: Union[str, Path] = None,
+        path: str | Path = None,
         fold_name: str = None,
         device: str = "cuda",
         test: bool = False,
-        config: Union[Config, str] = None,
+        config: Config | str = None,
     ) -> None:
         """
-        Class which can be used to create predictions for individual samples or batches for a model.
+        Class which can be used to create predictions for individual samples, batches or paths for a model.
 
-        In contrast to the `TestPredictor` and `ValidationPredictor` classes, this class does not spawn producer-consumer processes but operates only on the main process. It is useful if predictions are only required for individual samples and not for entire datasets, if the post-processing of the prediction is very simple or if everything is done on the GPU anyway.
+        In contrast to the `TestPredictor` and `ValidationPredictor` classes (e.g., used by the `htc inference` command), this class does not spawn producer-consumer processes but operates only on the main process. It is useful if predictions are only required for individual samples and not for entire datasets, if the post-processing of the prediction is very simple or if everything is done on the GPU anyway.
 
         Example prediction using a single model:
         >>> from htc import DataPath
-        >>> print("some_log_messages"); predictor_val = SinglePredictor(model="image", run_folder="2023-02-08_14-48-02_organ_transplantation_0.8")  # doctest: +ELLIPSIS
-        some_log_messages...
+        >>> predictor_val = SinglePredictor(
+        ...     model="image", run_folder="2023-02-08_14-48-02_organ_transplantation_0.8"
+        ... )  # doctest: +ELLIPSIS
+        [...]
         >>> path = DataPath.from_image_name("P041#2019_12_14_12_29_18")
         >>> sample = torch.from_numpy(path.read_cube(normalization=1))
         >>> prediction_val = predictor_val.predict_sample(sample)["class"].argmax(dim=0).cpu()
         >>> prediction_val.shape
         torch.Size([480, 640])
 
-        We get different results when using the test ensemble:
-        >>> print("some_log_messages"); predictor_test = SinglePredictor(model="image", run_folder="2023-02-08_14-48-02_organ_transplantation_0.8", test=True)  # doctest: +ELLIPSIS
-        some_log_messages...
+        We get different results when using test ensembling:
+        >>> predictor_test = SinglePredictor(
+        ...     model="image", run_folder="2023-02-08_14-48-02_organ_transplantation_0.8", test=True
+        ... )  # doctest: +ELLIPSIS
+        [...]
         >>> prediction_test = predictor_test.predict_sample(sample)["class"].argmax(dim=0).cpu()
         >>> torch.any(prediction_val != prediction_test)
         tensor(True)
 
         It is also possible to make predictions for batches. This works easily in conjunction with a dataloader class:
         >>> from htc import DatasetImageBatch, DataSpecification
-        >>> config = Config("htc/context/models/configs/organ_transplantation_0.8.json")
+        >>> config = Config("htc_projects/context/models/configs/organ_transplantation_0.8.json")
         >>> spec = DataSpecification("pigs_semantic-only_5foldsV2.json")
         >>> paths = spec.paths("val")
         >>> dataloader = DatasetImageBatch.batched_iteration(paths, config)
@@ -75,16 +78,27 @@ class SinglePredictor:
             config: Configuration object to use or name of the configuration file to load (relative to the run directory). If None, the default configuration file of the training run will be loaded.
         """
         self.run_dir = HTCModel.find_pretrained_run(model, run_folder, path)
+        if isinstance(self.run_dir, list):
+            self.run_dir_main = self.run_dir[0]
+        else:
+            self.run_dir_main = self.run_dir
+
         self.device = device
         if config is None:
-            self.config = Config(self.run_dir / "config.json")
+            self.config = Config(self.run_dir_main / "config.json")
         else:
-            self.config = config if type(config) == Config else Config(self.run_dir / config)
+            self.config = config if type(config) == Config else Config(self.run_dir_main / config)
         self.label_mapping = LabelMapping.from_config(self.config)
         self.features_dtype = dtype_from_config(self.config)
 
         if test:
-            model_paths = sorted(self.run_dir.glob("fold*"))
+            if isinstance(self.run_dir, list):
+                model_paths = []
+                for r in self.run_dir:
+                    model_paths += sorted(r.glob("fold*"))
+            else:
+                model_paths = sorted(self.run_dir.glob("fold*"))
+
             assert len(model_paths) > 0, "At least one fold required"
             self.model = TestEnsemble(model_paths, paths=None, config=self.config)
             self.model.eval()
@@ -124,7 +138,7 @@ class SinglePredictor:
 
         return logits
 
-    def predict_batch(self, batch: Union[dict[str, torch.Tensor], torch.Tensor]) -> dict[str, torch.Tensor]:
+    def predict_batch(self, batch: dict[str, torch.Tensor] | torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Compute the predictions for a batch of samples.
 
@@ -145,7 +159,7 @@ class SinglePredictor:
 
     def predict_paths(
         self, paths: list[DataPath], return_batch: bool = True
-    ) -> Iterator[tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]]:
+    ) -> Iterator[tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]] | dict[str, torch.Tensor]]:
         """
         Compute predictions for every path.
 

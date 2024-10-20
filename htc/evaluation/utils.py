@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 from pathlib import Path
-from typing import Union
 
+import numpy as np
 import pandas as pd
 
 from htc import sort_labels
@@ -14,7 +14,7 @@ from htc.utils.Config import Config
 
 def split_test_table(
     run_dir: Path, table_name: str = "test_table.pkl.xz", split_tables: bool = True
-) -> Union[dict[str, pd.DataFrame], pd.DataFrame]:
+) -> dict[str, pd.DataFrame] | pd.DataFrame:
     """
     Read a test table which contains multiple test sets. This is the default if your data specification has more than one test set but the TestPredictor only creates one resulting test table.
 
@@ -67,7 +67,7 @@ def split_test_table(
         return df
 
 
-def aggregated_table(run_dir: Path, table_name: str, **kwargs) -> Union[pd.DataFrame, None]:
+def aggregated_table(run_dir: Path, table_name: str, **kwargs) -> pd.DataFrame | None:
     """
     Read a validation or test table and aggregate the results organ-wise.
 
@@ -134,3 +134,16 @@ def aggregated_confidences_table(run_dir: Path, table_name: str) -> pd.DataFrame
     df_agg = df_agg.sort_values(by=["threshold"]).reset_index(drop=True)
 
     return df_agg
+
+
+def aggregator_bootstrapping(x: pd.DataFrame, columns: list[str], n_bootstraps: int = 1000) -> pd.Series:
+    bootstrap_indices = np.random.randint(0, len(x), (len(x), n_bootstraps))
+
+    res = {}
+    for col in columns:
+        values = np.nanmean(np.stack(x[col])[bootstrap_indices], axis=0)
+        res[col + "_mean"] = np.nanmean(values, axis=0)
+        res[col + "_q025"] = np.nanquantile(values, q=0.025, axis=0)
+        res[col + "_q975"] = np.nanquantile(values, q=0.975, axis=0)
+
+    return pd.Series(res)

@@ -6,14 +6,14 @@ import os
 import shutil
 import signal
 import subprocess
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any
 
 import numpy as np
 
 
-def apply_recursive(func: Callable, obj: Union[dict, list, Any]) -> Any:
+def apply_recursive(func: Callable, obj: dict | list | Any) -> Any:
     """
     Apply a callback to every element of a potentially nested structure.
 
@@ -102,6 +102,7 @@ def safe_copy(src: Path, dst: Path, **kwargs) -> None:
     Args:
         src: Path to the source file or directory.
         dst: Path to the destination file or directory.
+        **kwargs: Keyword arguments passed to shutil.copy2.
 
     Raises:
         ValueError: In case the copy is different to the original file.

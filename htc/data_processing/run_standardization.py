@@ -83,7 +83,7 @@ def calc_standardization_folds(specs: DataSpecification) -> dict[str, dict[str, 
     fold_datasets = [specs.folds[f] for f in specs.fold_names()]
     results = p_map(calc_standardization, fold_datasets)
 
-    return dict(zip(specs.fold_names(), results))
+    return dict(zip(specs.fold_names(), results, strict=True))
 
 
 if __name__ == "__main__":
@@ -99,4 +99,4 @@ if __name__ == "__main__":
 
     target_dir = settings.intermediates_dir_all / "data_stats"
     target_dir.mkdir(parents=True, exist_ok=True)
-    pickle.dump(results, open(target_dir / f"{specs.name()}#standardization.pkl", "wb"))
+    pickle.dump(results, (target_dir / f"{specs.name()}#standardization.pkl").open("wb"))

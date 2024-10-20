@@ -15,8 +15,8 @@ import inspect
 import io
 import re
 import sqlite3
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Callable
 from warnings import catch_warnings, filterwarnings
 
 import numpy as np
@@ -186,7 +186,7 @@ def write_table(df, tablename, conn):
     """Write a dataframe to the database."""
     with catch_warnings():
         filterwarnings(
-            "ignore", message="The provided table name '%s' is not found exactly as such in the database" % tablename
+            "ignore", message=f"The provided table name '{tablename}' is not found exactly as such in the database"
         )
         to_sql(
             df, name=tablename, con=conn, index=not any(name is None for name in df.index.names)
@@ -205,18 +205,15 @@ def sqldf(query, env=None):
         variable environment; locals() or globals() in your function
         allows sqldf to access the variables in your python environment
 
-    Returns
+    Returns:
     -------
     result: DataFrame
         returns a DataFrame with your query's result
 
-    Examples
+    Examples:
     --------
     >>> import pandas as pd
-    >>> df = pd.DataFrame({
-    ...     "x": range(100),
-    ...     "y": range(100)
-    ... })
+    >>> df = pd.DataFrame({"x": range(100), "y": range(100)})
     >>> from htc.utils.sqldf import sqldf
     >>> sqldf("SELECT AVG(x) FROM df").loc[0].item()
     49.5

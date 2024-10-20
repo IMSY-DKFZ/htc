@@ -5,7 +5,6 @@ import argparse
 import re
 from functools import partial
 from pathlib import Path
-from typing import Union
 
 import pandas as pd
 
@@ -25,7 +24,7 @@ except ImportError:
     _missing_library = "challenger_pydocker"
 
 
-def get_algorithm(run_dir: Path, parameter: Union[str, None]) -> str:
+def get_algorithm(run_dir: Path, parameter: str | None) -> str:
     if parameter is None:
         return re.sub(r"^[\d-]+_[\d-]+_(?:generated_)?", "", run_dir.name).replace("_64", "")
     else:

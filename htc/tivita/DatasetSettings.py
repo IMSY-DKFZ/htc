@@ -4,7 +4,7 @@
 import json
 import threading
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 
@@ -12,7 +12,7 @@ from htc.utils.type_from_string import type_from_string
 
 
 class DatasetSettings:
-    def __init__(self, path_or_data: Union[str, Path, dict]):
+    def __init__(self, path_or_data: str | Path | dict):
         """
         Settings of the dataset (label_mapping, shape, etc.) defined in the dataset_settings.json file of the data folder. The data is not loaded when constructing this object but only when the settings data is accessed for the first time (lazy loading).
 
@@ -37,8 +37,7 @@ class DatasetSettings:
             path_or_data = Path(path_or_data)
 
         if type(path_or_data) == dict:
-            self._data = path_or_data
-            self._data_conversions()
+            self._data = self._data_conversions(path_or_data)
             self._path = None
         else:
             self._data = None
@@ -96,7 +95,7 @@ class DatasetSettings:
         return key in self.data
 
     @property
-    def settings_path(self) -> Union[None, Path]:
+    def settings_path(self) -> None | Path:
         """
         Returns: The Path to the dataset_settings.json file if it exists (either at the specified path or any parent directory) or None if not.
         """
@@ -106,7 +105,7 @@ class DatasetSettings:
             if self._path.is_file():
                 return self._path
             else:
-                possible_locations = [self._path] + list(self._path.parents)
+                possible_locations = [self._path, *list(self._path.parents)]
                 for p in possible_locations:
                     if (path := p / "dataset_settings.json").is_file():
                         return path
@@ -124,13 +123,13 @@ class DatasetSettings:
                     # By now, another thread might have already loaded the data
                     if self._data is None:
                         with self.settings_path.open(encoding="utf-8") as f:
-                            self._data = json.load(f)
+                            loaded_data = json.load(f)
 
-                        self._data_conversions()
+                        self._data = self._data_conversions(loaded_data)
 
         return self._data
 
-    def data_path_class(self) -> Union[type, None]:
+    def data_path_class(self) -> type | None:
         """
         Tries to infer the appropriate data path class for the current dataset. Ideally, this is defined in the dataset_settings.json file with a key data_path_class referring to a valid data path class (e.g. htc.tivita.DataPathMultiorgan>DataPathMultiorgan). If this is not the case, it tries to infer the data path class based on the dataset name or based on the files in the folder.
 
@@ -181,15 +180,18 @@ class DatasetSettings:
         assert "shape" in self.data, "No shape information available in the dataset settings"
         return int(np.prod(self.data["spatial_shape"]))
 
-    def _data_conversions(self) -> None:
-        if "shape" in self._data:
-            self._data["shape"] = tuple(self._data["shape"])
-            if "shape_names" in self._data:
-                names = self._data["shape_names"]
+    @staticmethod
+    def _data_conversions(data: dict) -> dict:
+        if "shape" in data:
+            data["shape"] = tuple(data["shape"])
+            if "shape_names" in data:
+                names = data["shape_names"]
                 assert (
                     "height" in names and "width" in names
                 ), f"shape_names must at least include height and width (got: {names})"
-                self._data["spatial_shape"] = (
-                    self._data["shape"][names.index("height")],
-                    self._data["shape"][names.index("width")],
+                data["spatial_shape"] = (
+                    data["shape"][names.index("height")],
+                    data["shape"][names.index("width")],
                 )
+
+        return data

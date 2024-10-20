@@ -29,7 +29,7 @@ def rater_evaluation(annotation_name: str) -> tuple[pd.DataFrame, dict]:
     additional_labels = []
     missing_labels = []
     mask_differences = []
-    for sample_rater, sample_true in zip(dataset_rater, dataset_true):
+    for sample_rater, sample_true in zip(dataset_rater, dataset_true, strict=True):
         assert sample_rater["image_name"] == sample_true["image_name"]
 
         predictions = sample_rater["labels"].unsqueeze(dim=0)

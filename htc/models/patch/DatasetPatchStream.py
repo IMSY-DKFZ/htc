@@ -22,19 +22,19 @@ class DatasetPatchStream(HTCDatasetStream):
         >>> from htc.utils.Config import Config
         >>> from htc.settings import settings
         >>> config = Config({
-        ...     'input/epoch_size': 10,
-        ...     'input/patch_size': [32, 32],
-        ...     'input/n_channels': 100,
-        ...     'dataloader_kwargs/num_workers': 1,
-        ...     'dataloader_kwargs/batch_size': 5,
-        ...     'label_mapping': 'htc.settings_seg>label_mapping',
+        ...     "input/epoch_size": 10,
+        ...     "input/patch_size": [32, 32],
+        ...     "input/n_channels": 100,
+        ...     "dataloader_kwargs/num_workers": 1,
+        ...     "dataloader_kwargs/batch_size": 5,
+        ...     "label_mapping": "htc.settings_seg>label_mapping",
         ... })
-        >>> paths = [DataPath.from_image_name('P043#2019_12_20_12_38_35')]
+        >>> paths = [DataPath.from_image_name("P043#2019_12_20_12_38_35")]
         >>> dataset = DatasetPatchStream(paths, train=False, config=config)
         >>> dataloader = StreamDataLoader(dataset, config)
         >>> for sample in dataloader:
-        ...     print(sample['features'].shape)
-        ...     print(sample['labels'].shape)
+        ...     print(sample["features"].shape)
+        ...     print(sample["labels"].shape)
         ...     break
         torch.Size([5, 32, 32, 100])
         torch.Size([5, 32, 32])
@@ -42,17 +42,17 @@ class DatasetPatchStream(HTCDatasetStream):
         It is also possible to iterate over the samples produced by this dataset directly (without the StreamDataLoader) yielding all patches generated per image:
 
         >>> config = Config({
-        ...     'input/patch_size': [32, 32],
-        ...     'input/n_channels': 100,
-        ...     'dataloader_kwargs/num_workers': 1,
-        ...     'dataloader_kwargs/batch_size': 1,
-        ...     'label_mapping': 'htc.settings_seg>label_mapping',
+        ...     "input/patch_size": [32, 32],
+        ...     "input/n_channels": 100,
+        ...     "dataloader_kwargs/num_workers": 1,
+        ...     "dataloader_kwargs/batch_size": 1,
+        ...     "label_mapping": "htc.settings_seg>label_mapping",
         ... })
         >>> dataset = DatasetPatchStream(paths, train=False, config=config, single_pass=True)
         >>> patches = [p for p in dataset.iter_samples()]
         >>> len(patches) > 0  # The exact number depends on the number of valid pixels
         True
-        >>> patches[0]['features'].shape
+        >>> patches[0]["features"].shape
         torch.Size([32, 32, 100])
         """
         super().__init__(*args, **kwargs)

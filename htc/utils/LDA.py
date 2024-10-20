@@ -8,20 +8,20 @@ def LDA(data: np.ndarray, labels: np.ndarray) -> tuple[np.ndarray, np.ndarray, n
     """
     Performs Fisher's Linear Discriminant Analysis. See https://en.wikipedia.org/wiki/Linear_discriminant_analysis#Fisher's_linear_discriminant and http://www.facweb.iitkgp.ac.in/~sudeshna/courses/ml08/lda.pdf for descriptions of the method.
 
-    >>> data = np.array([# First class
-    ...                 [1, 2],
-    ...                 [1.5, 2.7],
-    ...                 [2.2, 2],
-    ...                 [2.5, 3],
-    ...                 [3.5, 3.1],
-    ...                 [4, 3.5],
-    ...                 # Second class
-    ...                 [2.5, 4.5],
-    ...                 [3.2, 4.8],
-    ...                 [5, 5.2],
-    ...                 [5.5, 5],
-    ...                 [5.9, 5.2],
-    ...                 [6.6, 6],
+    >>> data = np.array([  # First class
+    ...     [1, 2],
+    ...     [1.5, 2.7],
+    ...     [2.2, 2],
+    ...     [2.5, 3],
+    ...     [3.5, 3.1],
+    ...     [4, 3.5],
+    ...     # Second class
+    ...     [2.5, 4.5],
+    ...     [3.2, 4.8],
+    ...     [5, 5.2],
+    ...     [5.5, 5],
+    ...     [5.9, 5.2],
+    ...     [6.6, 6],
     ... ])
     >>> labels = np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1])
     >>> coeff, proj, latent = LDA(data, labels)
@@ -33,7 +33,9 @@ def LDA(data: np.ndarray, labels: np.ndarray) -> tuple[np.ndarray, np.ndarray, n
     array([ 0.24558339, -0.96937547])
     >>> proj[0, 0]  # Projection of the first data point
     -1.6931675538135342
-    >>> np.matmul([[1, 2], [1.5, 1.5]], coeff[:, 0])  # The eigenvectors are stored in the columns of coeff (here only the first column is meaningful)
+    >>> np.matmul(
+    ...     [[1, 2], [1.5, 1.5]], coeff[:, 0]
+    ... )  # The eigenvectors are stored in the columns of coeff (here only the first column is meaningful)
     array([-1.69316755, -1.08568813])
 
     Args:

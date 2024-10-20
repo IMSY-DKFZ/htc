@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 
 
@@ -50,7 +51,7 @@ def generate_metadata_table(paths: Iterable[DataPath]) -> pd.DataFrame:
             if "camera_name_changes" in path.dataset_settings and cam in path.dataset_settings["camera_name_changes"]:
                 cam_change_info = path.dataset_settings["camera_name_changes"][cam]
                 time_image = path.datetime()
-                time_change = datetime.strptime(cam_change_info["change_date"], "%Y_%m_%d_%H_%M_%S")
+                time_change = datetime.strptime(cam_change_info["change_date"], settings.tivita_timestamp_format)
                 suffix = (
                     cam_change_info["suffix_before"] if time_image < time_change else cam_change_info["suffix_after"]
                 )
@@ -71,7 +72,7 @@ def read_meta_file(path: Path) -> dict:
 
     >>> from htc.settings import settings
     >>> path = Path(settings.data_dirs.semantic / "subjects/P041/2019_12_14_12_00_16/2019_12_14_12_00_16_meta.log")
-    >>> read_meta_file(path)['Camera_CamID']
+    >>> read_meta_file(path)["Camera_CamID"]
     '0102-00085'
 
     If possible, it is recommended to use the DataPath class instead of this (low-level) function:
@@ -116,7 +117,9 @@ def read_meta_patient(path: Path) -> dict:
     Read the patient meta file (xml file) which contains meta information about the patient if provided during image acquisition in the Tivita system.
 
     >>> from htc.settings import settings
-    >>> path = Path(settings.data_dirs.studies / "2022_09_29_Surgery2_baseline" / "2022_09_29_17_04_13" / "calibration_white.xml")
+    >>> path = Path(
+    ...     settings.data_dirs.studies / "2022_09_29_Surgery2_baseline" / "2022_09_29_17_04_13" / "calibration_white.xml"
+    ... )
     >>> meta = read_meta_patient(path)
     >>> meta["PatientID"]
     'calibration_white'

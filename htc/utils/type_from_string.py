@@ -35,6 +35,11 @@ def type_from_string(class_definition: str) -> type:
     Returns: Class type.
     """
     global _type_cache
+
+    if "htc.context" in class_definition:
+        # Some models out there may still contain the path to the old module
+        class_definition = class_definition.replace("htc.context", "htc_projects.context")
+
     if class_definition not in _type_cache:
         match = re.search(r"^([^>]+)>(\w+)$", class_definition)
         assert match is not None, (

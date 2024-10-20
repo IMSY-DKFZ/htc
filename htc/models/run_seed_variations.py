@@ -3,7 +3,7 @@
 
 from datetime import datetime
 
-from htc.models.common.utils import cluster_command, run_jobs
+from htc.cluster.utils import cluster_command, run_jobs
 from htc.models.data.DataSpecification import DataSpecification
 from htc.models.run_generate_configs import generate_configs
 from htc.settings import settings

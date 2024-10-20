@@ -55,7 +55,7 @@ class VariableGeneration:
         }
 
         self.df_runs = collect_comparison_runs(settings_seg.model_comparison_timestamp)
-        metrics = list(self.metric_mapping.values()) + ["confusion_matrix"]
+        metrics = [*list(self.metric_mapping.values()), "confusion_matrix"]
         self.df_test = model_comparison_table(self.df_runs, test=True, metrics=metrics)
 
         self.vars = {}
@@ -100,14 +100,14 @@ class VariableGeneration:
         df_organ = sqldf(f"""
             SELECT label_name, COUNT(DISTINCT subject_name) AS n_pigs, COUNT(DISTINCT timestamp) AS n_images
             FROM df
-            WHERE label_valid = 1 AND label_index != {mapping.name_to_index('background')}
+            WHERE label_valid = 1 AND label_index != {mapping.name_to_index("background")}
             GROUP BY label_name
         """)
 
         df_background = sqldf(f"""
             SELECT timestamp, CAST(SUM(n_pixels) AS FLOAT) / {dataset_settings.pixels_image()} AS pixel_ratio
             FROM df
-            WHERE label_index = {mapping.name_to_index('background')}
+            WHERE label_index = {mapping.name_to_index("background")}
             GROUP BY timestamp
         """)
         assert len(df_background) == df["timestamp"].nunique(), "Every image must have background"
@@ -123,10 +123,10 @@ class VariableGeneration:
         df_labels = sqldf(f"""
             SELECT timestamp, GROUP_CONCAT(label_name, ',') AS all_labels
             FROM df
-            WHERE label_valid = 1 AND label_index != {mapping.name_to_index('background')}
+            WHERE label_valid = 1 AND label_index != {mapping.name_to_index("background")}
             GROUP BY timestamp
         """)
-        counts = {l: 0 for l in mapping.label_names()}
+        counts = dict.fromkeys(mapping.label_names(), 0)
         for i, row in df_labels.iterrows():
             labels = row["all_labels"].split(",")
             if "gallbladder" in labels:
@@ -243,8 +243,7 @@ model & \\# pixels & epoch size & batch size \\\\
         cm_stacked = np.stack(
             self.df_test.query('model_name == "image" and model_type == "hsi"')["confusion_matrix"].values
         )
-        cm_abs = np.sum(cm_stacked, axis=0)
-        cm_rel, cm_rel_std = normalize_grouped_cm(cm_stacked)
+        cm_rel, _ = normalize_grouped_cm(cm_stacked)
         mapping = settings_seg.label_mapping
 
         # Best classes
@@ -262,7 +261,7 @@ model & \\# pixels & epoch size & batch size \\\\
         self.vars["varCMVenaCavaSensitivity"] = (
             "\\SI{" + f"{cm_rel[major_vein_index, major_vein_index] * 100:0.1f}" + "}{\\percent}"
         )
-        self.vars["varCMVenaCavaMaxConfusion"] = "\\SI{" + f"{np.max(major_vein_cm)*100:0.1f}" + "}{\\percent}"
+        self.vars["varCMVenaCavaMaxConfusion"] = "\\SI{" + f"{np.max(major_vein_cm) * 100:0.1f}" + "}{\\percent}"
         self.vars["varCMVenaCavaMaxConfusionClass"] = mapping.index_to_name(np.argmax(major_vein_cm))
         self.vars["varCMVenaCavaTotalImages"] = df_major_vein["timestamp"].nunique()
         self.vars["varCMVenaCavaPixels"] = (
@@ -347,7 +346,9 @@ model & \\# pixels & epoch size & batch size \\\\
             for model_type in ["rgb", "param", "hsi"]:
                 run_dir = settings.training_dir / row_runs["model"] / row_runs[f"run_{model_type}"]
                 df_test = pd.read_pickle(run_dir / "test_table.pkl.xz")
-                df_test["subject_name"], df_test["timestamp"] = zip(*df_test["image_name"].map(lambda x: x.split("#")))
+                df_test["subject_name"], df_test["timestamp"] = zip(
+                    *df_test["image_name"].map(lambda x: x.split("#")), strict=True
+                )
 
                 for j, row_test in df_test.iterrows():
                     rows.append([

@@ -23,7 +23,9 @@ class StreamImageDataLoader(DataLoader):
         Note: This dataloader cannot provide a length since the number of images will be unknown in advance. This also means that no progress bar will be shown during training.
 
         Args:
+            *args: Arguments passed to the parent class.
             config: Configuration object for the training.
+            **kwargs: Keyword arguments passed to the parent class.
         """
         assert "sampler" in kwargs and "batch_sampler" not in kwargs, "Currently only explicit sampler are supported"
 

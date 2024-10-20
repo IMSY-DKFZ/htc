@@ -15,7 +15,6 @@ class DatasetIteration(ABC):
     @abstractmethod
     def compute(self, i: int) -> None:
         """Computations for the i-th path."""
-        pass
 
     def run(self, **p_map_kwargs) -> Any:
         indices = list(range(len(self.paths)))
@@ -30,7 +29,6 @@ class DatasetIteration(ABC):
         Args:
             results: Results from the computation step (one entry per path).
         """
-        pass
 
     def _compute_necessary(self, image_name: str) -> bool:
         """

@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 
 from pathlib import Path
-from typing import Union
 
 import torch
 import torch.nn as nn
@@ -16,7 +15,7 @@ from htc.utils.helper_functions import checkpoint_path
 
 
 class TestEnsemble(nn.Module):
-    def __init__(self, model_paths: list[Path], paths: Union[list[DataPath], None], config: Config):
+    def __init__(self, model_paths: list[Path], paths: list[DataPath] | None, config: Config):
         super().__init__()
         self.config = config
 
@@ -36,7 +35,7 @@ class TestEnsemble(nn.Module):
 
             self.models[fold_dir] = model
 
-    def eval(self) -> Self:  # noqa: A003
+    def eval(self) -> Self:
         for model in self.models.values():
             model.eval()
         return self

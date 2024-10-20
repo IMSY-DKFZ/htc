@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+from types import MappingProxyType
+
 import torch
 from PIL import Image
 
@@ -20,7 +22,7 @@ except ImportError:
 
 
 class ColorcheckerReader:
-    label_colors_classic = {
+    label_colors_classic = MappingProxyType({
         "dark_skin": "#735244",
         "light_skin": "#c29682",
         "blue_sky": "#627a9d",
@@ -45,8 +47,8 @@ class ColorcheckerReader:
         "neutral_5": "#7a7a7a",
         "neutral_35": "#555555",
         "black": "#343434",
-    }
-    label_colors_video = {
+    })
+    label_colors_video = MappingProxyType({
         "confetti": "#ece85c",
         "froly": "#f18171",
         "lavender_magenta": "#f08eed",
@@ -71,10 +73,10 @@ class ColorcheckerReader:
         "moon_mist": "#dcd8cc",
         "timberwolf": "#e0dcd0",
         "white_rock": "#eee8dd",
-    }
-    label_colors_passport = label_colors_classic | label_colors_video
+    })
+    label_colors_passport = MappingProxyType(label_colors_classic | label_colors_video)
 
-    label_mapping_classic = {
+    label_mapping_classic = MappingProxyType({
         "background": 0,
         "dark_skin": 1,
         "light_skin": 2,
@@ -100,33 +102,36 @@ class ColorcheckerReader:
         "neutral_5": 22,
         "neutral_35": 23,
         "black": 24,
-    }
-    label_mapping_passport = label_mapping_classic | {
-        "confetti": 25,
-        "froly": 26,
-        "lavender_magenta": 27,
-        "cornflower_blue": 28,
-        "blizzard_blue": 29,
-        "pastel_green": 30,
-        "tobacco_brown": 31,
-        "antique_brass": 32,
-        "gold_sand": 33,
-        "tumbleweed": 34,
-        "pancho": 35,
-        "desert_sand": 36,
-        "merlin": 37,
-        "chicago": 38,
-        "lemon_grass": 39,
-        "dawn": 40,
-        "ash": 41,
-        "westar": 42,
-        "iridium": 43,
-        "dune": 44,
-        "davy_grey": 45,
-        "moon_mist": 46,
-        "timberwolf": 47,
-        "white_rock": 48,
-    }
+    })
+    label_mapping_passport = MappingProxyType(
+        label_mapping_classic
+        | {
+            "confetti": 25,
+            "froly": 26,
+            "lavender_magenta": 27,
+            "cornflower_blue": 28,
+            "blizzard_blue": 29,
+            "pastel_green": 30,
+            "tobacco_brown": 31,
+            "antique_brass": 32,
+            "gold_sand": 33,
+            "tumbleweed": 34,
+            "pancho": 35,
+            "desert_sand": 36,
+            "merlin": 37,
+            "chicago": 38,
+            "lemon_grass": 39,
+            "dawn": 40,
+            "ash": 41,
+            "westar": 42,
+            "iridium": 43,
+            "dune": 44,
+            "davy_grey": 45,
+            "moon_mist": 46,
+            "timberwolf": 47,
+            "white_rock": 48,
+        }
+    )
     label_mapping_classic = LabelMapping(
         label_mapping_classic,
         zero_is_invalid=True,
@@ -168,7 +173,9 @@ class ColorcheckerReader:
         >>> img_dir = DataPath(img_dir)
         >>> cc_reader = ColorcheckerReader(img_dir, cc_board)
         >>> automask = cc_reader.create_automask()
-        >>> custom_mask_params = dict(square_size=70, square_dist_horizontal=34, square_dist_vertical=30, offset_top=60, offset_left=24)
+        >>> custom_mask_params = dict(
+        ...     square_size=70, square_dist_horizontal=34, square_dist_vertical=30, offset_top=60, offset_left=24
+        ... )
         >>> custom_mask = cc_reader.create_mask({"mask_0": custom_mask_params})
 
         Args:

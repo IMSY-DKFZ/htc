@@ -1,72 +1,30 @@
-# Order plays a role here: we first need to run pyupgrade because it changes the code and the new code may not be correctly formatted so we need to run black afterwards. flake8 again should be run after black so that it doesn't e.g. complain about whitespace issues.
 repos:
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.2
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.0
     hooks:
-      - id: pyupgrade
-        args: [--py39-plus]
-  - repo: https://github.com/psf/black
-    rev: 23.12.1
-    hooks:
-      - id: black-jupyter
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.0.0
-    hooks:
-      - id: flake8
-        additional_dependencies:
-          - flake8-bugbear
-          - flake8-comprehensions
-          - flake8-use-pathlib
-          - flake8-docstrings
-          - flake8-builtins
-  - repo: https://github.com/asottile/yesqa
-    rev: v1.5.0
-    hooks:
-      - id: yesqa
-        additional_dependencies:
-          - flake8-bugbear
-          - flake8-comprehensions
-          - flake8-use-pathlib
-          - flake8-docstrings
-          - flake8-builtins
-  - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.8.5
-    hooks:
-      - id: nbqa-pyupgrade
-        args: [--py39-plus]
-      - id: nbqa-isort
-      - id: nbqa-flake8
-        additional_dependencies:
-          - flake8-bugbear
-          - flake8-comprehensions
-          - flake8-use-pathlib
-          - flake8-docstrings
-          - flake8-builtins
-        args: ["--extend-ignore=E402"]
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
   # Avoid potential problems with py.test if __init__.py files are missing
   - repo: https://github.com/lk16/detect-missing-init
     rev: v0.1.6
     hooks:
       - id: detect-missing-init
-        args: ["--create", "--python-folders", "htc"]
+        args: ["--create", "--python-folders", "htc,htc_projects,paper"]
   - repo: https://github.com/citation-file-format/cff-converter-python
     rev: "44e8fc9"
     hooks:
       - id: validate-cff
   - repo: https://github.com/tcort/markdown-link-check
-    rev: v3.11.2
+    rev: v3.12.2
     hooks:
       - id: markdown-link-check
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: 1.7.0
+    rev: 2.4.3
     hooks:
       - id: pyproject-fmt
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
       - id: check-yaml
       - id: check-toml

@@ -3,7 +3,7 @@
 
 import itertools
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -61,7 +61,6 @@ class LabelMapping:
             label_names = []  # Maps from label_index to the (first) label name
             label_indices = []
             for name, i in self.mapping_name_index.items():
-                assert type(name) == str, "The keys in the mapping must be strings (e.g. organ names)"
                 assert type(i) == int, "The values in the mapping must be indices (e.g. label index values)"
 
                 if (
@@ -71,7 +70,7 @@ class LabelMapping:
                     label_indices.append(i)
 
             assert len(label_names) == len(label_indices), "Each label id must have a corresponding label name"
-            self.mapping_index_name = {i: name for name, i in zip(label_names, label_indices)}
+            self.mapping_index_name = {i: name for name, i in zip(label_names, label_indices, strict=True)}
 
         # Make sure the mapping is sorted
         self.mapping_index_name = dict(sorted(self.mapping_index_name.items()))  # Sort by key
@@ -91,7 +90,7 @@ class LabelMapping:
         """Returns: The number of unique valid label indices in this mapping. This is identical to the number of classes used during training. Please note that it is possible to have more names than ids since multiple names can map to the same id."""
         return len(self.label_indices())
 
-    def __contains__(self, name_or_index: Union[str, int, torch.Tensor]) -> bool:
+    def __contains__(self, name_or_index: str | int | torch.Tensor) -> bool:
         """Returns: True when the given name or index is part of this mapping (valid or invalid)."""
         if type(name_or_index) == torch.Tensor:
             name_or_index = name_or_index.item()
@@ -130,7 +129,7 @@ class LabelMapping:
             else:
                 raise ValueError(f"Cannot find the label {name} in the mapping {self.mapping_name_index}")
 
-    def index_to_name(self, i: Union[int, torch.Tensor], all_names: bool = False) -> Union[str, list[str]]:
+    def index_to_name(self, i: int | torch.Tensor, all_names: bool = False) -> str | list[str]:
         """
         Maps a label_index to its name(s).
 
@@ -158,12 +157,12 @@ class LabelMapping:
         """
         Map label names to colors.
 
-        >>> m = LabelMapping({'a': 0, 'a_second_name': 0}, last_valid_label_index=0, label_colors={'a': '#FFFFFF'})
-        >>> m.name_to_color('a')
+        >>> m = LabelMapping({"a": 0, "a_second_name": 0}, last_valid_label_index=0, label_colors={"a": "#FFFFFF"})
+        >>> m.name_to_color("a")
         '#FFFFFF'
 
         If there is more than one name for a label id, then they all map to the same color if no specific mapping is defined for the second name:
-        >>> m.name_to_color('a_second_name')
+        >>> m.name_to_color("a_second_name")
         '#FFFFFF'
 
         Returns: The (hex) color for the label name as defined in the label_colors mapping. If the name corresponds to an invalid name, label_colors['invalid'] is returned.
@@ -181,10 +180,10 @@ class LabelMapping:
             else:
                 raise ValueError(f"Cannot find a color for the label {name}")
 
-    def index_to_color(self, i: Union[int, torch.Tensor]) -> str:
+    def index_to_color(self, i: int | torch.Tensor) -> str:
         return self.name_to_color(self.index_to_name(i))
 
-    def is_index_valid(self, i: Union[int, torch.Tensor, np.ndarray]) -> Union[bool, torch.Tensor, np.ndarray]:
+    def is_index_valid(self, i: int | torch.Tensor | np.ndarray) -> bool | torch.Tensor | np.ndarray:
         """Returns: True when the given label index (or tensor with indices) is valid according to this mapping."""
         if self.zero_is_invalid:
             return (0 < i) & (i <= self.last_valid_label_index)
@@ -226,7 +225,7 @@ class LabelMapping:
             return [label_index for label_index in self.mapping_index_name.keys() if self.is_index_valid(label_index)]
 
     @automatic_numpy_conversion
-    def map_tensor(self, tensor: Union[torch.Tensor, np.ndarray], old_mapping: Self) -> Union[torch.Tensor, np.ndarray]:
+    def map_tensor(self, tensor: torch.Tensor | np.ndarray, old_mapping: Self) -> torch.Tensor | np.ndarray:
         """
         Remaps all label ids in the tensor to the new label id as defined by the label mapping of this class (self = new_mapping). Mapping happens based on the label name.
 
@@ -370,6 +369,14 @@ class LabelMapping:
         if isinstance(mapping, LabelMapping):
             mapping_obj = mapping
         elif all(var in mapping for var in ("mapping_name_index", "last_valid_label_index", "mapping_index_name")):
+            mapping_name_index = {}
+            for name, index in mapping["mapping_name_index"].items():
+                if name == "true":
+                    name = True
+                if name == "false":
+                    name = False
+                mapping_name_index[name] = index
+
             # This is easier because we have all information we need in the config
             mapping_index_name = {
                 int(i): n for i, n in mapping["mapping_index_name"].items()
@@ -377,7 +384,7 @@ class LabelMapping:
             zero_is_invalid = mapping.get("zero_is_invalid", False)
             unknown_invalid = mapping.get("unknown_invalid", False)
             mapping_obj = cls(
-                mapping["mapping_name_index"],
+                mapping_name_index,
                 mapping["last_valid_label_index"],
                 zero_is_invalid,
                 unknown_invalid,
@@ -387,9 +394,9 @@ class LabelMapping:
             if "label_mapping/background" in config and config["label_mapping/background"] == 0:
                 # Unfortunately, we need to manually handle the background class as the config files are sorted and abdominal_linen comes before background and also has the label 0
                 label_mapping = {"background": 0}
-                for label_name, label_index in mapping.items():
-                    if label_name != "background":
-                        label_mapping[label_name] = label_index
+                label_mapping.update({
+                    label_name: label_index for label_name, label_index in mapping.items() if label_name != "background"
+                })
             else:
                 label_mapping = mapping
 

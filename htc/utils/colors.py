@@ -101,7 +101,7 @@ def unique_labels() -> list[str]:
 
 def color_organs() -> dict[str, tuple]:
     labels = unique_labels()
-    return dict(zip(labels, generate_distinct_colors(len(labels))))
+    return dict(zip(labels, generate_distinct_colors(len(labels)), strict=True))
 
 
 def color_organs_extending() -> dict[str, tuple]:
@@ -115,7 +115,7 @@ def color_organs_extending() -> dict[str, tuple]:
         existing_colors = [to_rgb(c) for c in existing_colors]
         new_colors = generate_distinct_colors(len(labels), existing_colors)
 
-        return dict(zip(labels, new_colors))
+        return dict(zip(labels, new_colors, strict=True))
 
 
 if __name__ == "__main__":

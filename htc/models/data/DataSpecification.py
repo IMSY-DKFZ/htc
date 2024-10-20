@@ -6,7 +6,7 @@ import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, Union
+from typing import IO
 
 import pandas as pd
 from typing_extensions import Self
@@ -18,23 +18,23 @@ from htc.utils.type_from_string import type_from_string
 
 
 class DataSpecification:
-    def __init__(self, path_or_file: Union[str, Path, IO]):
+    def __init__(self, path_or_file: str | Path | IO):
         """
         Reads a data specification file and creates data paths from the image identifiers.
 
-        >>> specs = DataSpecification('pigs_semantic-only_5foldsV2.json')
-        >>> path = specs.folds['fold_P041,P060,P069']['train_semantic'][0]  # Select the first path of the training set
+        >>> specs = DataSpecification("pigs_semantic-only_5foldsV2.json")
+        >>> path = specs.folds["fold_P041,P060,P069"]["train_semantic"][0]  # Select the first path of the training set
         >>> path.image_name()
         'P044#2020_02_01_09_51_15'
 
         You can also easily construct datasets from the folds:
         >>> from htc.models.image.DatasetImage import DatasetImage
-        >>> first_fold = specs.folds['fold_P041,P060,P069']
-        >>> dataset_train = DatasetImage(first_fold['train_semantic'], train=True)
-        >>> dataset_train[0]['image_name']
+        >>> first_fold = specs.folds["fold_P041,P060,P069"]
+        >>> dataset_train = DatasetImage(first_fold["train_semantic"], train=True)
+        >>> dataset_train[0]["image_name"]
         'P044#2020_02_01_09_51_15'
-        >>> dataset_val_unknown = DatasetImage(first_fold['val_semantic_unknown'], train=False)
-        >>> dataset_val_unknown[0]['image_name']
+        >>> dataset_val_unknown = DatasetImage(first_fold["val_semantic_unknown"], train=False)
+        >>> dataset_val_unknown[0]["image_name"]
         'P041#2019_12_14_12_00_16'
 
         Or get the paths from the different splits
@@ -70,10 +70,17 @@ class DataSpecification:
             if not path_or_file.name.endswith(".json"):
                 path_or_file = path_or_file.with_name(path_or_file.name + ".json")
 
-            possible_paths = [path_or_file, settings.htc_package_dir / path_or_file, settings.src_dir / path_or_file]
+            possible_paths = [
+                path_or_file,
+                settings.htc_package_dir / path_or_file,
+                settings.htc_projects_dir / path_or_file,
+                settings.src_dir / path_or_file,
+            ]
 
             # Check all data and model directories in this repo per default
-            for data_dir in sorted(settings.htc_package_dir.rglob("data")):
+            for data_dir in sorted(settings.htc_package_dir.rglob("data")) + sorted(
+                settings.htc_projects_dir.rglob("data")
+            ):
                 models_dir = data_dir.parent
                 possible_paths.append(data_dir / path_or_file)
                 possible_paths.append(models_dir / path_or_file)
@@ -84,9 +91,11 @@ class DataSpecification:
                     self.path = path
                     break
 
-            assert (
-                self.path is not None
-            ), f"Cannot find the file {path_or_file}. Tried at the following locations: {possible_paths}"
+            if self.path is None:
+                locations = "\n".join([str(p) for p in possible_paths])
+                raise FileNotFoundError(
+                    f"Cannot find the file {path_or_file}. Tried at the following locations:\n{locations}"
+                )
 
             with self.path.open() as f:
                 specs = json.load(f)
@@ -95,9 +104,7 @@ class DataSpecification:
 
         # Construct data paths from the data specification
         self.folds = {}
-        self.__folds_test = (
-            {}
-        )  # We load the test path but keep it a secret until the user explicitly calls activate_test_set()
+        self.__folds_test = {}  # We load the test path but keep it a secret until the user explicitly calls activate_test_set()
         for fold in specs:
             assert type(fold) == dict, "Each fold must be specified as a dict"
 
@@ -145,14 +152,14 @@ class DataSpecification:
         """
         Iterates over all folds in the data specification file.
 
-        >>> data_specs = DataSpecification('pigs_semantic-only_5foldsV2.json')
+        >>> data_specs = DataSpecification("pigs_semantic-only_5foldsV2.json")
         >>> for fold_name, splits in data_specs:
-        ...    print(fold_name)
-        ...    for name, paths in splits.items():
-        ...        print(name)
-        ...        print(paths[0].image_name())
-        ...        break
-        ...    break
+        ...     print(fold_name)
+        ...     for name, paths in splits.items():
+        ...         print(name)
+        ...         print(paths[0].image_name())
+        ...         break
+        ...     break
         fold_P041,P060,P069
         train_semantic
         P044#2020_02_01_09_51_15
@@ -262,11 +269,11 @@ class DataSpecification:
         """
         Contextmanager to temporarily access the test set.
 
-        >>> data_specs = DataSpecification('pigs_semantic-only_5foldsV2.json')
+        >>> data_specs = DataSpecification("pigs_semantic-only_5foldsV2.json")
         >>> with data_specs.activated_test_set():
-        ...     print(len(data_specs.paths('^test')))
+        ...     print(len(data_specs.paths("^test")))
         166
-        >>> print(len(data_specs.paths('^test')))
+        >>> print(len(data_specs.paths("^test")))
         0
         """
         self.activate_test_set()
@@ -289,6 +296,14 @@ class DataSpecification:
         if isinstance(config["input/data_spec"], DataSpecification):
             return config["input/data_spec"]
         else:
-            spec = cls(config["input/data_spec"])
+            try:
+                spec = cls(config["input/data_spec"])
+            except FileNotFoundError as e:
+                data_path = config.path_config.parent / "data.json"
+                if data_path.exists():
+                    spec = cls(data_path)
+                else:
+                    raise FileNotFoundError(f"Could not find the data specification file {data_path}") from e
+
             config["input/data_spec"] = spec  # Cache for future use
             return spec

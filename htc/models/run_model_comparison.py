@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from htc.models.common.utils import cluster_command, run_jobs
+from htc.cluster.utils import cluster_command, run_jobs
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.settings_seg import settings_seg

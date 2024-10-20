@@ -7,8 +7,8 @@ import json
 import math
 import re
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Union
 
 import numpy as np
 import pandas as pd
@@ -42,7 +42,7 @@ from htc.utils.LabelMapping import LabelMapping
 from htc.utils.Task import Task
 
 
-def compress_html(file: Union[Path, None], fig_or_html: Union[go.Figure, str]) -> Union[str, None]:
+def compress_html(file: Path | None, fig_or_html: go.Figure | str) -> str | None:
     """
     Compress the Plotly figure as self-extracting HTML file. Like fig.write_html(), the result is also an HTML file which can be opened in every browser. But the file uses compression internally (gzip compression embedded as bas64) so the file size can be dramatically reduced if the original file size is large (e.g. when saving images).
 
@@ -52,17 +52,17 @@ def compress_html(file: Union[Path, None], fig_or_html: Union[go.Figure, str]) -
     >>> from htc.models.image.DatasetImage import DatasetImage
     >>> path = DataPath.from_image_name("P044#2020_02_01_09_51_15")
     >>> sample = DatasetImage([path], train=False, config=Config({"input/no_features": True}))[0]
-    >>> fig = create_segmentation_overlay(sample['labels'].numpy(), path)
-    >>> html = fig.to_html(include_plotlyjs="cdn", div_id='segmentation')
+    >>> fig = create_segmentation_overlay(sample["labels"].numpy(), path)
+    >>> html = fig.to_html(include_plotlyjs="cdn", div_id="segmentation")
 
     Original file size in MiB:
     >>> len(html) / 2**20  # doctest: +ELLIPSIS
     5.10...
     >>> import tempfile
     >>> with tempfile.NamedTemporaryFile() as tmpfile:
-    ...    tmpfile = Path(tmpfile.name)
-    ...    compress_html(tmpfile, html)
-    ...    compressed_size = tmpfile.stat().st_size
+    ...     tmpfile = Path(tmpfile.name)
+    ...     compress_html(tmpfile, html)
+    ...     compressed_size = tmpfile.stat().st_size
 
     Compressed file size in MiB:
     >>> compressed_size / 2**20  # doctest: +ELLIPSIS
@@ -187,7 +187,7 @@ figcaption {
 </html>"""
 
 
-def visualize_dict(data: Union[dict, list]) -> None:
+def visualize_dict(data: dict | list) -> None:
     """
     Interactive visualization of a Python dictionary (to be used in a Jupyter notebook). The interactive visualization also works in exported HTML notebooks.
 
@@ -203,13 +203,15 @@ def visualize_dict(data: Union[dict, list]) -> None:
 
     # Embed everything into the HTML (this way it also works in the exported HTML notebook)
     div_id = uuid.uuid4()
-    display(HTML(f"""
+    display(
+        HTML(f"""
 <div id="{div_id}" style="height: auto; width:100%;"></div>
 <script>
     {renderjson}
     renderjson.set_show_to_level(1);
     document.getElementById('{div_id}').appendChild(renderjson({json_str}));
-</script>"""))
+</script>""")
+    )
 
 
 def create_running_metric_plot(df: pd.DataFrame, metric_name: str = "dice_metric") -> go.Figure:
@@ -371,7 +373,7 @@ def create_class_scores_figure(agg: MetricAggregation) -> None:
         df = df.query("epoch_index == best_epoch_index")
 
     for _, row in df.iterrows():  # Images
-        for label_index, dice in zip(row["used_labels"], row["dice_metric"]):
+        for label_index, dice in zip(row["used_labels"], row["dice_metric"], strict=True):
             class_dice[label_index].append(dice)
             image_counts[label_index] += 1
 
@@ -438,9 +440,7 @@ def show_class_scores_epoch(df: pd.DataFrame, mapping: LabelMapping) -> None:
     folds = sorted(df["fold_name"].unique())
 
     fig = make_subplots(rows=3, cols=1, subplot_titles=["Image counts", "Pixel counts", "Class dice"])
-    button_states = (
-        []
-    )  # The buttons work by first drawing all plots and then switching of their visibility with the buttons
+    button_states = []  # The buttons work by first drawing all plots and then switching of their visibility with the buttons
     line_ids = []
     colors = [settings.label_colors[name] for name in mapping.label_names()]
 
@@ -456,7 +456,7 @@ def show_class_scores_epoch(df: pd.DataFrame, mapping: LabelMapping) -> None:
         for epoch in epoch_indexs:
             df_epoch = df_fold.query(f"epoch_index == {epoch}")
             for i, row in df_epoch.iterrows():  # Images
-                for label_index, dice in zip(row["used_labels"], row["dice_metric"]):
+                for label_index, dice in zip(row["used_labels"], row["dice_metric"], strict=True):
                     rows.append([epoch, mapping.index_to_name(label_index), dice])
                     image_counts[label_index] += 1
 
@@ -549,6 +549,8 @@ def create_confusion_figure(confusion_matrix: np.ndarray, labels: list[str] = No
     """Confusion matrix gives an impression of which classes are misclassified by which other classes."""
     if labels is None:
         labels = settings_seg.labels
+    else:
+        labels = [str(l) for l in labels]
 
     with np.errstate(invalid="ignore"):
         confusion_matrix_normalized = (confusion_matrix / np.sum(confusion_matrix, axis=1, keepdims=True)) * 100
@@ -571,7 +573,7 @@ def create_confusion_figure(confusion_matrix: np.ndarray, labels: list[str] = No
                 "x": labels[j],
                 "y": labels[i],
                 "font": {"color": "black" if value < 0.5 else "white"},
-                "text": f"{value*100:.1f}",
+                "text": f"{value * 100:.1f}",
                 "xref": "x1",
                 "yref": "y1",
                 "showarrow": False,
@@ -789,6 +791,8 @@ def create_median_spectra_comparison_figure(
     group_column: str,
     color_mapping: dict[str, str],
     line_dash_mapping: dict[str, str] = None,
+    n_cols: int = 4,
+    use_ci_columns: bool = False,
 ) -> go.Figure:
     """
     Compare median spectra for different groups (e.g. cameras) stratified by label.
@@ -798,10 +802,12 @@ def create_median_spectra_comparison_figure(
         group_column: Column name which contains the group names.
         color_mapping: Mapping from group names to colors.
         line_dash_mapping: Mapping from group names to line dash styles. If None, all lines will be solid.
+        n_cols: Number of columns for the subplot grid. The number of rows will be computed automatically.
+        use_ci_columns: If True, the columns "median_normalized_spectrum_q025", "median_normalized_spectrum_mean" and "median_normalized_spectrum_q975" will be used to plot the confidence intervals instead of the standard deviation across subjects.
 
     Returns: Plotly figure.
     """
-    n_cols = 4
+    n_cols = n_cols
     n_rows = math.ceil(df["label_name"].nunique() / n_cols)
     n_missing = n_cols * n_rows - df["label_name"].nunique()
     labels = df["label_name"].unique()
@@ -817,28 +823,37 @@ def create_median_spectra_comparison_figure(
 
     for group_name in df[group_column].unique():
         for i, label in enumerate(labels):
-            df_cam = df[(df["label_name"] == label) & (df[group_column] == group_name)]
-            if len(df_cam) > 0:
+            df_group = df[(df["label_name"] == label) & (df[group_column] == group_name)]
+            if len(df_group) > 0:
                 row = i // n_cols
                 col = i % n_cols
 
-                spec = np.stack(df_cam["median_normalized_spectrum"])  # Spectra from all subjects
-                spec_mean = np.mean(spec, axis=0)
-                spec_std = np.std(spec, axis=0)
+                if use_ci_columns:
+                    top_line = df_group["median_normalized_spectrum_q975"].item()
+                    mid_line = df_group["median_normalized_spectrum_mean"].item()
+                    bottom_line = df_group["median_normalized_spectrum_q025"].item()
+                else:
+                    spec = np.stack(df_group["median_normalized_spectrum"])  # Spectra from all subjects
+                    spec_mean = np.mean(spec, axis=0)
+                    spec_std = np.std(spec, axis=0)
+                    top_line = spec_mean + spec_std
+                    mid_line = spec_mean
+                    bottom_line = spec_mean - spec_std
 
                 if line_dash_mapping is None:
                     line_dash = "solid"
                 else:
                     line_dash = line_dash_mapping[group_name]
 
-                fig = add_std_fill(
+                fig = add_range_fill(
                     fig,
-                    spec_mean,
-                    spec_std,
+                    top_line=top_line,
+                    mid_line=mid_line,
+                    bottom_line=bottom_line,
                     x=tivita_wavelengths(),
-                    linecolor=color_mapping[group_name],
+                    color=color_mapping[group_name],
                     line_dash=line_dash,
-                    label=group_name,
+                    name=group_name,
                     showlegend=row == 1 and col == 1,
                     row=row + 1,
                     col=col + 1,
@@ -847,32 +862,7 @@ def create_median_spectra_comparison_figure(
                 if col == 0:
                     fig.update_yaxes(title="<b>L1 normalized<br>reflectance [a.u.]</b>", row=row + 1, col=col + 1)
                 if row == n_rows - 1:
-                    fig.update_xaxes(title="wavelength [nm]", row=row + 1, col=col + 1)
-
-    if n_missing != 0:
-        # Manually add the x-axis ticks to the plots in the last rows
-        fig.update_xaxes(showticklabels=False)
-        ticks = [600, 700, 800, 900]
-        for i in range(n_missing):
-            fig.update_xaxes(
-                tickmode="array",
-                tickvals=ticks,
-                ticktext=ticks,
-                showticklabels=True,
-                title="<b>wavelength [nm]</b>",
-                row=n_rows - 1,
-                col=n_cols - i,
-            )
-        for i in range(n_cols - n_missing):
-            fig.update_xaxes(
-                tickmode="array",
-                tickvals=ticks,
-                ticktext=ticks,
-                showticklabels=True,
-                title="<b>wavelength [nm]</b>",
-                row=n_rows,
-                col=i + 1,
-            )
+                    fig.update_xaxes(title="<b>wavelength [nm]</b>", row=row + 1, col=col + 1)
 
     if n_missing != 0:
         # Manually add the x-axis ticks to the plots in the last rows
@@ -1192,7 +1182,7 @@ function searchAll() {
 
 <nav id="image_navigation">
   <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-  <input type="text" id="nav_search" onkeyup="searchAll()" placeholder="Search all.." title="Search for everything which is visible in the navigation panel plus the following invisible attributes: {', '.join(searchable_meta_attributes)}">
+  <input type="text" id="nav_search" onkeyup="searchAll()" placeholder="Search all.." title="Search for everything which is visible in the navigation panel plus the following invisible attributes: {", ".join(searchable_meta_attributes)}">
   <p id="search_count"></p>
   {details_html}
 </nav>
@@ -1438,11 +1428,11 @@ body {
         {nav_html}
         <div id="image_container">
             <h2>{path.image_name()}</h2>
-            {fig_seg.to_html(full_html=False, include_plotlyjs='cdn', div_id='segmentation')}
+            {fig_seg.to_html(full_html=False, include_plotlyjs="cdn", div_id="segmentation")}
         </div>
-        {fig_median.to_html(full_html=False, include_plotlyjs='cdn', div_id='median_spectra') if fig_median is not None else ""}
+        {fig_median.to_html(full_html=False, include_plotlyjs="cdn", div_id="median_spectra") if fig_median is not None else ""}
         {meta_html}
-        {fig_tpi.to_html(full_html=False, include_plotlyjs='cdn', div_id='tpi_images') if include_tpi else ""}
+        {fig_tpi.to_html(full_html=False, include_plotlyjs="cdn", div_id="tpi_images") if include_tpi else ""}
     </body>
 </html>"""
 
@@ -1450,7 +1440,7 @@ body {
 
 
 def create_segmentation_overlay(
-    segmentation: Union[np.ndarray, dict[str, np.ndarray]],
+    segmentation: np.ndarray | dict[str, np.ndarray],
     path: DataPath = None,
     rgb_image: np.ndarray = None,
     label_mapping: LabelMapping = None,
@@ -1942,7 +1932,7 @@ def create_ece_figure(df: pd.DataFrame) -> None:
         x = np.linspace(0, 1, len(ece["accuracies"]) + 1)
 
         hover_text = []
-        for prob, conf in zip(ece["probabilities"], ece["confidences"]):
+        for prob, conf in zip(ece["probabilities"], ece["confidences"], strict=True):
             hover_text.append(f"samples={prob:0.3f}, confidence={conf:0.3f}")
 
         fig.add_trace(
@@ -2061,7 +2051,7 @@ def create_training_stats_figure(run_dir: Path) -> go.Figure:
     for i, stat in enumerate(stats):
         fig.add_trace(go.Heatmap(z=stat, coloraxis="coloraxis"), row=i + 1, col=1)
 
-        for dataset, count in datasets[i].items():
+        for count in datasets[i].values():
             fig.append_trace(
                 go.Scatter(
                     x=[-0.5, stats[0].shape[1] - 0.5],
@@ -2084,7 +2074,7 @@ def create_training_stats_figure(run_dir: Path) -> go.Figure:
 
 
 def create_surface_dice_plot(
-    dice_values: Union[list, np.ndarray], surface_values: Union[list, np.ndarray], **box_kwargs
+    dice_values: list | np.ndarray, surface_values: list | np.ndarray, **box_kwargs
 ) -> go.Figure:
     if len(dice_values) != len(surface_values):
         settings.log.warning(
@@ -2182,7 +2172,7 @@ def add_std_fill(
     label: str,
     row: int = None,
     col: int = None,
-    x: Union[list, np.ndarray] = None,
+    x: list | np.ndarray = None,
     opacity: float = 0.15,
     **scatter_kwargs,
 ) -> go.Figure:
@@ -2195,7 +2185,7 @@ def add_std_fill(
 
     upper_border = list(mid_line + std_range)
     lower_border = list(mid_line - std_range)
-    lower_border = lower_border[::-1]
+    lower_border.reverse()
 
     if "hovertemplate" not in scatter_kwargs:
         scatter_kwargs["hovertemplate"] = (
@@ -2236,6 +2226,64 @@ def add_std_fill(
 
     fig.update_layout(hovermode="x")
     fig.update_xaxes(hoverformat=".1f")
+
+    return fig
+
+
+def add_range_fill(
+    fig: go.Figure,
+    top_line: np.ndarray,
+    mid_line: np.ndarray,
+    bottom_line: np.ndarray,
+    color: str,
+    x: np.ndarray = None,
+    row: int = None,
+    col: int = None,
+    opacity: float = 0.15,
+    **scatter_kwargs,
+) -> go.Figure:
+    assert len(top_line) == len(mid_line) == len(bottom_line), "All line vectors must have the same length"
+
+    if x is None:
+        x = list(np.arange(len(mid_line)))
+    else:
+        x = list(x)
+
+    top_line = top_line.tolist()
+    mid_line = mid_line.tolist()
+    bottom_line = bottom_line.tolist()
+
+    if "hovertemplate" not in scatter_kwargs:
+        scatter_kwargs["hovertemplate"] = "x: %{x:.2f}<br>y: %{y:.2f} %{text}"
+
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=mid_line,
+            text=[f"[{low:.2f};{high:.2f}]" for low, high in zip(bottom_line, top_line, strict=True)],
+            mode="lines",
+            line_color=color,
+            **scatter_kwargs,
+        ),
+        row=row,
+        col=col,
+    )
+
+    scatter_kwargs["showlegend"] = False
+    fig.add_trace(
+        go.Scatter(
+            x=x + x[::-1],
+            y=top_line + bottom_line[::-1],
+            line_color=color,
+            fillcolor=color,
+            fill="toself",
+            opacity=opacity,
+            hoverinfo="skip",
+            **scatter_kwargs,
+        ),
+        row=row,
+        col=col,
+    )
 
     return fig
 
@@ -2364,8 +2412,9 @@ def create_training_stats_label_figure(run_dir: Path) -> go.Figure:
     config = Config(run_dir / "config.json")
     spec = DataSpecification.from_config(config)
     mapping = LabelMapping.from_config(config)
+    n_classes = len(mapping)
 
-    image_matrix = np.zeros((len(spec), len(mapping)), dtype=np.int64)
+    image_matrix = np.zeros((len(spec), n_classes), dtype=np.int64)
 
     for fold_index, fold_name in enumerate(spec.fold_names()):
         train_stats = np.load(run_dir / fold_name / "trainings_stats.npz", allow_pickle=True)["data"]
@@ -2415,5 +2464,213 @@ def create_training_stats_label_figure(run_dir: Path) -> go.Figure:
 
     fig.update_layout(title_x=0.5, title_text="Total number of images seen per label during training")
     fig.update_layout(height=400, width=len(mapping) * 50 + 200, margin=dict(l=0, r=0, b=0, t=40))
+
+    return fig
+
+
+def boxplot_symbols(
+    fig: go.Figure,
+    values: np.ndarray,
+    names: list[str],
+    trace_name: str,
+    ci_mean: tuple[float, float] = None,
+    ci_median: tuple[float, float] = None,
+    box_index: int = 0,
+    showlegend: bool = True,
+    color: str = None,
+    n_subsequent_symbols=4,
+    row: int = None,
+    col: int = None,
+) -> None:
+    """
+    Add a boxplot trace to a Plotly figure with individual markers for each value.
+
+    Args:
+        fig: The plotly figure to add the boxplot to.
+        values: The values for the boxplot.
+        names: Associated name for each value.
+        trace_name: The name of the trace.
+        ci_mean: The confidence interval (CI) for the mean as tuple (q025, q975). The CI is usually obtained via bootstrapping of the subject-level scores to get an estimate of the uncertainty of the mean due to sampling variability.
+        ci_median: The confidence interval (CI) for the median as tuple (q025, q975).
+        box_index: The index of the box in case multiple box plots should be plotted side-by-side. Boxes are plotted from left to right and the index should increase accordingly.
+        showlegend: Whether to show the legends. One legend for the boxes and one legend for the symbols is drawn.
+        color: The color of the boxplot.
+        n_subsequent_symbols: The number of symbols to draw from left t right before starting a new row.
+        row: The row index of the subplot.
+        col: The column index of the subplot.
+    """
+    assert values.ndim == 1, "Values must be a 1D array"
+    values = np.asarray(values)
+    names = list(names)
+    assert len(values) == len(names), "Values and names must have the same length"
+
+    if ci_mean is None:
+        assert ci_median is None, "Confidence intervals must be provided for both mean and median or none of them"
+    if ci_median is None:
+        assert ci_mean is None, "Confidence intervals must be provided for both mean and median or none of them"
+
+    # Markers which offer a kind of good visual discrimination
+    markers = [
+        "circle",
+        "square",
+        "diamond",
+        "cross",
+        "x",
+        "triangle-up",
+        "triangle-down",
+        "triangle-left",
+        "triangle-right",
+        "triangle-ne",
+        "triangle-se",
+        "triangle-sw",
+        "triangle-nw",
+        "pentagon",
+        "star",
+        "star-diamond",
+        "diamond-tall",
+        "diamond-wide",
+    ]
+
+    if box_index == 0:
+        for name in names:
+            # Invisible marker to style the legend
+            fig.add_trace(
+                go.Scatter(
+                    x=[None],
+                    y=[None],
+                    mode="markers",
+                    marker_symbol=markers[names.index(name)],
+                    marker_line_color="black",
+                    marker_line_width=1,
+                    marker_size=9,
+                    marker_color="gray",
+                    showlegend=showlegend,
+                    name=name,
+                    legend="legend",
+                ),
+                row=row,
+                col=col,
+            )
+
+    sort_indices = np.argsort(-values)
+    values = values[sort_indices]
+    names_sorted = np.asarray(names)[sort_indices]
+
+    x_positions = np.linspace(0, 0.28, n_subsequent_symbols)
+
+    for l, (value, name) in enumerate(zip(values, names_sorted, strict=True)):
+        x = box_index + x_positions[l % 4]
+        y = value
+
+        fig.add_trace(
+            go.Scatter(
+                x=[x],
+                y=[y],
+                mode="markers",
+                marker_symbol=markers[names.index(name)],
+                marker_line_color="black",
+                marker_line_width=1,
+                marker_size=9,
+                marker_color=color,
+                showlegend=False,
+                name=name,
+                legendgroup=trace_name,
+                legend="legend",
+            ),
+            row=row,
+            col=col,
+        )
+
+    fig.add_trace(
+        go.Box(
+            x=[box_index + 0.6] * len(values),
+            y=values,
+            boxpoints=False,
+            boxmean=True,
+            line_color=color,
+            name=trace_name,
+            showlegend=showlegend,
+            legendgroup=trace_name,
+            legend="legend2",
+        ),
+        row=row,
+        col=col,
+    )
+
+    if ci_mean is not None and ci_median is not None:
+        assert len(ci_mean) == 2 and len(ci_median) == 2, "Confidence interval values must be [q025, q975]"
+        assert (
+            ci_mean[0] <= ci_mean[1] and ci_median[0] <= ci_median[1]
+        ), "Confidence interval values must be increasing"
+
+        for ci_values, x_offset, dash, marker_open, name in zip(
+            [ci_mean, ci_median], [0.5, 0.7], ["dot", "solid"], ["-open", ""], ["mean", "median"], strict=True
+        ):
+            ci_text = f"95 % CI {name}: [{ci_values[0]:.2f};{ci_values[1]:.2f}]"
+
+            # Draw the confidence line
+            fig.add_trace(
+                go.Scatter(
+                    x=[box_index + x_offset] * len(ci_values),
+                    y=ci_values,
+                    text=ci_text,
+                    mode="lines",
+                    line_color=color,
+                    line_dash=dash,
+                    name=trace_name,
+                    showlegend=False,
+                    legendgroup=trace_name,
+                ),
+                row=row,
+                col=col,
+            )
+
+            # Draw the arrow markers
+            for value, marker in zip(
+                ci_values, [f"triangle-down{marker_open}", f"triangle-up{marker_open}"], strict=True
+            ):
+                fig.add_trace(
+                    go.Scatter(
+                        x=[box_index + x_offset],
+                        y=[value],
+                        text=ci_text,
+                        mode="markers",
+                        line_color=color,
+                        marker_symbol=marker,
+                        marker_size=10,
+                        name=trace_name,
+                        showlegend=False,
+                        legendgroup=trace_name,
+                    ),
+                    row=row,
+                    col=col,
+                )
+
+
+def performance_comparison_figure(df: pd.DataFrame) -> go.Figure:
+    fig = go.Figure()
+
+    for i, network in enumerate(df["network"].unique()):
+        df_network = df[df["network"] == network]
+        boxplot_symbols(
+            fig,
+            df_network["dice_metric"],
+            df_network["label_name"],
+            trace_name=network,
+            box_index=i,
+            color=px.colors.qualitative.T10[i],
+        )
+
+    fig.update_layout(height=550, width=800, template="plotly_white")
+    fig.update_layout(title_x=0.5, title_text="network performance on the validation set (physiological images)")
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=0.5 + np.arange(df["network"].nunique()),
+        ticktext=df["network"].unique(),
+        title="network",
+    )
+    fig.update_yaxes(title="DSC")
+    fig.update_layout(legend2=dict(orientation="h", yanchor="bottom", y=1, xanchor="center", x=0.50))
+    fig.update_layout(legend_tracegroupgap=0)
 
     return fig

@@ -3,7 +3,6 @@
 
 from abc import abstractmethod
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import torch
@@ -18,23 +17,25 @@ from htc.utils.LabelMapping import LabelMapping
 class Predictor:
     def __init__(
         self,
-        run_dir: Path,
+        run_dir: Path | list[Path],
+        config: Config | str,
         use_predictions: bool = False,
         store_predictions: bool = False,
         num_workers: int = 1,
-        config: Union[Config, str] = None,
         mode: str = "predictions",
         **kwargs,
     ):
         self.run_dir = run_dir
+        if isinstance(self.run_dir, list):
+            self.run_dir_main = self.run_dir[0]
+        else:
+            self.run_dir_main = self.run_dir
+
+        self.config = config if type(config) == Config else Config(self.run_dir_main / config)
+        self.config["dataloader_kwargs/num_workers"] = num_workers
         self.use_predictions = use_predictions
         self.store_predictions = store_predictions
         self.mode = mode
-        if config is None:
-            self.config = Config(self.run_dir / "config.json")
-        else:
-            self.config = config if type(config) == Config else Config(self.run_dir / config)
-        self.config["dataloader_kwargs/num_workers"] = num_workers
 
         # Avoid problems if this script is applied to new data with different labels (everything which the model does not know of will be ignored)
         mapping = LabelMapping.from_config(self.config)
@@ -52,9 +53,9 @@ class Predictor:
                 "As, for predictions an ensemble of fold models is used but this is "
                 f"not possible for {self.mode}, so they are calculated per-fold."
             )
-            predictions_dir = self.run_dir / self.fold_name / self.mode
+            predictions_dir = self.run_dir_main / self.fold_name / self.mode
         elif self.mode == "predictions":
-            predictions_dir = self.run_dir / "predictions"
+            predictions_dir = self.run_dir_main / "predictions"
         else:
             raise ValueError(f"Invalid value specified for mode parameter in Predictor class: {self.mode}")
 

@@ -21,10 +21,12 @@ To adapt your data path class to your dataset structure, you can overwrite the d
 class DataPathCustom(DataPath):
     @staticmethod
     def iterate(
-        data_dir: Path,
-        filters: list[Callable[["DataPath"], bool]],
-        annotation_name: Union[str, list[str]],
-    ) -> Iterator["DataPathCustom"]:
+        data_dir: Union[str, Path],
+        filters: list[Callable[[Self], bool]] = None,
+        annotation_name: Union[str, list[str]] = None,
+    ) -> Iterator[Self]:
+        data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
+
         if data_dir.name == "data":
             # Optional but recommended (see below)
             dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")

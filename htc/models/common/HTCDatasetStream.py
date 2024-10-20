@@ -5,7 +5,6 @@ import warnings
 from abc import abstractmethod
 from collections.abc import Iterator
 from itertools import cycle
-from typing import Union
 
 import numpy as np
 import torch
@@ -24,8 +23,10 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
         Base class for all stream-based datasets (used in non-image models) where each worker contributes equally to a batch (for randomness). Datasets of this class can only be used in conjunction with the StreamDataLoader.
 
         Args:
+            *args: Arguments passed to the parent class.
             sampler: If not None, path indices will be used from this sampler. The order defined by the sampler is preserved by the workers. If None, paths are sampled randomly.
             single_pass: If True, iterates only once over this dataset (instead of endlessly).
+            **kwargs: Keyword arguments passed to the parent class.
         """
         super().__init__(*args, **kwargs)
         self.single_pass = single_pass
@@ -49,7 +50,7 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
             message="Named tensors and all their associated APIs are an experimental feature and subject to change",
         )
 
-    def __iter__(self) -> Iterator[dict[str, Union[int, bool]]]:
+    def __iter__(self) -> Iterator[dict[str, int | bool]]:
         assert len(self.shared_dict) > 0, "Shared dictionary is not initialized. Did you forget to call init_shared()?"
         assert self.batch_part_size > 0, (
             f"batch_part_size must not be {self.batch_part_size}. Incompatible batch size"
@@ -132,7 +133,6 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
     @abstractmethod
     def iter_samples(self) -> Iterator[dict[str, torch.Tensor]]:
         """This method must be implemented by all child classes and yields one sample at a time (e.g. one patch at a time) or complete batch parts (e.g. pixel dataset)."""
-        pass
 
     def _iter_paths(self) -> Iterator[tuple[int, int]]:
         worker_index = self._get_worker_index()

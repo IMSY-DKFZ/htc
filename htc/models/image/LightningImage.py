@@ -124,29 +124,21 @@ class LightningImage(HTCLightning):
 
         labels = batch["labels"]
         valid_pixels = batch["valid_pixels"]
-        used_labels = labels[valid_pixels].unique()
 
-        # We need to replace the invalid labels with a "valid" one for the one-hot encoding (but the values won't be used)
-        labels = labels.masked_fill(~valid_pixels, 0)
-        if self.config["optimization/label_smoothing"]:
-            labels = smooth_one_hot(
-                labels, n_classes=n_classes, smoothing=self.config["optimization/label_smoothing"]
-            )  # [BHWC]
+        if labels.ndim < batch["features"].ndim:
+            used_labels = labels[valid_pixels].unique()
+
+            # We need to replace the invalid labels with a "valid" one for the one-hot encoding (but the values won't be used)
+            labels = labels.masked_fill(~valid_pixels, 0)
+            if self.config["optimization/label_smoothing"]:
+                labels = smooth_one_hot(
+                    labels, n_classes=n_classes, smoothing=self.config["optimization/label_smoothing"]
+                )  # [BHWC]
+            else:
+                labels = F.one_hot(labels, num_classes=n_classes).to(torch.float16)  # [BHWC]
         else:
-            labels = F.one_hot(labels, num_classes=n_classes).to(torch.float16)  # [BHWC]
-
-        if n_mix := self.config["optimization/image_mixing"]:
-            # Mix images in the batch together (with reduced number of images for a smaller memory footprint)
-            labels_mix = (labels.roll(1, dims=0)[:n_mix] + labels[:n_mix]) / 2
-            valid_pixels_mix = valid_pixels.roll(1, dims=0)[:n_mix] & valid_pixels[:n_mix]
-            features_mix = (batch["features"].roll(1, dims=0)[:n_mix] + batch["features"][:n_mix]) / 2
-            predictions_mix = self({"features": features_mix})
-            if type(predictions_mix) == dict:
-                predictions_mix = predictions_mix["class"]
-
-            labels = torch.cat([labels, labels_mix])
-            predictions = torch.cat([predictions, predictions_mix])
-            valid_pixels = torch.cat([valid_pixels, valid_pixels_mix])
+            # E.g. in case an augmentation already applied the one-hot encoding
+            used_labels = batch["labels_original"][valid_pixels].unique()
 
         # Calculate the losses only for the valid pixels
         # Keep the class dimension

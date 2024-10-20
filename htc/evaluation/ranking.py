@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from typing import Union
-
 import numpy as np
 import pandas as pd
 from scipy.stats import rankdata
@@ -12,7 +10,7 @@ class BootstrapRanking:
     def __init__(
         self,
         data: pd.DataFrame,
-        task: Union[str, None] = "task",
+        task: str | None = "task",
         algorithm: str = "algorithm",
         case: str = "case",
         value: str = "value",

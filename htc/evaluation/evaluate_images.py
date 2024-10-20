@@ -75,7 +75,7 @@ def calc_surface_dice(
 
         # + [0] as tolerance value for the invalid class (irrelevant since the class is removed later anyway)
         surface_dices = compute_surface_dice(
-            predictions_hot, labels_hot, class_thresholds=tolerances + [0], include_background=True
+            predictions_hot, labels_hot, class_thresholds=[*tolerances, 0], include_background=True
         )
         surface_dices = surface_dices[:, :-1]  # Remove last dice value (corresponds to the mask class)
         surface_dices[torch.isnan(surface_dices)] = 0  # If a class is not present in the image, nans will be used
@@ -86,9 +86,11 @@ def calc_surface_dice(
         assert torch.all(used_labels < invalid_label_index)
 
         sd = surface_dices[b, used_labels]
-        batch_results.append(
-            {"used_labels": used_labels, "surface_dice_metric": sd, "surface_dice_metric_image": sd.mean().item()}
-        )
+        batch_results.append({
+            "used_labels": used_labels,
+            "surface_dice_metric": sd,
+            "surface_dice_metric_image": sd.mean().item(),
+        })
 
     return batch_results
 
@@ -285,6 +287,10 @@ def evaluate_images(
     assert labels.shape == mask.shape, "The labels and mask tensors must match in their dimensions"
     assert labels.dtype == torch.int64, "labels must be index values"
     assert mask.dtype == torch.bool, "The mask must be a boolean tensor"
+    assert mask.any(
+        dim=(1, 2)
+    ).all(), f"The mask must contain at least one valid pixel per image: {mask.any(dim=(1, 2))}"
+
     if n_classes is None:
         n_classes = len(settings_seg.labels)
 
@@ -436,6 +442,6 @@ def evaluate_images(
     }
 
     # Convert from dict of lists to list of dicts (https://stackoverflow.com/a/33046935/2762258)
-    results_batch = [dict(zip(result_batch, t)) for t in zip(*result_batch.values())]
+    results_batch = [dict(zip(result_batch, t, strict=True)) for t in zip(*result_batch.values(), strict=True)]
 
     return results_batch

@@ -3,13 +3,13 @@
 
 import pickle
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import blosc
 import numpy as np
 
 
-def compress_file(path: Path, data: Union[np.ndarray, dict[Any, np.ndarray]]) -> None:
+def compress_file(path: Path, data: np.ndarray | dict[Any, np.ndarray]) -> None:
     """
     Compresses the numpy array(s) using blosc (https://github.com/Blosc/c-blosc).
 
@@ -61,16 +61,17 @@ def compress_file(path: Path, data: Union[np.ndarray, dict[Any, np.ndarray]]) ->
 
 
 def decompress_file(
-    path: Path, start_pointer: Union[int, dict[str, int]] = None, load_keys: list[str] = None, return_meta: bool = False
-) -> Union[
-    Union[np.ndarray, int],
-    dict[str, Union[np.ndarray, int]],
-    tuple[
-        Union[np.ndarray, int],
-        dict[str, Union[np.ndarray, int]],
-        Union[tuple[tuple[int, ...], np.dtype], dict[str, tuple[tuple[int, ...], np.dtype]]],
-    ],
-]:
+    path: Path, start_pointer: int | dict[str, int] = None, load_keys: list[str] = None, return_meta: bool = False
+) -> (
+    np.ndarray
+    | int
+    | dict[str, np.ndarray | int]
+    | tuple[
+        np.ndarray | int,
+        dict[str, np.ndarray | int],
+        tuple[tuple[int, ...], np.dtype] | dict[str, tuple[tuple[int, ...], np.dtype]],
+    ]
+):
     """
     Decompresses a blosc file.
 

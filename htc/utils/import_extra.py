@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import functools
-from typing import Callable
+from collections.abc import Callable
 
 
 def requires_extra(missing_library: str) -> Callable:
@@ -17,6 +17,7 @@ def requires_extra(missing_library: str) -> Callable:
         _missing_library = ""
     except ImportError:
         _missing_library = "challenger_pydocker"
+
 
     @requires_extra(_missing_library)
     def my_function():

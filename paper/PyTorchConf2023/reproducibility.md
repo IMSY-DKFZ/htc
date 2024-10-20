@@ -17,7 +17,7 @@ Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) accordin
 You need the semantic datasets for this poster. Please copy it from the network drive to your computer, for example via: [≈ 1–2 hours]
 
 ```bash
-rsync -a --delete --info=progress2 --exclude=".git" /mnt/E130-Projekte/Biophotonics/Data/2021_02_05_Tivita_multiorgan_semantic/ ~/htc/2021_02_05_Tivita_multiorgan_semantic/
+rsync -a --delete --info=progress2 --exclude=".git*" /mnt/E130-Projekte/Biophotonics/Data/2021_02_05_Tivita_multiorgan_semantic/ ~/htc/2021_02_05_Tivita_multiorgan_semantic/
 ```
 
 Additionally, please create an empty results folder. In the end, your `.env` may look like:

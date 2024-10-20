@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from typing import Union
-
 import pandas as pd
 import torch
 
@@ -32,7 +30,7 @@ class ImageFigureConsumer(ImageConsumer):
             self.target_dir = self.target_dir / self.run_dir.parent.name / self.run_dir.name
         self.target_dir.mkdir(parents=True, exist_ok=True)
 
-    def handle_image_data(self, image_data: dict[str, Union[torch.Tensor, DataPath, str]]) -> None:
+    def handle_image_data(self, image_data: dict[str, torch.Tensor | DataPath | str]) -> None:
         if self.config["model/activations"] == "sigmoid":
             res = multi_label_condensation(image_data["predictions"].float().unsqueeze(dim=0), self.config)
             confidences = res["confidences"].squeeze(dim=0).numpy()
@@ -45,13 +43,13 @@ class ImageFigureConsumer(ImageConsumer):
         path = image_data["path"]
 
         # Find the appropriate table where the evaluation results are stored for this image
-        df_val = pd.read_pickle(self.run_dir / "validation_table.pkl.xz").query("dataset_index == 0")
         if self.test:
             df = pd.read_pickle(self.run_dir / "test_table.pkl.xz")
             df = df.query("image_name == @path.image_name()")
             assert len(df) == 1, "There is more than one result for the image"
             df = df.iloc[0]
         else:
+            df_val = pd.read_pickle(self.run_dir / "validation_table.pkl.xz").query("dataset_index == 0")
             df = df_val.query(f'epoch_index == best_epoch_index and image_name == "{path.image_name()}"')
             assert len(df) == 1, "There is more than one result for the image"
             df = df.iloc[0]
@@ -86,8 +84,8 @@ class ImageFigureConsumer(ImageConsumer):
     </head>
     <body>
         {html_prediction}
-        {fig_image_scores.to_html(full_html=False, include_plotlyjs='cdn', div_id='dice_scores')}
-        {fig_confusion.to_html(full_html=False, include_plotlyjs='cdn', div_id='confusion_matrix') if fig_confusion is not None else ''}
+        {fig_image_scores.to_html(full_html=False, include_plotlyjs="cdn", div_id="dice_scores")}
+        {fig_confusion.to_html(full_html=False, include_plotlyjs="cdn", div_id="confusion_matrix") if fig_confusion is not None else ""}
     </body>
 </html>"""
 
@@ -102,9 +100,6 @@ if __name__ == "__main__":
     runner.add_argument("--test")
     runner.add_argument("--test-looc")
     runner.add_argument("--output-dir")
-    runner.add_argument("--spec")
-    runner.add_argument("--spec-fold")
-    runner.add_argument("--spec-split")
 
     if runner.args.test:
         TestClass = TestLeaveOneOutPredictor if runner.args.test_looc else TestPredictor

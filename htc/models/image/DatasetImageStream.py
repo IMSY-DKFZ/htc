@@ -19,16 +19,16 @@ class DatasetImageStream(DatasetImage, HTCDatasetStream):
 
     >>> from htc.tivita.DataPath import DataPath
     >>> from htc.utils.Config import Config
-    >>> paths = [DataPath.from_image_name('P043#2019_12_20_12_38_35')]
+    >>> paths = [DataPath.from_image_name("P043#2019_12_20_12_38_35")]
     >>> config = Config({
-    ...     'input/n_channels': 100,
-    ...     'dataloader_kwargs/num_workers': 1,
-    ...     'dataloader_kwargs/batch_size': 1,
+    ...     "input/n_channels": 100,
+    ...     "dataloader_kwargs/num_workers": 1,
+    ...     "dataloader_kwargs/batch_size": 1,
     ... })
     >>> dataloader = DatasetImageStream.batched_iteration(paths, config)
     >>> for batch in dataloader:
-    ...     print(batch['features'].shape)
-    ...     print(batch['labels'].shape)
+    ...     print(batch["features"].shape)
+    ...     print(batch["labels"].shape)
     torch.Size([1, 480, 640, 100])
     torch.Size([1, 480, 640])
     """
@@ -38,6 +38,7 @@ class DatasetImageStream(DatasetImage, HTCDatasetStream):
             start_pointers = self._get_start_pointers(self.buffer_index, self.image_index)
             sample = self.__getitem__(path_index, start_pointers=start_pointers)
             del sample["image_name"]
+            del sample["image_name_annotations"]
 
             if "features" in sample:
                 if isinstance(sample["features"], torch.Tensor):

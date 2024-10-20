@@ -85,8 +85,7 @@ class HTCLightning(EvaluationMixin, LightningModule):
             paths: A list of data paths to batch-iterate over.
             **kwargs: Additional keyword arguments which will be passed on to the dataloader class.
 
-        Returns:
-            DataLoader: The dataloader which can be iterated over.
+        Returns: The dataloader which can be iterated over.
         """
         # We want to use the existing code for deciding which dataloader to use (e.g., DataLoader or StreamDataLoader) and use the validation datasets for this use case
         datasets_val_old = self.datasets_val
@@ -98,6 +97,13 @@ class HTCLightning(EvaluationMixin, LightningModule):
 
     def configure_optimizers(self):
         return parse_optimizer(self.config, self.model)
+
+    def log(self, *args, **kwargs) -> None:
+        # Lightning has problems inferring the correct batch size from the batch so we give it a hand per default
+        if "batch_size" not in kwargs:
+            kwargs["batch_size"] = self.config["dataloader_kwargs/batch_size"]
+
+        return super().log(*args, **kwargs)
 
     @staticmethod
     @abstractmethod

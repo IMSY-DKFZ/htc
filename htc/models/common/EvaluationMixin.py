@@ -5,6 +5,7 @@ import itertools
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
@@ -12,6 +13,7 @@ import torch.nn.functional as F
 from htc.evaluation.evaluate_images import evaluate_images
 from htc.models.common.MetricAggregation import MetricAggregation
 from htc.models.common.utils import multi_label_condensation
+from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 
 
@@ -60,6 +62,13 @@ class EvaluationMixin:
         else:
             predictions = F.softmax(logits["class"], dim=1)
 
+        valid_images = batch["valid_pixels"].any(dim=(1, 2))
+        if not valid_images.all():
+            settings.log.error(
+                "There are some images which do not contain any valid pixel. Evaluation cannot be carried out:"
+                f" {np.asarray(batch['image_name_annotations'])[(~valid_images).cpu().numpy()]}"
+            )
+
         batch_results_class = evaluate_images(
             predictions,
             batch["labels"],
@@ -78,14 +87,13 @@ class EvaluationMixin:
 
         rows = []
         for b in range(len(batch_results_class)):
-            image_name = batch["image_name"][b]
-            path = DataPath.from_image_name(image_name)
+            path = DataPath.from_image_name(batch["image_name_annotations"][b])
 
             current_row = {}
             if hasattr(self, "current_epoch"):
                 current_row["epoch_index"] = self.current_epoch
             current_row["dataset_index"] = dataloader_idx
-            current_row["image_name"] = image_name
+            current_row["image_name"] = path.image_name()
             current_row |= path.image_name_typed()
 
             for key, value in batch_results_class[b].items():

@@ -4,7 +4,7 @@
 import copy
 from datetime import datetime
 
-from htc.models.common.utils import cluster_command, run_jobs
+from htc.cluster.utils import cluster_command, run_jobs
 from htc.models.data.DataSpecification import DataSpecification
 from htc.models.data.run_size_dataset import label_mapping_dataset_size
 from htc.models.run_model_comparison import find_relevant_configs

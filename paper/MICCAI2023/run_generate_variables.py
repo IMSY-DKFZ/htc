@@ -4,12 +4,12 @@
 import numpy as np
 import pandas as pd
 
-from htc.context.manipulated_datasets.utils import compare_performance
-from htc.context.models.context_evaluation import best_run_data
-from htc.context.settings_context import settings_context
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings_seg import settings_seg
 from htc.utils.helper_functions import basic_statistics
+from htc_projects.context.manipulated_datasets.utils import compare_performance
+from htc_projects.context.models.context_evaluation import best_run_data
+from htc_projects.context.settings_context import settings_context
 
 
 class VariableGeneration:
@@ -179,15 +179,18 @@ class VariableGeneration:
                         # Drop for each dataset to the corresponding in-distribution dataset
                         "drop_DSC": (
                             row_in_distribution["dice_metric_mean"].item() - row_baseline["dice_metric_mean"].item()
-                        ) / row_in_distribution["dice_metric_mean"].item(),
+                        )
+                        / row_in_distribution["dice_metric_mean"].item(),
                         # Improvement from the baseline to the context model
                         "improvement_DSC": (
                             row_context["dice_metric_mean"].item() - row_baseline["dice_metric_mean"].item()
-                        ) / row_baseline["dice_metric_mean"].item(),
+                        )
+                        / row_baseline["dice_metric_mean"].item(),
                         "improvement_NSD": (
                             row_context[f"{settings_seg.nsd_aggregation_short}_mean"].item()
                             - row_baseline[f"{settings_seg.nsd_aggregation_short}_mean"].item()
-                        ) / row_baseline[f"{settings_seg.nsd_aggregation_short}_mean"].item(),
+                        )
+                        / row_baseline[f"{settings_seg.nsd_aggregation_short}_mean"].item(),
                     })
 
         df_performance = pd.DataFrame(performances)
@@ -324,9 +327,8 @@ class VariableGeneration:
         assert len(df_glove_baseline) == df_glove_baseline["label_name"].nunique()
         df_glove_best = pd.DataFrame({
             "label_name": df_glove_baseline["label_name"],
-            "improvement": (df_glove_context["dice_metric"] - df_glove_baseline["dice_metric"]) / df_glove_baseline[
-                "dice_metric"
-            ],
+            "improvement": (df_glove_context["dice_metric"] - df_glove_baseline["dice_metric"])
+            / df_glove_baseline["dice_metric"],
         })
         df_glove_best.sort_values("improvement", ascending=False, inplace=True)
 

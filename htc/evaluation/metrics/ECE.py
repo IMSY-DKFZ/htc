@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from typing import Union
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -67,7 +65,7 @@ class ECE(CalibrationLoss):
         predictions: torch.Tensor,
         labels: torch.Tensor,
         confidences: torch.Tensor = None,
-    ) -> dict[str, Union[float, list[int], list[float], list[int]]]:
+    ) -> dict[str, float | list[int] | list[float] | list[int]]:
         """
         Calculates the ECE values for a set of samples.
 
@@ -114,7 +112,7 @@ class ECE(CalibrationLoss):
     @staticmethod
     def aggregate_vectors(
         acc_mat: np.ndarray, conf_mat: np.ndarray, prob_mat: np.ndarray
-    ) -> dict[str, Union[float, list[int], list[float], list[int]]]:
+    ) -> dict[str, float | list[int] | list[float] | list[int]]:
         """
         This function aggregates the ece vectors from multiple images. This is useful when the ece cannot be calculated for all samples at once. All matrices must have the shape (n_batches, n_bins). Note that only when the raw counts are passed to this function the real ece can be calculated. If normalized vectors are passed, then the assumption is made that the original number of samples before the normalization was the same for all images (which is an approximation).
 

@@ -20,7 +20,7 @@ class ValidationPredictor(Predictor):
     def start(self, task_queue: multiprocessing.JoinableQueue, hide_progressbar: bool) -> None:
         settings.log.info(f"Working on run dir: {self.run_dir}")
 
-        specs = DataSpecification(self.run_dir / "data.json")
+        spec = DataSpecification.from_config(self.config)
         LightningClass = HTCLightning.class_from_config(self.config)
 
         with Progress(*Progress.get_default_columns(), TimeElapsedColumn(), disable=hide_progressbar) as progress:
@@ -31,12 +31,12 @@ class ValidationPredictor(Predictor):
                 ckpt_file, best_epoch_index = checkpoint_path(fold_dir)
 
                 # All paths for the respective fold
-                fold_data = specs.folds[fold_dir.name]
-                split_name = [name for name in fold_data.keys() if name.startswith("val")][0]  # Only the first dataset
+                fold_data = spec.folds[fold_dir.name]
+                split_name = next(name for name in fold_data.keys() if name.startswith("val"))  # Only the first dataset
                 assert not split_name.endswith("_known"), "Predictions should not be done on the known dataset"
 
                 if (
-                    specs.table()
+                    spec.table()
                     .query("split_name == @split_name")
                     .duplicated(subset=["split_name", "image_name"])
                     .any()

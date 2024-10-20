@@ -3,7 +3,6 @@
 
 import pickle
 from collections.abc import Iterator
-from typing import Union
 
 import kornia.augmentation as K
 import numpy as np
@@ -27,18 +26,21 @@ class HTCTransformation:
         If you have a transformation where you need access to the corresponding image (DataPath) and need to apply the transformation to each image separately, you can inherit from this class and overwrite the `transform_image()` method.
 
         Args:
-            paths: List of paths for which this transformation is called on. This is required if the transformation is applied on batches of images and no image_name but only an image_index is available. The original image is recovered via paths[image_index].
+            paths: List of paths for which this transformation is called on. This is required if the transformation is applied on batches of images and no image_name_annotations but only an image_index is available. The original image is recovered via paths[image_index].
+            **kwargs: Unused.
         """
         self.paths = paths
 
     def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         assert "features" in batch and (
-            "image_name" in batch or "image_index" in batch
-        ), "features and image_name/image_index are required"
-        if "image_name" in batch:
-            paths = [DataPath.from_image_name(image_name) for image_name in batch["image_name"]]
+            "image_name_annotations" in batch or "image_index" in batch
+        ), "features and image_name_annotations/image_index are required"
+        if "image_name_annotations" in batch:
+            paths = [DataPath.from_image_name(image_name) for image_name in batch["image_name_annotations"]]
         else:
-            assert self.paths is not None, "self.paths must be provided if image_name is not part of the batch"
+            assert (
+                self.paths is not None
+            ), "self.paths must be provided if image_name_annotations is not part of the batch"
             paths = [self.paths[image_index] for image_index in batch["image_index"]]
 
         # Default implementation to apply a random transformation for each image
@@ -90,10 +92,13 @@ class HTCTransformation:
                     if not has_next:
                         # No further transformations for this class
                         assert len(transformation_names) == len(transformation_kwargs)
-                        yield t["class"], {
-                            "transformation_names": transformation_names,
-                            "transformation_kwargs": transformation_kwargs,
-                        }
+                        yield (
+                            t["class"],
+                            {
+                                "transformation_names": transformation_names,
+                                "transformation_kwargs": transformation_kwargs,
+                            },
+                        )
                         transformation_names = []
                         transformation_kwargs = []
                 else:
@@ -213,13 +218,12 @@ class Normalization(HTCTransformation):
         Args:
             order: Order of the norm. 1 = L1 norm, 2 = L2 norm, etc.
             channel_dim: Dimension of the channel axis.
+            **kwargs: Unused.
         """
         self.order = order
         self.channel_dim = channel_dim
 
-    def __call__(
-        self, batch: Union[torch.Tensor, dict[str, torch.Tensor]]
-    ) -> Union[torch.Tensor, dict[str, torch.Tensor]]:
+    def __call__(self, batch: torch.Tensor | dict[str, torch.Tensor]) -> torch.Tensor | dict[str, torch.Tensor]:
         if type(batch) == dict:
             features = batch["features"]
         else:
@@ -250,6 +254,7 @@ class StandardizeHSI(HTCTransformation):
             stype: Type of standardization (pixel or channel).
             config: The configuration object used for training.
             fold_name: The name of the current fold (required to load the precomputed mean and std values).
+            **kwargs: Unused.
         """
         # Standardization parameters are precomputed
         specs_name = DataSpecification.from_config(config).name()
@@ -338,12 +343,13 @@ class StandardNormalVariate(HTCTransformation):
 
 
 class ToType(HTCTransformation):
-    def __init__(self, dtype: Union[str, torch.dtype] = torch.float32, **kwargs):
+    def __init__(self, dtype: str | torch.dtype = torch.float32, **kwargs):
         """
         Transformation to convert all floating point tensors to the specified type.
 
         Args:
             dtype: Target type (e.g. "float32" or torch.float32).
+            **kwargs: Unused.
         """
         self.dtype = str_to_dtype(dtype)
 
@@ -372,7 +378,7 @@ class KorniaTransform(HTCTransformation):
         ), "There must be arguments for each transformation"
 
         transforms = []
-        for name, t_kwargs in zip(transformation_names, transformation_kwargs):
+        for name, t_kwargs in zip(transformation_names, transformation_kwargs, strict=True):
             TransformationClass = getattr(K, name)
 
             # Kornia expects tuples instead of lists for augmentation parameters
@@ -450,7 +456,7 @@ class KorniaTransform(HTCTransformation):
         augmented = self.compose(*arguments.values(), data_keys=list(trans_types.values()))
         if type(augmented) == torch.Tensor:
             augmented = [augmented]
-        augmented = dict(zip(arguments.keys(), augmented))
+        augmented = dict(zip(arguments.keys(), augmented, strict=True))
 
         batch_transformed = {}
         for key in batch.keys():

@@ -5,7 +5,6 @@ import re
 from abc import ABC, abstractmethod
 from functools import partial
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import torch
@@ -43,7 +42,6 @@ class HTCDataset(ABC, Dataset):
         self.paths = paths
         self.config = config
         self.fold_name = fold_name
-        self.image_names = [p.image_name() for p in self.paths]
         self.n_channels_loading = self.config["input/n_channels"]  # Value before any channel selection
         self.features_dtype = dtype_from_config(self.config)
         self._checked_features_dtype = False
@@ -98,11 +96,10 @@ class HTCDataset(ABC, Dataset):
 
         For example, in case of the pixel model, this would be the number of pixels in an image since each pixel constitutes a sample.
         """
-        pass
 
     def apply_transforms(
-        self, sample: Union[dict[str, torch.Tensor], torch.Tensor]
-    ) -> Union[dict[str, torch.Tensor], torch.Tensor]:
+        self, sample: dict[str, torch.Tensor] | torch.Tensor
+    ) -> dict[str, torch.Tensor] | torch.Tensor:
         assert (
             len(self.transforms) >= 1 and type(self.transforms[0]) == ToType
         ), "There must always be the ToType transformation"
@@ -155,7 +152,7 @@ class HTCDataset(ABC, Dataset):
         assert self.fold_name is not None, "The fold name must be provided if label counts are needed"
 
         specs = DataSpecification.from_config(self.config)
-        image_names = [p.image_name() for p in specs.fold_paths(self.fold_name, "^train")]
+        image_names = [p.image_name_annotations() for p in specs.fold_paths(self.fold_name, "^train")]
 
         # We use the median tables to calculate the label count information
         task = Task.from_config(self.config)
@@ -180,7 +177,7 @@ class HTCDataset(ABC, Dataset):
 
         return label_values, label_counts
 
-    def read_labels(self, path: DataPath) -> Union[dict[str, torch.Tensor], None]:
+    def read_labels(self, path: DataPath) -> dict[str, torch.Tensor] | None:
         """
         Read the labels for the data path, compute the valid pixels and apply the label mapping.
 
@@ -351,6 +348,7 @@ class HTCDataset(ABC, Dataset):
                 )
 
         sample["image_name"] = path.image_name()
+        sample["image_name_annotations"] = path.image_name_annotations()
 
         return sample
 
@@ -407,7 +405,7 @@ class HTCDataset(ABC, Dataset):
 
     def _load_preprocessed(
         self, path: DataPath, folder_name: str, start_pointer: int = None, parameter_names: list[str] = None
-    ) -> Union[torch.Tensor, int]:
+    ) -> torch.Tensor | int:
         """
         Load preprocessed data for a given image from the specified folder.
 
@@ -461,9 +459,13 @@ class HTCDataset(ABC, Dataset):
             (".npy", np.load),
             (".npz", lambda p: np.load(p, allow_pickle=True)["data"]),
         ]
+
+        # Overlap images use (by definition) the same cube as the original image so we can also load the same preprocessed file here
+        image_name_file = path.image_name().removesuffix("#overlap")
+
         data = None
         for ext, load_func in extensions:
-            file_path = files_dir / f"{path.image_name()}{ext}"
+            file_path = files_dir / f"{image_name_file}{ext}"
             if file_path.exists():
                 data = load_func(file_path)
                 break

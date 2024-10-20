@@ -3,10 +3,9 @@
 
 import os
 from pathlib import Path
-from typing import Union
 
 
-def unify_path(path: Union[str, Path], resolve_symlinks: bool = True) -> Path:
+def unify_path(path: str | Path, resolve_symlinks: bool = True) -> Path:
     """
     Tries to bring some consistency to paths:
         - Resolve home directories (~ → /home/username).
@@ -36,6 +35,6 @@ def unify_path(path: Union[str, Path], resolve_symlinks: bool = True) -> Path:
             # This is not done by abspath
             path = path.replace("//", "/")
 
-        # Normalize and make absolute
-        path = os.path.abspath(path)  # noqa: PL100
+        # Normalize and make absolute but don't resolve symlinks
+        path = os.path.abspath(path)  # noqa: PTH100
         return Path(path)

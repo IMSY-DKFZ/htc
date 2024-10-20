@@ -90,6 +90,5 @@ def model_comparison_table(df_runs: pd.DataFrame, test: bool = False, metrics: l
 
     df_all = pd.concat(df_all, keys=df_runs["name"], names=["model_name", "row_id"])
     df_all = df_all.reset_index().drop(columns=["row_id"])
-    df_all
 
     return df_all

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import random
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -16,18 +16,18 @@ from htc.utils.helper_functions import median_table
 
 class DomainMapper:
     def __init__(
-        self, paths_or_specs: Union[list[DataPath], DataSpecification], target_domain: str, shuffle_domains: str = False
+        self, paths_or_specs: list[DataPath] | DataSpecification, target_domain: str, shuffle_domains: str = False
     ):
         """
         Helper class to handle the mapping of paths to the corresponding domain value based on a pool of paths. Domain mapper also works with using multiple domains simultaneously as well.
 
-        >>> paths = [DataPath.from_image_name('P043#2019_12_20_12_38_35'), DataPath.from_image_name('P084#2021_03_21_21_14_20')]
-        >>> mapper = DomainMapper(paths_or_specs=paths, target_domain='subject_index')
-        >>> mapper.domain_name('P043#2019_12_20_12_38_35')
+        >>> paths = [DataPath.from_image_name("P043#2019_12_20_12_38_35"), DataPath.from_image_name("P084#2021_03_21_21_14_20")]
+        >>> mapper = DomainMapper(paths_or_specs=paths, target_domain="subject_index")
+        >>> mapper.domain_name("P043#2019_12_20_12_38_35")
         'P043'
-        >>> mapper.domain_index('P043#2019_12_20_12_38_35')
+        >>> mapper.domain_index("P043#2019_12_20_12_38_35")
         0
-        >>> mapper.domain_index('P084#2021_03_21_21_14_20')
+        >>> mapper.domain_index("P084#2021_03_21_21_14_20")
         1
 
         Args:
@@ -50,7 +50,7 @@ class DomainMapper:
         """
         return len(self.domains)
 
-    def _init_attributes(self) -> tuple[Union[list, list[str]], dict, Any]:
+    def _init_attributes(self) -> tuple[list[str], dict, Any]:
         paths = None
 
         if isinstance(self.paths_or_specs, DataSpecification):
@@ -67,9 +67,9 @@ class DomainMapper:
         if "camera_index" == self.target_domain:
             domains, domain_mapping = self._cam_domains(dataset, paths)
             try:
-                from htc.cameras.settings_cam import settings_cam
+                from htc_projects.camera.settings_camera import settings_camera
 
-                domain_colors = settings_cam.camera_name_colors
+                domain_colors = settings_camera.camera_name_colors
             except ImportError:
                 pass
         elif "subject_index" == self.target_domain:
@@ -77,9 +77,9 @@ class DomainMapper:
         elif "species_index" == self.target_domain:
             domains, domain_mapping = self._species_domains(paths)
             try:
-                from htc.human.settings_human import settings_human
+                from htc_projects.species.settings_species import settings_species
 
-                domain_colors = settings_human.species_colors
+                domain_colors = settings_species.species_colors
             except ImportError:
                 pass
         elif "no_domain" == self.target_domain:
@@ -89,13 +89,13 @@ class DomainMapper:
             raise ValueError(f"Currently using {self.target_domain} as a target domain for training is not supported.")
 
         if domain_colors is None:
-            domain_colors = {domain: "#FFFFFF" for domain in domains}
+            domain_colors = dict.fromkeys(domains, "#FFFFFF")
 
         # baseline case where the domain ids are shuffled, to check if the domain task is acting as a regularization
         if self.shuffle_domains:
             mappings = list(domain_mapping.values())
             random.Random(0).shuffle(mappings)  # Does not affect global seed
-            domain_mapping = dict(zip(list(domain_mapping.keys()), mappings))
+            domain_mapping = dict(zip(list(domain_mapping.keys()), mappings, strict=True))
 
         return domains, domain_mapping, domain_colors
 

@@ -1,0 +1,25 @@
+{
+    "inherits": "image/configs/default",
+    "lightning_class": "htc_projects.context.models.LightningImageContext>LightningImageContext",
+    "trainer_kwargs": {
+        "check_val_every_n_epoch": 10
+    },
+    "validation": {
+        "checkpoint_metric_mode": "class_level",
+        "checkpoint_saving": "last",
+        "context_transforms_gpu": {
+            "isolation_0": [
+                {
+                    "class": "htc_projects.context.context_transforms>OrganIsolation",
+                    "fill_value": "0"
+                }
+            ],
+            "isolation_cloth": [
+                {
+                    "class": "htc_projects.context.context_transforms>OrganIsolation",
+                    "fill_value": "cloth"
+                }
+            ]
+        }
+    }
+}

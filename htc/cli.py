@@ -16,22 +16,28 @@ def main() -> int:
 
     # Collect all scripts in this repository
     scripts = []
-    for path in sorted(settings.src_dir.rglob("run*.py")):
-        module_path = path.relative_to(settings.src_dir)  # e.g. cameras/data/run_cam_dataset.py
-        module_name = str(module_path.parent).replace("/", ".")  # e.g. 'cameras.data'
-        name = path.stem.removeprefix("run_")  # e.g. cam_dataset (from run_cam_dataset.py)
+    if settings.src_dir != settings.htc_package_dir:
+        package_dirs = [settings.src_dir]
+    else:
+        package_dirs = [settings.htc_package_dir, settings.htc_projects_dir]
 
-        if module_name == ".":
-            full_name = name  # e.g. tests
-        else:
-            full_name = f"{module_name}.{name}"  # e.g. cameras.data.cam_dataset
+    for package_dir in package_dirs:
+        for path in sorted(package_dir.rglob("run*.py")):
+            module_path = path.relative_to(package_dir)  # e.g. camera/data/run_cam_dataset.py
+            module_name = str(module_path.parent).replace("/", ".")  # e.g. 'cameras.data'
+            name = path.stem.removeprefix("run_")  # e.g. cam_dataset (from run_cam_dataset.py)
 
-        scripts.append({
-            "name": name,
-            "full_name": full_name,
-            "path": path,
-            "module_path": module_path,
-        })
+            if module_name == ".":
+                full_name = name  # e.g. tests
+            else:
+                full_name = f"{module_name}.{name}"  # e.g. cameras.data.cam_dataset
+
+            scripts.append({
+                "name": name,
+                "full_name": full_name,
+                "path": path,
+                "module_path": module_path,
+            })
 
     scripts = sorted(scripts, key=lambda x: x["full_name"])
     assert len(scripts) > 0, "No scripts found in the repository"
@@ -64,7 +70,7 @@ def main() -> int:
             candidates = [s for s in scripts if s["full_name"].endswith(needle)]
 
         if len(candidates) == 0:
-            # Try if only part of the module path matches (e.g. tissue_atlas.test_table_generation even though the script is in htc.tissue_atlas.model_processing)
+            # Try if only part of the module path matches (e.g. atlas.test_table_generation even though the script is in htc_projects.atlas.model_processing)
             parts = needle.split(".")
             name = parts[-1]
             module_path = ".".join(parts[:-1])

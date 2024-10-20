@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from typing import Union
-
 import numpy as np
 import torch
 
@@ -68,7 +66,7 @@ class SLICWrapper:
         self.ksize = int(2 * (self.sigma * self.truncate) + 1)
 
     @automatic_numpy_conversion
-    def apply_slic(self, img: Union[torch.Tensor, np.ndarray]) -> Union[torch.Tensor, np.ndarray]:
+    def apply_slic(self, img: torch.Tensor | np.ndarray) -> torch.Tensor | np.ndarray:
         """
         Apply the slic function on an image after applying Gaussian blurring
 

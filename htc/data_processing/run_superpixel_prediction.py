@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Union
+from typing import Any
 
 import pandas as pd
 from threadpoolctl import threadpool_limits
@@ -17,11 +17,12 @@ from htc.utils.helper_functions import get_nsd_thresholds
 from htc.utils.parallel import p_map
 
 
-def aggregate_results(i: int) -> dict[str, Union[dict, Any]]:
+def aggregate_results(i: int) -> dict[str, dict | Any]:
     sample = dataset_all[i]
     result = EvaluateSuperpixelImage().evaluate_cpp(sample)
     result_eval = result["evaluation"]
-    subject_name, timestamp = dataset_all.image_names[i].split("#")
+    subject_name = dataset_all.paths[i].subject_name
+    timestamp = dataset_all.paths[i].timestamp
 
     predictions = result["predictions"].unsqueeze(dim=0)
     labels = sample["labels"].unsqueeze(dim=0)

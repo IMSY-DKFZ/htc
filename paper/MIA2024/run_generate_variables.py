@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from htc.context.models.context_evaluation import baseline_granularity_comparison
-from htc.context.neighbour.find_normalized_neighbour_matrix import find_normalized_neighbour_matrix
-from htc.context.settings_context import settings_context
 from htc.models.data.DataSpecification import DataSpecification
 from htc.models.image.DatasetImage import DatasetImage
 from htc.settings_seg import settings_seg
 from htc.utils.Config import Config
 from htc.utils.helper_functions import sort_labels, sort_labels_cm
+from htc_projects.context.models.context_evaluation import baseline_granularity_comparison
+from htc_projects.context.neighbour.find_normalized_neighbour_matrix import find_normalized_neighbour_matrix
+from htc_projects.context.settings_context import settings_context
 
 
 class VariableGeneration:

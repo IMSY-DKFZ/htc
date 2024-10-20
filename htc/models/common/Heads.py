@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from typing import Union
-
 import torch
 import torch.nn as nn
 
@@ -12,7 +10,7 @@ from htc.utils.DomainMapper import DomainMapper
 
 
 class Heads(nn.Module):
-    def __init__(self, config: Config, features_dim: Union[torch.Size, int]):
+    def __init__(self, config: Config, features_dim: torch.Size | int):
         """
         Adds multiple heads which calculate its prediction based on the features of a network.
 

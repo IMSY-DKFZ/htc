@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 import functools
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Callable, Union
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -104,10 +103,12 @@ class DataPathMultiorgan(DataPath):
 
     @staticmethod
     def iterate(
-        data_dir: Path,
-        filters: list[Callable[["DataPath"], bool]],
-        annotation_name: Union[str, list[str]],
+        data_dir: str | Path,
+        filters: list[Callable[["DataPathMultiorgan"], bool]] = None,
+        annotation_name: str | list[str] = None,
     ) -> Iterator["DataPathMultiorgan"]:
+        data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
+
         if (data_dir / "subjects").exists():
             dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
             intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)

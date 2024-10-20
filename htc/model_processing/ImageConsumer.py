@@ -4,7 +4,6 @@
 import traceback
 from abc import abstractmethod
 from pathlib import Path
-from typing import Union
 
 import torch
 import torch.multiprocessing as multiprocessing
@@ -22,9 +21,9 @@ class ImageConsumer(multiprocessing.Process):
         task_queue_errors: multiprocessing.Queue,
         results_list: list,
         results_dict: dict,
-        run_dir: Path,
+        run_dir: Path | list[Path],
+        config: Config | str,
         store_predictions: bool,
-        config: Config = None,
         **kwargs,
     ):
         """
@@ -38,8 +37,8 @@ class ImageConsumer(multiprocessing.Process):
             results_list: list-like object which can be used to share results across consumers.
             results_dict: dict-like object which can be used to share results across consumers.
             run_dir: Path to the run directory where the predictions are calculated from.
-            store_predictions: Whether to store the predictions for later use (e.g. for faster inference on the next run).
             config: Configuration object to use or name of the configuration file to load (relative to the run directory). If None, the default configuration file of the training run will be loaded.
+            store_predictions: Whether to store the predictions for later use (e.g. for faster inference on the next run).
             kwargs: All additional keyword arguments will be stored as attributes in this class.
         """
         multiprocessing.Process.__init__(self)
@@ -48,6 +47,8 @@ class ImageConsumer(multiprocessing.Process):
         self.results_list = results_list
         self.results_dict = results_dict
         self.run_dir = run_dir
+        if isinstance(self.run_dir, list):
+            self.run_dir = self.run_dir[0]
         self.store_predictions = store_predictions
 
         for name, value in kwargs.items():
@@ -62,10 +63,7 @@ class ImageConsumer(multiprocessing.Process):
             # New results should be stored in the run directory
             self.run_dir.set_default_location(str(self.run_dir))
 
-        if config is None:
-            self.config = Config(self.run_dir / "config.json")
-        else:
-            self.config = config if type(config) == Config else Config(self.run_dir / config)
+        self.config = config if type(config) == Config else Config(self.run_dir / config)
 
     def run(self):
         try:
@@ -77,7 +75,7 @@ class ImageConsumer(multiprocessing.Process):
                     self.task_queue_errors.put(None)  # Communicate that no error occurred
                     break
 
-                if isinstance(image_data, Path):
+                if image_data == "finished":
                     self.run_finished()
                 else:
                     if self.store_predictions:
@@ -122,13 +120,12 @@ class ImageConsumer(multiprocessing.Process):
                     self.task_queue.task_done()
 
     @abstractmethod
-    def handle_image_data(self, image_data: dict[str, Union[torch.Tensor, DataPath, str]]) -> None:
+    def handle_image_data(self, image_data: dict[str, torch.Tensor | DataPath | str]) -> None:
         """
         This abstract method must be implemented by every consumer and is called for every new prediction which is available.
 
         Args: The contents of the dict depend on the predictor but usually include the predictions, the image_name and the run directory.
         """
-        pass
 
     def run_finished(self) -> None:
         """
@@ -136,4 +133,3 @@ class ImageConsumer(multiprocessing.Process):
 
         It will only be called for one consumer.
         """
-        pass

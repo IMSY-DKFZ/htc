@@ -2,11 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Callable, Union
-
-from typing_extensions import Self
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -22,18 +19,16 @@ class DataPathTivita(DataPath):
         self.attributes = list(self.image_dir.relative_to(self.data_dir).parts[:-1])
 
     def build_path(self, base_folder: Path) -> Path:
-        return base_folder / "/".join(self.attributes + [self.timestamp])
-
-    @staticmethod
-    def from_image_name(image_name: str) -> Self:
-        raise NotImplementedError()
+        return base_folder / "/".join([*self.attributes, self.timestamp])
 
     @staticmethod
     def iterate(
-        data_dir: Path,
-        filters: list[Callable[[Self], bool]],
-        annotation_name: Union[str, list[str]],
+        data_dir: str | Path,
+        filters: list[Callable[["DataPathTivita"], bool]] = None,
+        annotation_name: str | list[str] = None,
     ) -> Iterator["DataPathTivita"]:
+        data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
+
         # Settings of the dataset (shapes etc.) can be referenced by the DataPaths
         intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
 

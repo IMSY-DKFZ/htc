@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -17,12 +18,12 @@ class ForwardHookPromise:
 
         >>> class MyModule(nn.Module):
         ...     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        ...         return {'a': x, 'b': x * x}
+        ...         return {"a": x, "b": x * x}
         >>> m = MyModule()
 
         The Promise can only used in a context manager (to ensure proper cleanup):
 
-        >>> own_hook = lambda module, module_in, module_out: module_out['a']
+        >>> own_hook = lambda module, module_in, module_out: module_out["a"]
         >>> with ForwardHookPromise(m) as p1, ForwardHookPromise(m, own_hook) as p2:
         ...     print(m(torch.ones(1)))  # Trigger the forward pass
         ...     print(p1.data())

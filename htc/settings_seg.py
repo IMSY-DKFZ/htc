@@ -81,7 +81,7 @@ class SettingsSeg:
         })
         self.labels = self.label_mapping.label_names()
 
-        self.model_comparison_timestamp = os.getenv("HTC_MODEL_COMPARISON_TIMESTAMP", "2022-02-03_22-58-44")
+        self.model_comparison_timestamp = os.getenv("HTC_MODEL_TIMESTAMP", "2022-02-03_22-58-44")
         self.dataset_size_timestamp = "2022-02-16_23-01-31"
         self.lr_experiment_timestamp = "2022-02-04_22-05-49"
         self.seed_experiment_timestamp = "2022-02-15_20-00-11"

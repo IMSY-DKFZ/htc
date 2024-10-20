@@ -10,7 +10,7 @@ class DuplicateFilter(logging.Filter):
         super().__init__()
         self.msgs = set()
 
-    def filter(self, record):  # noqa: A003
+    def filter(self, record):
         rv = record.msg not in self.msgs
         self.msgs.add(record.msg)
         return rv

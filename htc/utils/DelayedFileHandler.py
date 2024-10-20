@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Union
 
 
 class DelayedFileHandler(logging.Handler):
@@ -39,7 +39,7 @@ class DelayedFileHandler(logging.Handler):
             self.file_handler.emit(record)
         self.cached_records = []
 
-    def addFilter(self, filter_func: Union[logging.Filter, Callable]) -> None:
+    def addFilter(self, filter_func: logging.Filter | Callable) -> None:
         if self.file_handler is None:
             super().addFilter(filter_func)
         else:
@@ -51,7 +51,7 @@ class DelayedFileHandler(logging.Handler):
         else:
             self.file_handler.setFormatter(fmt)
 
-    def setLevel(self, level: Union[str, int]) -> None:
+    def setLevel(self, level: str | int) -> None:
         if self.file_handler is None:
             super().setLevel(level)
         else:

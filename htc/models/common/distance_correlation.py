@@ -13,13 +13,8 @@ def distance_correlation(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """
     Calculates the biased, non-squared distance correlation as this function: https://dcor.readthedocs.io/en/latest/functions/dcor.distance_correlation.html#dcor.distance_correlation A good description is available in this answer: https://stats.stackexchange.com/a/183930.
 
-    >>> x = torch.tensor([
-    ...         [1., 2., 3., 4.],
-    ...         [5., 6., 7., 8.],
-    ...         [9., 10., 11., 12.],
-    ...         [13., 14., 15., 16.]
-    ...     ])
-    >>> y = torch.tensor([[1.], [0.], [0.], [1.]])
+    >>> x = torch.tensor([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0], [9.0, 10.0, 11.0, 12.0], [13.0, 14.0, 15.0, 16.0]])
+    >>> y = torch.tensor([[1.0], [0.0], [0.0], [1.0]])
     >>> distance_correlation(x, x).item()
     1.0
     >>> distance_correlation(x, y).item()  # doctest: +ELLIPSIS

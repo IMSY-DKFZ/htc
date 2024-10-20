@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 
@@ -16,7 +15,7 @@ def tivita_wavelengths() -> np.array:
     return np.linspace(500, 1000, 100)
 
 
-def read_tivita_hsi(path: Path, normalization: Union[int, None] = None) -> np.ndarray:
+def read_tivita_hsi(path: Path, normalization: int | None = None) -> np.ndarray:
     """
     Load the Tivita data cube as Numpy array.
 
@@ -24,7 +23,7 @@ def read_tivita_hsi(path: Path, normalization: Union[int, None] = None) -> np.nd
 
     >>> from htc.settings import settings
     >>> from htc.tivita.DataPath import DataPath
-    >>> paths = DataPath.iterate(settings.data_dirs['PATH_Tivita_multiorgan_semantic'])
+    >>> paths = DataPath.iterate(settings.data_dirs["PATH_Tivita_multiorgan_semantic"])
     >>> path = next(iter(paths))
     >>> cube = path.read_cube()
     >>> cube.shape

@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
-from typing_extensions import Self
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -28,6 +27,8 @@ class DataPathReference(DataPath):
         Args:
             network_path: Relative path to the image on the network drive.
             dataset_name: Name of the dataset where the image comes from.
+            *args: Arguments passed to the parent class.
+            **kwargs: Keyword arguments passed to the parent class.
         """
         self.network_path = network_path
         self.dataset_name = dataset_name
@@ -100,7 +101,9 @@ class DataPathReference(DataPath):
             # The unsorted dataset has its own intermediates but the data dir always references the original dataset
             intermediates_dir = settings.datasets.find_intermediates_dir(unsorted_dir)
 
-            for image_name, network_path, dataset_name in zip(df["image_name"], df["network_path"], df["dataset_name"]):
+            for image_name, network_path, dataset_name in zip(
+                df["image_name"], df["network_path"], df["dataset_name"], strict=True
+            ):
                 if settings.datasets.network_data is None:
                     data_dir = None
                 else:
@@ -121,7 +124,7 @@ class DataPathReference(DataPath):
         return image_name in DataPathReference._cache()
 
     @staticmethod
-    def from_image_name(image_name: str, annotation_name: Union[str, list[str]]) -> Self:
+    def from_image_name(image_name: str, annotation_name: str | list[str]) -> "DataPathReference":
         cache = DataPathReference._cache()
         assert image_name in cache, f"Could not find the image {image_name} in the reference table"
 
@@ -137,10 +140,12 @@ class DataPathReference(DataPath):
 
     @staticmethod
     def iterate(
-        data_dir: Path,
-        filters: list[Callable[[Self], bool]],
-        annotation_name: Union[str, list[str]],
+        data_dir: str | Path,
+        filters: list[Callable[["DataPathReference"], bool]] = None,
+        annotation_name: str | list[str] = None,
     ) -> Iterator["DataPathReference"]:
+        data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
+
         dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
         df_references = pd.read_feather(data_dir / "image_references.feather")
         intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)

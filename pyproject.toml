@@ -7,9 +7,9 @@ requires = [
 ]
 
 [tool.cibuildwheel]
-build = "cp39-* cp310-* cp311-*"
+build = "cp310-* cp311-* cp312-*"
 skip = "*musllinux*"
-# If more than one wheel is built (e.g. cp39 and cp310), the second wheel fails due to a non-clean build directory
+# If more than one wheel is built (e.g. cp310 and cp311), the second wheel fails due to a non-clean build directory
 # Hence, we just delete it to start fresh
 before-build = """\
 python -c "import shutil; shutil.rmtree('build', ignore_errors=True)"\
@@ -22,23 +22,70 @@ test-command = [
 ]
 
 [tool.cibuildwheel.linux]
-archs = ["x86_64"]
+archs = [ "x86_64" ]
 # We are excluding all the libraries which PyTorch provides
 repair-wheel-command = "auditwheel repair --exclude libtorch_cpu.so --exclude libtorch_python.so --exclude libtorch.so --exclude libc10.so -w {dest_dir} {wheel}"
 
 [tool.cibuildwheel.macos]
-archs = ["auto"]
+archs = [ "auto" ]
 repair-wheel-command = "delocate-wheel --ignore-missing-dependencies --require-archs {delocate_archs} -w {dest_dir} -v {wheel}"
 
 [tool.cibuildwheel.windows]
-archs = ["AMD64"]
+archs = [ "AMD64" ]
 
-[tool.black]
+[tool.ruff]
+target-version = "py310"
+
 line-length = 120
-target-version = ['py39']
-preview = true
+format.preview = true
+format.docstring-code-line-length = 120
+format.docstring-code-format = true
+# TODO: enable at some point: E721, NPY002, SIM
+lint.extend-select = [
+  "A",
+  "B",
+  "C4",
+  "D",
+  "FLY",
+  "FURB",
+  "I",
+  "NPY",
+  "PERF",
+  "PIE",
+  "PTH",
+  "RUF",
+  "T10",
+  "TCH",
+  "UP",
+  "YTT",
+]
+lint.ignore = [
+  "B007", # It can be intended to name loop variables even if they are not used
+  "B023", # Leads to a lot of false alarms
+  "B027", # It is totally valid to prepare more methods in an abstract class without forcing them to be abstract
+  "C408", # We still want to use the dict(key=value) syntax
+  # pydocstyle has a lot of irrelevant checks by default. We are mainly interested in D417 (checks for missing arguments)
+  "D1",
+  "D200",
+  "D202",
+  "D205",
+  "D212",
+  "D400",
+  "D401",
+  "D402",
+  "D415",
+  "E721",
+  "E731",    # Assigning lambdas to variables can be cleaner
+  "E741",    # Usually not an issue
+  "F841",    # Does not detect df.query usage
+  "NPY002",  # Requires manual changes and testing
+  "PERF203", # Not so relevant anymore in Python 3.11+
+  "PERF401", # May lead to too complex code
+  "RUF001",  # Explicitly intended
+  "RUF003",  # Same
+  "RUF013",  # Produces unnecessary complexity
+]
+lint.per-file-ignores."__init__.py" = [ "F401" ]
+lint.unfixable = [ "B905" ] # We don't want strict=False but strict=True
 
-[tool.isort]
-known_first_party = "htc"
-profile = "black"
-line_length = 120
+lint.pydocstyle.convention = "google"

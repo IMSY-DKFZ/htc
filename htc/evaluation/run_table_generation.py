@@ -97,7 +97,7 @@ def generate_validation_table(run_dir: Path, table_stem: str = "validation_resul
                         rows.append(current_row)
 
         return pd.DataFrame(
-            rows, columns=["epoch_index", "best_epoch_index", "dataset_index", "fold_name", "image_name"] + metric_names
+            rows, columns=["epoch_index", "best_epoch_index", "dataset_index", "fold_name", "image_name", *metric_names]
         )
 
     if len(sorted(run_dir.rglob(f"{table_stem}.npz"))) > 0:
@@ -179,7 +179,10 @@ def check_run(run_dir: Path) -> None:
     for wildcard in necessary_files:
         for fold_dir in fold_dirs:
             if len(list(fold_dir.glob(f"{wildcard}"))) != 1:
-                settings.log.warning(f"Not exactly one {wildcard} file found in the run directory {fold_dir}")
+                settings.log.error(
+                    f"Not exactly one {wildcard} file found in the run directory {fold_dir} (instead:"
+                    f" {sorted(fold_dir.glob(f'{wildcard}'))})"
+                )
                 error_occurred = True
 
     # Check log files
@@ -209,7 +212,7 @@ def check_run(run_dir: Path) -> None:
     # Check data files
     for fold in fold_dirs:
         if not filecmp.cmp(fold_dirs[0] / "data.json", fold / "data.json", shallow=False):
-            settings.log.warning(
+            settings.log.error(
                 f"The data specification for every fold must be identical but the fold {fold} does not match with the"
                 f" first fold {fold_dirs[0]}"
             )
@@ -383,6 +386,7 @@ def create_experiment_notebooks(run_dir: Path, base_notebook: str) -> None:
         Path(base_notebook),
         Path(__file__).parent / base_notebook,
         settings.htc_package_dir / base_notebook,
+        settings.htc_projects_dir / base_notebook,
         settings.src_dir / base_notebook,
     ]
     input_path = None

@@ -17,37 +17,39 @@ class DatasetImage(HTCDataset):
     If no config is provided, the default is used which reads HSI images, its labels and a mask with valid pixels without applying augmentations.
 
     >>> from htc.tivita.DataPath import DataPath
-    >>> paths = [DataPath.from_image_name('P043#2019_12_20_12_38_35')]
+    >>> paths = [DataPath.from_image_name("P043#2019_12_20_12_38_35")]
     >>> sample = DatasetImage(paths, train=False)[0]
     >>> list(sample.keys())
-    ['labels', 'valid_pixels', 'features', 'image_name', 'image_index']
-    >>> sample['image_name']
+    ['labels', 'valid_pixels', 'features', 'image_name', 'image_name_annotations', 'image_index']
+    >>> sample["image_name"]
     'P043#2019_12_20_12_38_35'
-    >>> sample['image_index']
+    >>> sample["image_index"]
     0
-    >>> sample['features'].shape
+    >>> sample["features"].shape
     torch.Size([480, 640, 100])
-    >>> sample['labels'].shape
+    >>> sample["labels"].shape
     torch.Size([480, 640])
 
     You can also read the RGB images by providing a config file:
 
     >>> from htc.utils.Config import Config
-    >>> sample = DatasetImage(paths, train=False, config=Config({'input/n_channels': 3}))[0]
-    >>> sample['features'].shape
+    >>> sample = DatasetImage(paths, train=False, config=Config({"input/n_channels": 3}))[0]
+    >>> sample["features"].shape
     torch.Size([480, 640, 3])
 
     Similar for reading the parameter images (STO2, NIR, TWI and OHI) € [0;1]:
 
-    >>> sample = DatasetImage(paths, train=False, config=Config({'input/n_channels': 4, 'input/preprocessing': 'parameter_images'}))[0]
-    >>> sample['features'].shape
+    >>> sample = DatasetImage(
+    ...     paths, train=False, config=Config({"input/n_channels": 4, "input/preprocessing": "parameter_images"})
+    ... )[0]
+    >>> sample["features"].shape
     torch.Size([480, 640, 4])
 
     In case you are not interested in any features and only want the labels, simply do
 
-    >>> sample = DatasetImage(paths, train=False, config=Config({'input/no_features': True}))[0]
+    >>> sample = DatasetImage(paths, train=False, config=Config({"input/no_features": True}))[0]
     >>> list(sample.keys())
-    ['labels', 'valid_pixels', 'image_name', 'image_index']
+    ['labels', 'valid_pixels', 'image_name', 'image_name_annotations', 'image_index']
     """
 
     def __init__(self, *args, **kwargs):

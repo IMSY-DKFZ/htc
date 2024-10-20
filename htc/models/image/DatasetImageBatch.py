@@ -16,16 +16,16 @@ class DatasetImageBatch(SharedMemoryDatasetMixin, DatasetImage):
 
         >>> from htc.tivita.DataPath import DataPath
         >>> from htc.utils.Config import Config
-        >>> paths = [DataPath.from_image_name('P043#2019_12_20_12_38_35')]
+        >>> paths = [DataPath.from_image_name("P043#2019_12_20_12_38_35")]
         >>> config = Config({
-        ...     'input/n_channels': 100,
-        ...     'dataloader_kwargs/num_workers': 1,
-        ...     'dataloader_kwargs/batch_size': 1,
+        ...     "input/n_channels": 100,
+        ...     "dataloader_kwargs/num_workers": 1,
+        ...     "dataloader_kwargs/batch_size": 1,
         ... })
         >>> dataloader = DatasetImageBatch.batched_iteration(paths, config)
         >>> for batch in dataloader:
-        ...     print(batch['features'].shape)
-        ...     print(batch['labels'].shape)
+        ...     print(batch["features"].shape)
+        ...     print(batch["labels"].shape)
         torch.Size([1, 480, 640, 100])
         torch.Size([1, 480, 640])
         """
@@ -53,6 +53,7 @@ class DatasetImageBatch(SharedMemoryDatasetMixin, DatasetImage):
             sample = super().__getitem__(image_index, start_pointers=start_pointers)
             sample["worker_index"] = worker_index
             del sample["image_name"]
+            del sample["image_name_annotations"]
 
             for key, tensor in sample.items():
                 if key in self.pointer_keys and type(tensor) == int:

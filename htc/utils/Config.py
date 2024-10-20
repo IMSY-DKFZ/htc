@@ -5,10 +5,10 @@ import copy
 import functools
 import json
 import pprint
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from multiprocessing import Manager
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any
 
 import commentjson
 from typing_extensions import Self
@@ -31,49 +31,49 @@ def track_key_usage(method: Callable) -> Callable:
 
 
 class Config:
-    def __init__(self, path_or_dict: Union[str, Path, dict], use_shared_dict=False):
+    def __init__(self, path_or_dict: str | Path | dict, use_shared_dict=False):
         """
         This class can be used to work with the configuration files. It can be used as a dict but has some conveniences like accessing nested dicts via 'key1/key2' identifier. For the semantic meaning of common attributes, please take a look at the config.schema file.
 
         This class uses the commentjson library (https://github.com/vaidik/commentjson) to load the json configuration file. This means that comments are supported in the configuration file. However, they are lost when the configuration file is saved to a file.
 
-        >>> config = Config(settings.models_dir / 'image' / 'configs' / 'default.json')
-        >>> config['input/n_channels']
+        >>> config = Config(settings.models_dir / "image" / "configs" / "default.json")
+        >>> config["input/n_channels"]
         100
 
         Adding the config file extension is optional:
 
-        >>> config = Config(settings.models_dir / 'image' / 'configs' / 'default')  # Defaults to .json
-        >>> config['input/n_channels']
+        >>> config = Config(settings.models_dir / "image" / "configs" / "default")  # Defaults to .json
+        >>> config["input/n_channels"]
         100
 
         Config files can also inherit from each other (e.g. usually the rgb and param configs inherit from the default HSI config). For example, the rgb config of the image model inherits from the default config (which is used by the HSI modality).
 
-        >>> config_rgb = Config(settings.models_dir / 'image' / 'configs' / 'default_rgb.json')
+        >>> config_rgb = Config(settings.models_dir / "image" / "configs" / "default_rgb.json")
 
         config_rgb is the same as config expect for the changes made by the rgb config:
 
-        >>> config['input/preprocessing'] = None  # We are making the default config identical to the rgb config just for demonstration purposes
-        >>> config['input/n_channels'] = 3        # These settings are changed by the rgb config
-        >>> config['config_name'] = 'default_rgb'
+        >>> config["input/preprocessing"] = (
+        ...     None  # We are making the default config identical to the rgb config just for demonstration purposes
+        ... )
+        >>> config["input/n_channels"] = 3  # These settings are changed by the rgb config
+        >>> config["config_name"] = "default_rgb"
         >>> config == config_rgb  # The rgb config is now identical to the default config from which it inherits
         True
 
         For list config values inheritance is difficult as usually the user wants to append to the list. To achieve this, you can add a config value with the same key as the original list but with `_extends` appended. Those values will then be merged:
-        >>> config = Config(
-        ...     {
-        ...         "input/my_list": [1, 2],
-        ...         "input/my_list_extends": [3],
-        ...     }
-        ... )
+        >>> config = Config({
+        ...     "input/my_list": [1, 2],
+        ...     "input/my_list_extends": [3],
+        ... })
         >>> config["input/my_list"]
         [1, 2, 3]
 
         Config objects can also be constructed from existing dictionaries:
 
-        >>> Config({'a/b': 1, 'c': 3})
+        >>> Config({"a/b": 1, "c": 3})
         {'a': {'b': 1}, 'c': 3}
-        >>> Config({'a/b/c': 'str_value1', 'd': {'x': 'str_value2'}})
+        >>> Config({"a/b/c": "str_value1", "d": {"x": "str_value2"}})
         {'a': {'b': {'c': 'str_value1'}}, 'd': {'x': 'str_value2'}}
 
         Note: If you want to make a copy of the config to change values (without affecting the existing config), you can use copy.copy() which gives you a copy of all keys pointing to builtins (e.g. strings) but only copies the reference to objects like a data specification file (which is much better for performance). You should only deepcopy a config file if you want to make changes to e.g. the references data specs.
@@ -83,6 +83,7 @@ class Config:
             * absolute/relative
             * relative to the model's directory (e.g. image/configs/default.json)
             * relative to the htc package directory (e.g. models/image/configs/default.json)
+            * relative to the htc projects directory (e.g. species/configs/default.json)
             * relative to the repository root (e.g. htc/models/image/configs/default.json)
 
             use_shared_dict: If True, then a shared dictionary is used to track key usage (via multiprocessing.Manager). This is necessary to get correct usage statistics when multiprocessing is used. However, the manager object creates a subprocess and this may lead to problems if the config is created inside a processing pool as daemonic processes are not allowed to have children. The default is to use a standard Python dictionary. Note: if correct usage statistics are needed inside a processing pool, then the ProcessPoolExecutor might be an option (https://stackoverflow.com/a/61470465/2762258).
@@ -99,7 +100,7 @@ class Config:
                 path_or_dict = path_or_dict.with_name(path_or_dict.name + ".json")
 
             # Find the location to the config file
-            for p in Config._get_possible_paths(path_or_dict):
+            for p in Config.get_possible_paths(path_or_dict):
                 if p.exists():
                     self.path_config = unify_path(p)
                     break
@@ -131,7 +132,7 @@ class Config:
                 inherits = Path(parent + extension)
 
                 # We try several locations to find the parent config file
-                possible_paths = Config._get_possible_paths(inherits)
+                possible_paths = Config.get_possible_paths(inherits)
                 if self.path_config is not None:
                     possible_paths.append(
                         self.path_config.with_name(inherits.name)
@@ -221,13 +222,13 @@ class Config:
         """
         Merge the current config with another config or a dictionary of properties. The other config has precedence over the current config.
 
-        >>> config = Config({'a/b': 1, 'c': 3})
-        >>> config_merged = config.merge(Config({'a/b': 2, 'd': 4}))
-        >>> config_merged['a/b']
+        >>> config = Config({"a/b": 1, "c": 3})
+        >>> config_merged = config.merge(Config({"a/b": 2, "d": 4}))
+        >>> config_merged["a/b"]
         2
-        >>> config_merged['c']
+        >>> config_merged["c"]
         3
-        >>> config_merged['d']
+        >>> config_merged["d"]
         4
 
         Args:
@@ -272,12 +273,12 @@ class Config:
         """
         Checks if the configuration has a certain key.
 
-        >>> config = Config.from_model_name(model_name='pixel')
-        >>> 'model/activation_function' in config
+        >>> config = Config.from_model_name(model_name="pixel")
+        >>> "model/activation_function" in config
         True
-        >>> 'model' in config
+        >>> "model" in config
         True
-        >>> 'lr' in config
+        >>> "lr" in config
         False
         """
         keys = identifier.split("/")
@@ -311,8 +312,8 @@ class Config:
         """
         Same as __getitem__ but allowing a default value in case the identifier does not exist.
 
-        >>> config = Config.from_model_name(model_name='image')
-        >>> config.get('non_existing_key',1.0)
+        >>> config = Config.from_model_name(model_name="image")
+        >>> config.get("non_existing_key", 1.0)
         1.0
 
         Args:
@@ -331,9 +332,9 @@ class Config:
         """
         Change the value of a configuration.
 
-        >>> config = Config.from_model_name(model_name='pixel')
-        >>> config['model/lr'] = 0.1
-        >>> config['model/lr']
+        >>> config = Config.from_model_name(model_name="pixel")
+        >>> config["model/lr"] = 0.1
+        >>> config["model/lr"]
         0.1
         """
         keys = identifier.split("/")
@@ -353,12 +354,12 @@ class Config:
         """
         Removes an identifier from the configuration.
 
-        >>> config = Config.from_model_name(model_name='pixel')
-        >>> del config['dataloader_kwargs/batch_size']
+        >>> config = Config.from_model_name(model_name="pixel")
+        >>> del config["dataloader_kwargs/batch_size"]
         >>> config.keys()[:2]
         ['config_name', 'dataloader_kwargs/num_workers']
-        >>> config = Config({'test': 1})
-        >>> del config['test']
+        >>> config = Config({"test": 1})
+        >>> del config["test"]
         >>> config.keys()
         []
 
@@ -377,7 +378,7 @@ class Config:
         """
         List of all (nested) keys in the configuration.
 
-        >>> config = Config.from_model_name(model_name='pixel')
+        >>> config = Config.from_model_name(model_name="pixel")
         >>> config.keys()[:2]
         ['config_name', 'dataloader_kwargs/batch_size']
 
@@ -403,7 +404,7 @@ class Config:
         keys = self.keys()
         values = [self[k] for k in keys]
 
-        return zip(keys, values)
+        return zip(keys, values, strict=True)
 
     def save_config(self, path: Path) -> None:
         with path.open("w") as fp:
@@ -413,13 +414,14 @@ class Config:
         self["config_name"] = self.path_config.stem
 
     @classmethod
-    def from_model_name(cls, config_name: Union[Path, str] = None, model_name: str = None, **config_kwargs) -> Self:
+    def from_model_name(cls, config_name: Path | str = None, model_name: str = None, **config_kwargs) -> Self:
         """
         Load the configuration file for a model. Several common locations are searched:
 
             * Relative or absolute path.
             * Relative to settings.models_dir.
             * Relative to settings.htc_package_dir.
+            * Relative to settings.htc_projects_dir.
             * Relative to the model's config folder (inside settings.models_dir).
 
         >>> config = Config.from_model_name("default", "image")
@@ -440,7 +442,7 @@ class Config:
         if not path_config.name.endswith(".json"):
             path_config = path_config.with_name(path_config.name + ".json")
 
-        possible_paths = Config._get_possible_paths(path_config)
+        possible_paths = Config.get_possible_paths(path_config)
         if model_name is not None:
             possible_paths.append(settings.models_dir / model_name / "configs" / path_config)
 
@@ -451,8 +453,9 @@ class Config:
                 break
 
         if config is None:
+            locations = "\n".join([str(p) for p in possible_paths])
             raise ValueError(
-                f"Cannot find the configuration file {config_name}. Tried the following locations: {possible_paths}"
+                f"Cannot find the configuration file {config_name}. Tried the following locations:\n{locations}"
             )
 
         return config
@@ -489,7 +492,7 @@ class Config:
         return config
 
     @staticmethod
-    def _get_possible_paths(path: Path) -> list[Path]:
+    def get_possible_paths(path: Path) -> list[Path]:
         return [
             # Relative/absolute
             path,
@@ -497,6 +500,8 @@ class Config:
             settings.models_dir / path,
             # Relative to the htc package directory
             settings.htc_package_dir / path,
+            # Relative to the htc_projects directory
+            settings.htc_projects_dir / path,
             # Relative to the src directory
             settings.src_dir / path,
         ]

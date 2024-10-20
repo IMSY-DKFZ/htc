@@ -36,7 +36,7 @@ def dataset_size_table(runs: list[Path], metric_name: str = "dice_metric") -> pd
 
             rows.append([model, int(match.group(1)), int(match.group(2)), metric_images, *metric_classes])
 
-        return pd.DataFrame(rows, columns=["model", "n_pigs", "seed", "metric_images"] + mapping.label_names())
+        return pd.DataFrame(rows, columns=["model", "n_pigs", "seed", "metric_images", *mapping.label_names()])
 
     config = Config(runs[0] / "config.json")
     mapping = LabelMapping.from_config(config)

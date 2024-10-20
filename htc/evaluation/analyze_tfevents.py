@@ -3,7 +3,6 @@
 
 import os
 from pathlib import Path
-from typing import Union
 
 import pandas as pd
 from scipy import interpolate
@@ -12,14 +11,14 @@ from tensorboard.backend.event_processing.event_accumulator import EventAccumula
 from htc.settings import settings
 
 
-def read_tfevent_losses(run_dir: Path) -> Union[pd.DataFrame, None]:
+def read_tfevent_losses(run_dir: Path) -> pd.DataFrame | None:
     """
     Read loss values from tfevent files (from all folds).
 
     Args:
         run_dir: Path to the experiment folder containing a subfolder for each fold.
 
-    Returns: Dataframe with all stored scalars.
+    Returns: Table with all stored scalars or None if no tfevent file could be found.
     """
     rows = []
     fold_dirs = sorted(run_dir.glob("fold*"))

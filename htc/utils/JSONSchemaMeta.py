@@ -4,13 +4,12 @@
 import json
 import re
 from pathlib import Path
-from typing import Union
 
 from typing_extensions import Self
 
 
 class JSONSchemaMeta:
-    def __init__(self, schema: Union[dict, Path]) -> None:
+    def __init__(self, schema: dict | Path) -> None:
         """
         Helper class to access meta information from a JSON schema.
 
@@ -19,9 +18,7 @@ class JSONSchemaMeta:
 
         An example instance of this schema could be:
         >>> import jsonschema
-        >>> obj = {
-        ...    "a": 2
-        ... }
+        >>> obj = {"a": 2}
         >>> jsonschema.validate(instance=obj, schema=js.schema)
 
         Type of the (root) object:
@@ -51,7 +48,7 @@ class JSONSchemaMeta:
         except ImportError:
             pass
 
-    def __getitem__(self, identifier: str) -> Union[Self, None]:
+    def __getitem__(self, identifier: str) -> Self | None:
         """
         Access a sub-schema by its identifier.
 
@@ -85,7 +82,7 @@ class JSONSchemaMeta:
 
         return current_obj
 
-    def meta(self, name: str) -> Union[str, None]:
+    def meta(self, name: str) -> str | None:
         """
         Access meta information about the current object.
 

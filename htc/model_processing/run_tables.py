@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 import copy
+import gc
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -27,7 +27,7 @@ from htc.utils.LabelMapping import LabelMapping
 
 
 def _save_validation_table(
-    df_results: pd.DataFrame, target_dir: Path, metrics: list[str], tolerance_name: Union[str, None], run_dir: Path
+    df_results: pd.DataFrame, target_dir: Path, metrics: list[str], tolerance_name: str | None, run_dir: Path
 ) -> None:
     # Adding the new results to the validation table is a bit complicated since we only have results for the best epoch and the first dataset (but still want to keep the per-epoch results)
     assert "image_name" in df_results and "fold_name" in df_results
@@ -109,7 +109,7 @@ def _save_test_table(
     df_results: pd.DataFrame,
     target_dir: Path,
     metrics: list[str],
-    tolerance_name: Union[str, None],
+    tolerance_name: str | None,
     test_table_name: str,
 ) -> None:
     if "fold_name" in df_results:
@@ -156,7 +156,7 @@ class ImageTableConsumer(ImageConsumer):
 
         self.test_table_name = test_table_name
 
-    def handle_image_data(self, image_data: dict[str, Union[torch.Tensor, DataPath, str]]) -> None:
+    def handle_image_data(self, image_data: dict[str, torch.Tensor | DataPath | str]) -> None:
         config = copy.copy(self.config)
         config["input/preprocessing"] = None
         config["input/no_features"] = True  # As we only need labels from the sample
@@ -191,7 +191,7 @@ class ImageTableConsumer(ImageConsumer):
                 valid_pixels,
                 n_classes=predictions.shape[1],
                 tolerances=self.tolerances,
-                metrics=self.metrics + ["ECE", "CM"],
+                metrics=[*self.metrics, "ECE", "CM"],
             )[0]
 
         metric_data["image_name"] = path.image_name()
@@ -234,6 +234,9 @@ class TableValidationPredictor(EvaluationMixin, ValidationPredictor):
             r["best_epoch_index"] = best_epoch_index
         self.rows += rows
 
+        gc.collect()
+        torch.cuda.empty_cache()
+
     def predict_step(self, batch: dict[str, torch.Tensor], batch_idx: int = None) -> dict[str, torch.Tensor]:
         return self.model.predict_step(batch)
 
@@ -249,7 +252,10 @@ class TableTestPredictor(EvaluationMixin, TestPredictor):
         super().__init__(*args, **kwargs)
         self.rows = []
         self.config["input/no_labels"] = False
-        self.evaluation_kwargs = {"metrics": self.metrics}
+        self.evaluation_kwargs = {
+            "metrics": self.metrics,
+            "tolerances": get_nsd_thresholds(LabelMapping.from_config(self.config)),
+        }
         self.test_table_name = test_table_name
 
     def produce_predictions(self, model: HTCLightning, batch: dict[str, torch.Tensor], **kwargs) -> None:
@@ -258,6 +264,10 @@ class TableTestPredictor(EvaluationMixin, TestPredictor):
         rows = self._validate_batch(batch, dataloader_idx=0)
         rows = apply_recursive(lambda x: x.cpu().numpy() if type(x) == torch.Tensor else x, rows)
         self.rows += rows
+
+        # There might be memory overflows without explicit garbage collection
+        gc.collect()
+        torch.cuda.empty_cache()
 
     def predict_step(self, batch: dict[str, torch.Tensor], batch_idx: int = None) -> dict[str, torch.Tensor]:
         return self.model.predict_step(batch)
@@ -275,13 +285,7 @@ if __name__ == "__main__":
     runner.add_argument("--test-looc")
     runner.add_argument("--metrics")
     runner.add_argument("--NSD-thresholds")
-    runner.add_argument("--spec")
-    runner.add_argument("--spec-fold")
-    runner.add_argument("--spec-split")
-    runner.add_argument("--paths-variable")
-    runner.add_argument("--input-dir")
     runner.add_argument("--output-dir")
-    runner.add_argument("--config")
     runner.add_argument("--test-table-name", default="test_table", type=str, help="Name of the generated test table.")
     runner.add_argument(
         "--gpu-only",
@@ -301,15 +305,17 @@ if __name__ == "__main__":
                 test_table_name=runner.args.test_table_name,
                 metrics=runner.args.metrics,
                 paths=runner.paths,
-                config=runner.args.config,
+                config=runner.config,
             )
         else:
-            predictor = TableValidationPredictor(runner.run_dir, metrics=runner.args.metrics, config=runner.args.config)
+            predictor = TableValidationPredictor(runner.run_dir, metrics=runner.args.metrics, config=runner.config)
 
         with torch.autocast(device_type="cuda"):
-            predictor.start(task_queue=None, hide_progressbar=False)
+            predictor.start(task_queue=None, hide_progressbar=runner.args.hide_progressbar)
 
         target_dir = runner.args.output_dir if runner.args.output_dir is not None else runner.run_dir
+        if isinstance(target_dir, list):
+            target_dir = target_dir[0]
         predictor.save_table(target_dir)
     else:
         if runner.args.test:
