@@ -1,0 +1,40 @@
+{
+    "inherits": "htc_projects/species/configs/baseline_pig.json",
+    "input": {
+        "transforms_gpu": [
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomAffine",
+                "translate": [0.0625, 0.0625],
+                "scale": [0.9, 1.1],
+                "degrees": 45,
+                "padding_mode": "reflection",
+                "p": 0.5
+            },
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomHorizontalFlip",
+                "p": 0.25
+            },
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomVerticalFlip",
+                "p": 0.25
+            },
+            {
+                "class": "htc_projects.species.species_transforms>ProjectionTransform",
+                "base_name": "weights+bias_pig_kidney=P091,P095,P097,P098+aortic",
+                "interpolate": true,
+                "target_labels": ["kidney"],
+                "p": 0.8
+            },
+            {
+                "class": "htc_projects.context.context_transforms>OrganTransplantation",
+                "p": 0.8
+            },
+            {
+                "class": "Normalization"
+            }
+        ]
+    }
+}

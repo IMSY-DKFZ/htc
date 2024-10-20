@@ -1,0 +1,13 @@
+{
+    "inherits": "htc_projects/context/models/configs/organ_transplantation_0.8.json",
+    "label_mapping": "htc_projects.species.settings_species>label_mapping",
+    "input": {
+        "data_spec": "human_semantic-only_physiological-kidney_5folds_nested-0-2_mapping-12_seed-0.json",
+        "hierarchical_sampling": "label",
+        "target_domain": ["no_domain"]
+    },
+    "dataloader_kwargs": {
+        "batch_size": 8,
+        "num_workers": 2
+    }
+}
