@@ -1,0 +1,7 @@
+{
+    "inherits": "htc_projects/benchmarking/configs/blosc",
+    "input": {
+        "preprocessing": "raw16",
+        "features_dtype": "float16"
+    }
+}

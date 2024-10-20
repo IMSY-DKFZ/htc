@@ -1,0 +1,9 @@
+{
+    "inherits": "htc_projects/benchmarking/configs/gpu-aug",
+    "benchmarking": {
+        "dataloader": "ring_buffer"
+    },
+    "dataloader_kwargs": {
+        "num_workers": 2
+    }
+}

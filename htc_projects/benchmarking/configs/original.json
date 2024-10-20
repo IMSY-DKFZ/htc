@@ -1,0 +1,46 @@
+{
+    "inherits": "image/configs/default",
+    "lightning_class": "htc_projects.benchmarking.models.LightningImageBench>LightningImageBench",
+    "input": {
+        "data_spec": "benchmarking/data/pigs_semantic-all_train-only.json",
+        "preprocessing": null,
+        "features_dtype": "float32",
+        "transforms_cpu": [
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomAffine",
+                "translate": [0.0625, 0.0625],
+                "scale": [0.9, 1.1],
+                "degrees": 45,
+                "padding_mode": "reflection",
+                "p": 0.5
+            },
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomHorizontalFlip",
+                "p": 0.5
+            },
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomVerticalFlip",
+                "p": 0.5
+            }
+        ],
+        "transforms_gpu": null
+    },
+    "dataloader_kwargs": {
+        "batch_size": 6,
+        "num_workers": 6
+    },
+    "trainer_kwargs": {
+        "max_epochs": 5,
+        "limit_val_batches": 0
+    },
+    "swa_kwargs": null,
+    "validation": {
+        "checkpoint_saving": false
+    },
+    "benchmarking": {
+        "dataloader": "default"
+    }
+}

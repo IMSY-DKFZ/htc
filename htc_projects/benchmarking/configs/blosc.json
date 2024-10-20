@@ -1,0 +1,6 @@
+{
+    "inherits": "htc_projects/benchmarking/configs/original",
+    "input": {
+        "preprocessing": "raw32"
+    }
+}
