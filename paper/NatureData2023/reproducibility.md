@@ -4,7 +4,7 @@ This document explains how to reproduce the `HeiPorSPECTRAL` dataset including d
 
 ## Prerequisite
 
-Please make sure that you have the htc package installed (it contains all required dependencies) and that it works on your machine (see README in the repository root). It is advisable to run all commands in a screen environment (e.g. [`screen`](https://linuxize.com/post/how-to-use-linux-screen/)) as they may take a while to complete.
+Please make sure that you have the htc package installed (it contains all required dependencies) and that it works on your machine (see README in the repository root). It is advisable to run all commands in a screen environment (e.g. `screen`) as they may take a while to complete.
 
 ## Step 1a: generate the dataset (DKFZ internal only)
 

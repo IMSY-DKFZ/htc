@@ -8,7 +8,7 @@ Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) accordin
 
 > These instructions were tested on the `paper_semantic_v3` tag. However, for reproducing, we recommend to use the latest master instead as there are some general dependencies (e.g. dataset version, cluster access) which are not guaranteed to work on an old tag in the future.
 
-> Please use a [`screen`](https://linuxize.com/post/how-to-use-linux-screen/) environment for all of the following commands since they may take a while to complete.
+> Please use a `screen` environment for all of the following commands since they may take a while to complete.
 
 ## (Optional) run tests
 

@@ -23,7 +23,7 @@ export PATH_HTC_RESULTS=~/htc/results
 
 You also need access to the cluster, i.e. `ssh $DKFZ_USERID@$WORKER_NODE` should work (cf. our [cluster documentation](../../htc/cluster/cluster_usage.md) for more details). You may want to run the (short) tests to ensure that everything works (cf. [README](../../README.md)).
 
-> Please use a [`screen`](https://linuxize.com/post/how-to-use-linux-screen/) environment for all of the following commands since they may take a while to complete.
+> Please use a `screen` environment for all of the following commands since they may take a while to complete.
 
 ## Sanity check
 

@@ -25,7 +25,7 @@ export PATH_Tivita_multiorgan_rat=~/htc/2023_12_07_Tivita_multiorgan_rat
 
 You also need access to the cluster, i.e. `ssh $DKFZ_USERID@$WORKER_NODE` should work (cf. our [cluster documentation](../../htc/cluster/cluster_usage.md) for more details).
 
-> Please use a [`screen`](https://linuxize.com/post/how-to-use-linux-screen/) environment for all of the following commands since they may take a while to complete.
+> Please use a `screen` environment for all of the following commands since they may take a while to complete.
 
 ## Sanity check
 

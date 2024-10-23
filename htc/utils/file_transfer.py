@@ -11,7 +11,7 @@ def upload_file_s3(local_path: Path, remote_path: str) -> str:
     """
     Uploads a local file to our S3 storage and makes it publicly available.
 
-    In order to use this function, make sure you have access to our vault (e130-hyperspectal-tissue-classification) and that you installed and configured the Minio client correctly (based on: https://agcompute.sci.dkfz-heidelberg.de/s3-cos-documentation/quickstart/quickstart_cli/):
+    In order to use this function, make sure you have access to our vault (e130-hyperspectal-tissue-classification) and that you installed and configured the Minio client correctly (based on: https://itcfwiki.inet.dkfz-heidelberg.de/books/central-servers/chapter/s3-cloud-object-storage-cos):
     ```bash
     # Download the Minio client to /usr/local/bin so that it will be available in your PATH
     sudo wget -O /usr/local/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc

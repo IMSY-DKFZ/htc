@@ -27,7 +27,7 @@ export PATH_Tivita_multiorgan_masks=~/htc/2021_02_05_Tivita_multiorgan_masks
 export PATH_HTC_RESULTS=~/htc/results
 ```
 
-> Please use a [`screen`](https://linuxize.com/post/how-to-use-linux-screen/) environment for all of the following commands since they may take a while to complete.
+> Please use a `screen` environment for all of the following commands since they may take a while to complete.
 
 ## Sanity check
 
