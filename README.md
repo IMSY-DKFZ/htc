@@ -39,7 +39,7 @@ If you use the `htc` framework, please consider citing the [corresponding papers
   author    = {Sellner, Jan and Seidlitz, Silvia},
   publisher = {Zenodo},
   url       = {https://github.com/IMSY-DKFZ/htc},
-  date      = {2024-10-20},
+  date      = {2024-10-23},
   doi       = {10.5281/zenodo.6577614},
   title     = {Hyperspectral Tissue Classification},
   version   = {v0.0.17},
