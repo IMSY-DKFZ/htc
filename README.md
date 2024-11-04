@@ -292,7 +292,7 @@ There is a common command line interface for many scripts in this repository. Mo
 
 This repository contains code to reproduce our publications listed below:
 
-### 📝 Xeno-learning: knowledge transfer across species in deep learning-based spectral image analysis
+### 📝 [Xeno-learning: knowledge transfer across species in deep learning-based spectral image analysis](https://doi.org/10.48550/arXiv.2410.19789)
 
 <div align="center">
 <a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/species_motivation.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/species_motivation.png" alt="Logo" width="700" /></a>
@@ -302,7 +302,25 @@ This paper introduces a cross-species knowledge transfer paradigm termed <i>xeno
 
 > 📂 The dataset for this paper is not fully publicly available, but a subset of the data is available through the public [HeiPorSPECTRAL](https://heiporspectral.org/) dataset.
 
-### 📝 [Semantic segmentation of surgical hyperspectral images under geometric domain shifts](https://doi.org/10.48550/arXiv.2303.10972)
+<details closed>
+<summary>Cite via BibTeX</summary>
+
+```bibtex
+@misc{sellner_species_2024,
+  author      = {Sellner, Jan and Studier-Fischer, Alexander and Qasim, Ahmad Bin and Seidlitz, Silvia and Schreck, Nicholas and Tizabi, Minu and Wiesenfarth, Manuel and Kopp-Schneider, Annette and Knödler, Samuel and Haney, Caelan Max and Salg, Gabriel and Özdemir, Berkin and Dietrich, Maximilian and Michel, Maurice Stephan and Nickel, Felix and Kowalewski, Karl-Friedrich and Maier-Hein, Lena},
+  url         = {https://arxiv.org/abs/2410.19789},
+  date        = {2024},
+  doi         = {10.48550/arXiv.2410.19789},
+  eprint      = {2410.19789},
+  eprintclass = {cs.CV},
+  eprinttype  = {arXiv},
+  title       = {Xeno-learning: knowledge transfer across species in deep learning-based spectral image analysis},
+}
+```
+
+</details>
+
+### 📝 [Semantic segmentation of surgical hyperspectral images under geometric domain shifts](https://doi.org/10.1007/978-3-031-43996-4_59)
 
 <div align="center">
 <a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MICCAI_abstract.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/MICCAI_abstract.png" alt="Logo" width="600" /></a>
@@ -400,7 +418,7 @@ If you want to learn more about the [HeiPorSPECTRAL](https://heiporspectral.org/
 ```bibtex
 @article{studierfischer_open_2023,
   author       = {Studier-Fischer, Alexander and Seidlitz, Silvia and Sellner, Jan and Bressan, Marc and Özdemir, Berkin and Ayala, Leonardo and Odenthal, Jan and Knoedler, Samuel and Kowalewski, Karl-Friedrich and Haney, Caelan Max and Salg, Gabriel and Dietrich, Maximilian and Kenngott, Hannes and Gockel, Ines and Hackert, Thilo and Müller-Stich, Beat Peter and Maier-Hein, Lena and Nickel, Felix},
-  url          = {https://heiporspectral.org/},
+  url          = {https://heiporspectral.org},
   date         = {2023-06-24},
   doi          = {10.1038/s41597-023-02315-8},
   issn         = {2052-4463},
