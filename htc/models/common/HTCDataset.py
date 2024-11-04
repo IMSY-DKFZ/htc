@@ -419,10 +419,12 @@ class HTCDataset(ABC, Dataset):
         """
         possible_directories = [
             settings.intermediates_dir_all / "preprocessing" / folder_name,
-            settings.results_dir / "preprocessing" / folder_name,
-            settings.results_dir / folder_name,
             Path(folder_name),
         ]
+        if settings.results_dir is not None:
+            possible_directories.append(settings.results_dir / "preprocessing" / folder_name)
+            possible_directories.append(settings.results_dir / folder_name)
+
         files_dir = None
         for p in possible_directories:
             if p.exists():
