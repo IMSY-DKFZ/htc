@@ -16,7 +16,7 @@ monai
 GPUtil
 psutil
 segmentation-models-pytorch
-kornia>=0.6.12
+kornia!=0.7.4
 rich
 threadpoolctl
 commentjson

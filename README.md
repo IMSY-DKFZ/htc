@@ -139,8 +139,6 @@ If you want to make changes to the package code (which is highly welcome 😉), 
 
 ```bash
 # Set up the conda environment
-# Note: By adding conda-forge to your default channels, you will get the latest patch releases for Python:
-#   conda config --add channels conda-forge
 conda create --yes --name htc python=3.12
 conda activate htc
 
