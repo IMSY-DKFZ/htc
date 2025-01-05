@@ -1,0 +1,18 @@
+{
+    "printWidth": 120,
+    "tabWidth": 4,
+    "overrides": [
+        {
+            "files": ["*.json", "*.schema", ".prettierrc"],
+            "options": {
+                "parser": "json"
+            }
+        },
+        {
+            "files": ["*.yml", "*.yaml", "*.cff"],
+            "options": {
+                "tabWidth": 2
+            }
+        }
+    ]
+}

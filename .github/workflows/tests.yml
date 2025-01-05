@@ -24,10 +24,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest wheel
+          pip install pytest pytest-xdist wheel
 
       - name: Install htc
         run: pip install --no-use-pep517 -e .
 
       - name: Tests
-        run: py.test --doctest-modules --import-mode=importlib --collect-only .
+        # Tests run only in the internal repository. For the public repository, we only check that everything is importable
+        run: py.test --doctest-modules --import-mode=importlib --collect-only --ignore=tests .

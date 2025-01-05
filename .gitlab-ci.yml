@@ -1,0 +1,64 @@
+default:
+  tags:
+    # Our jobs need a shell executor runner
+    # This allows for custom Docker config and has better caching capabilities (https://www.augmentedmind.de/2022/06/12/gitlab-vs-docker-caching-pipelines/)
+    - shell
+
+stages:
+  - build
+  - test
+  - deploy
+
+build-docker:
+  stage: build
+  script:
+    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build $BUILD_OPT
+    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc conda list --export
+
+code-checks:
+  stage: test
+  script:
+    # We trigger the build process again before running the actual checks in case the code changed
+    # This may happen if jobs from multiple branches run at the same time
+    # If the code did not change, the build cache will be used
+    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash run_hooks.sh
+
+tests:
+  stage: test
+  script:
+    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc htc tests --parallel 4 $TEST_OPT
+
+test-package:
+  stage: test
+  script:
+    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - >
+      docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c '
+      CIBW_BUILD="cp312-*"
+      CIBW_TEST_COMMAND=""
+      cibuildwheel --platform linux --output-dir dist &&
+      cd /home &&
+      conda create --yes --name htc_test python=3.12 &&
+      conda run --no-capture-output --name htc_test pip install pytest &&
+      conda run --no-capture-output --name htc_test pip install /home/src/dist/* &&
+      conda run --no-capture-output --name htc_test py.test --doctest-modules --import-mode=importlib --collect-only --pyargs "htc" "htc_projects"' || exit_code=$?
+    - if [ ${exit_code:-0} -ne 0 ]; then echo "Import errors were encountered with the default installation of the htc package. This usually happens if you imported an extra module without making the import optional and without wrapping the function with an requires_extra decorator (see htc/utils/import_extra.py for details)" && exit 1; fi;
+
+package:
+  stage: deploy
+  script:
+    # cibuildwheel is configured via pyproject.toml
+    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - >
+      docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c "
+      pip install --upgrade cibuildwheel twine &&
+      CIBW_ENVIRONMENT=CI_COMMIT_TAG=${CI_COMMIT_TAG}
+      python -m cibuildwheel --platform linux --output-dir dist &&
+      TWINE_PASSWORD=${CI_JOB_TOKEN}
+      TWINE_USERNAME=gitlab-ci-token
+      python -m twine upload --verbose --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*"
+  only:
+    - tags
+    - /^v.*$/
