@@ -89,7 +89,7 @@ class UpdateCluster(ClusterConnection):
         )
 
         # Transferring the built container
-        image_filename = f'htc_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.sif'
+        image_filename = f"htc_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.sif"
         self.run_command(
             command=(
                 "rsync --recursive --specials --times --copy-links --delete --info=progress2 ~/htc.sif"

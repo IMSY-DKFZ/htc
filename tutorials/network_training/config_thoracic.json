@@ -7,7 +7,7 @@
     "inherits": "models/image/configs/default",
     "input": {
         "annotation_name": ["polygon#annotator1", "polygon#annotator2", "polygon#annotator3"],
-        "data_spec": "/mnt/ssd_8tb/htc/src/tutorials/network_training/pigs_thoracic_2folds.json",
+        "data_spec": "tutorials/network_training/pigs_thoracic_2folds.json",
         "epoch_size": 500,
         "merge_annotations": "union",
         "n_channels": 100,
@@ -35,11 +35,19 @@
         ]
     },
     "label_mapping": {
-        "heart": 0,
-        "lung": 1,
-        "unlabeled": 100
+        "last_valid_label_index": 1,
+        "mapping_index_name": {
+            "0": "heart",
+            "1": "lung"
+        },
+        "mapping_name_index": {
+            "heart": 0,
+            "lung": 1
+        },
+        "unknown_invalid": true,
+        "zero_is_invalid": false
     },
-    "lightning_class": "/mnt/ssd_8tb/htc/src/tutorials/network_training/LightningImageThoracic.py>LightningImageThoracic",
+    "lightning_class": "tutorials/network_training/LightningImageThoracic.py>LightningImageThoracic",
     "model": {
         "architecture_kwargs": {
             "encoder_name": "efficientnet-b5",

@@ -39,9 +39,9 @@ def pad_tensors(
 
     shapes = [t.shape for t in tensors]
     assert [shapes[0] == len(s) for s in shapes], "All tensors must have the same number of shape dimensions"
-    assert len(dim) <= len(
-        shapes[0]
-    ), f"dim provides {len(dim)} dimensions but the tensors only have {len(shapes[0])} dimensions"
+    assert len(dim) <= len(shapes[0]), (
+        f"dim provides {len(dim)} dimensions but the tensors only have {len(shapes[0])} dimensions"
+    )
     target_sizes = [max(s[d] for s in shapes) for d in dim]
 
     if size_multiple is not None:
@@ -49,9 +49,9 @@ def pad_tensors(
         if type(size_multiple) == int:
             size_multiple = (size_multiple,) * len(dim)
 
-        assert len(dim) == len(
-            size_multiple
-        ), "A size multiple must be given for each dimension or one value for all dimensions"
+        assert len(dim) == len(size_multiple), (
+            "A size multiple must be given for each dimension or one value for all dimensions"
+        )
 
         for i in range(len(target_sizes)):
             multiple = size_multiple[i]  # e.g. 28

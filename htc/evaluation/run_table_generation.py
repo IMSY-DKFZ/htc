@@ -42,7 +42,7 @@ def merge_fold_tables(run_dir: Path, table_filename: str) -> pd.DataFrame:
             )
             if df["epoch_index"].max() != expected_epoch_index:
                 settings.log.warning(
-                    f'The maximum epoch_index in the validation data ({df["epoch_index"].max()}) is different from the'
+                    f"The maximum epoch_index in the validation data ({df['epoch_index'].max()}) is different from the"
                     f" expected epoch_index based on the number of trained epochs ({expected_epoch_index}) for the run"
                     f" {run_dir}"
                 )
@@ -441,7 +441,8 @@ if __name__ == "__main__":
 
     if args.input_path is None:
         # Find runs which do not have all of the following required files
-        required_files = ["validation_table.pkl.xz", "ExperimentAnalysis.html"]
+        required_files = ["validation_table.pkl.xz"]
+
         run_dirs = []
         for r in get_valid_run_dirs():
             # If a run should be computed again, delete all of the required files

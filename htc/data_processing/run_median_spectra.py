@@ -83,9 +83,9 @@ class MedianSpectra(DatasetIteration):
                     if sample[label_key].ndim == 3:
                         selection = sample[label_key] == label_index
                         valid_dim = selection.any(dim=-1).any(dim=-1)
-                        assert (
-                            valid_dim.sum() == 1
-                        ), "For multi-layer segmentations, every label must only occur on exactly one layer"
+                        assert valid_dim.sum() == 1, (
+                            "For multi-layer segmentations, every label must only occur on exactly one layer"
+                        )
                         selection = selection[valid_dim].squeeze(dim=0)
                     else:
                         selection = sample[label_key] == label_index

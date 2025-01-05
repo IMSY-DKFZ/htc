@@ -484,9 +484,9 @@ class Config:
             if config is None:
                 config = loaded_config
             else:
-                assert (
-                    loaded_config == config
-                ), f"The config file {config_file} does not match the previous config files"
+                assert loaded_config == config, (
+                    f"The config file {config_file} does not match the previous config files"
+                )
 
         assert config is not None, f"Could not find a config file in the experiment folder {experiment_folder}"
         return config

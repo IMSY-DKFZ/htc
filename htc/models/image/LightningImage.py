@@ -56,9 +56,9 @@ class LightningImage(HTCLightning):
             self.dice_loss.class_weight = None
 
         if "optimization/spx_loss_weight" in self.config:
-            assert (
-                "input/superpixels" in self.config
-            ), "Superpixels are missing in the input specification but they are required for the superpixel loss"
+            assert "input/superpixels" in self.config, (
+                "Superpixels are missing in the input specification but they are required for the superpixel loss"
+            )
             self.spx_loss = SuperpixelLoss()
 
             if type(self.config["optimization/spx_loss_weight"]) == dict:

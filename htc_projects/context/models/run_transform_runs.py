@@ -32,7 +32,7 @@ def transform_runs(
     if pvalues is None:
         pvalues = [0.2, 0.4, 0.6, 0.8, 1]
 
-    config_dir = settings.htc_package_dir / "context/models/configs"
+    config_dir = settings.htc_projects_dir / "context/models/configs"
     timestring = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     # Prepend the config name to the run folder name
     base_name = f"{config['config_name']}_{name}"

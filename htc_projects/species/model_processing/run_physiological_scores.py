@@ -63,9 +63,9 @@ def compute_physiological_scores(run_dir: Path, recalculate: bool) -> None:
         ])
         returncodes.append(res.returncode)
 
-    assert all(
-        returncode == 0 for returncode in returncodes
-    ), f"Failed to compute test tables for the run {run_dir.name}"
+    assert all(returncode == 0 for returncode in returncodes), (
+        f"Failed to compute test tables for the run {run_dir.name}"
+    )
 
 
 if __name__ == "__main__":

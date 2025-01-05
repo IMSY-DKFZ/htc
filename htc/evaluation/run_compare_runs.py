@@ -39,7 +39,7 @@ def get_task(run_dir: Path) -> str:
     model = run_dir.parent.name
     if model == "patch":
         config = Config(run_dir / "config.json")
-        model = f'{model}_{config["input/patch_size"][0]}'
+        model = f"{model}_{config['input/patch_size'][0]}"
 
     return model
 

@@ -48,9 +48,9 @@ def nested_cv_adjustment(base_name: str, config: Config, nested_fold_index: int,
     assert match is not None, f"Could not find the nested fold index in the data spec: {config['input/data_spec']}"
     max_nested_index = int(match.group(1))
 
-    assert (
-        nested_fold_index <= max_nested_index
-    ), f"The nested fold index {nested_fold_index} cannot be greater than the maximum nested index {max_nested_index}"
+    assert nested_fold_index <= max_nested_index, (
+        f"The nested fold index {nested_fold_index} cannot be greater than the maximum nested index {max_nested_index}"
+    )
     config["input/data_spec"] = config["input/data_spec"].replace("nested-0", f"nested-{nested_fold_index}")
     return base_name + f"_nested-{nested_fold_index}-{max_nested_index}"
 

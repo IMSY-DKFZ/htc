@@ -54,7 +54,7 @@ class FoldTrainer:
 
     def train_fold(self, run_folder: str | None, fold_name: str, *args) -> None:
         if run_folder is None:
-            run_folder = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_{self.config["config_name"]}')
+            run_folder = datetime.now().strftime(f"%Y-%m-%d_%H-%M-%S_{self.config['config_name']}")
 
         with MeasureTime("training_fold", silent=True) as mt:
             fold_name_tmp = (  # The results are first written to a temporary directory and later renamed back. This helps to easily detect incomplete runs
@@ -145,7 +145,7 @@ class FoldTrainer:
                 "No value set for validation/checkpoint_metric in the config. This should be the name of the metric"
                 " which will be used to determine the best model. Please note that this does not specify the actual"
                 " calculation of the metric but just the name of the metric (e.g. used in the checkpoint filename)."
-                f" Defaulting to \"{self.config['validation/checkpoint_metric']}\""
+                f' Defaulting to "{self.config["validation/checkpoint_metric"]}"'
             )
 
         # Optional test dataset
@@ -269,7 +269,7 @@ def train_all_folds(
 
         # Unique folder name per run
         if run_folder is None:
-            run_folder = datetime.now().strftime(f'%Y-%m-%d_%H-%M-%S_{config["config_name"]}')
+            run_folder = datetime.now().strftime(f"%Y-%m-%d_%H-%M-%S_{config['config_name']}")
         run_folder_tmp = (  # The results are first written to a temporary directory and later renamed back. This helps to easily detect incomplete runs
             f"running_{run_folder}"
         )

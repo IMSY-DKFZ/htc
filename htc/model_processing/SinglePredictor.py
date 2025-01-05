@@ -24,18 +24,18 @@ class SinglePredictor:
         path: str | Path = None,
         fold_name: str = None,
         device: str = "cuda",
-        test: bool = False,
+        test: bool = True,
         config: Config | str = None,
     ) -> None:
         """
         Class which can be used to create predictions for individual samples, batches or paths for a model.
 
-        In contrast to the `TestPredictor` and `ValidationPredictor` classes (e.g., used by the `htc inference` command), this class does not spawn producer-consumer processes but operates only on the main process. It is useful if predictions are only required for individual samples and not for entire datasets, if the post-processing of the prediction is very simple or if everything is done on the GPU anyway.
+        In contrast to the `TestPredictor` and `ValidationPredictor` classes (e.g., used by the `htc inference` command), this class does not spawn producer-consumer processes and operates only on the main process. It is useful if predictions are only required for individual samples and not for entire datasets, if the post-processing of the prediction is very simple or if everything is done on the GPU anyway.
 
         Example prediction using a single model:
         >>> from htc import DataPath
         >>> predictor_val = SinglePredictor(
-        ...     model="image", run_folder="2023-02-08_14-48-02_organ_transplantation_0.8"
+        ...     model="image", run_folder="2023-02-08_14-48-02_organ_transplantation_0.8", test=False
         ... )  # doctest: +ELLIPSIS
         [...]
         >>> path = DataPath.from_image_name("P041#2019_12_14_12_29_18")
@@ -72,7 +72,7 @@ class SinglePredictor:
             model: Basic model type like image or pixel. Passed directly to `HTCModel.find_pretrained_run()`.
             run_folder: Name of the training run directory. Passed directly to `HTCModel.find_pretrained_run()`.
             path: Direct path to the run directory or to a fold. Passed directly to `HTCModel.find_pretrained_run()`. If the path to a fold is given (and fold_name is None), the model for this fold will be used.
-            fold_name: Name of the validation fold which defines the trained network of the run. If None, the model with the highest metric score will be used.
+            fold_name: Name of the validation fold which defines the trained network of the run. If None and test=False, the model with the highest metric score will be used.
             device: Device which is used to compute the predictions.
             test: If True, use a test ensemble for the predictions instead of individual models. Similar to the `TestPredictor` and `ValidationPredictor` classes.
             config: Configuration object to use or name of the configuration file to load (relative to the run directory). If None, the default configuration file of the training run will be loaded.
@@ -89,6 +89,7 @@ class SinglePredictor:
         else:
             self.config = config if type(config) == Config else Config(self.run_dir_main / config)
         self.label_mapping = LabelMapping.from_config(self.config)
+        self.label_mapping.unknown_invalid = True
         self.features_dtype = dtype_from_config(self.config)
 
         if test:
@@ -173,9 +174,9 @@ class SinglePredictor:
 
         with torch.no_grad(), torch.autocast(device_type=self.device):
             for batch in dataloader:
-                assert (
-                    "labels" in batch or "features" in batch or "meta" in batch
-                ), "Batch must contain either labels, features or meta"
+                assert "labels" in batch or "features" in batch or "meta" in batch, (
+                    "Batch must contain either labels, features or meta"
+                )
                 if "labels" in batch and not batch["labels"].is_cuda:
                     batch = move_batch_gpu(batch)
                 elif "features" in batch and not batch["features"].is_cuda:

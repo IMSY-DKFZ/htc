@@ -72,9 +72,9 @@ class MetricAggregation:
 
         Returns: Metric values which can be used for checkpointing.
         """
-        assert all(
-            c in self.df.columns for c in ["used_labels", *self.metrics]
-        ), "The dataframe misses some of the required columns"
+        assert all(c in self.df.columns for c in ["used_labels", *self.metrics]), (
+            "The dataframe misses some of the required columns"
+        )
 
         domains = self._domain_defaults(domains)
         if mode is None:
@@ -165,9 +165,9 @@ class MetricAggregation:
             )
         else:
             if mode == "class_level":
-                assert (
-                    "used_labels" in self.df.columns
-                ), "used_labels columns is required for class-level aggregation mode"
+                assert "used_labels" in self.df.columns, (
+                    "used_labels columns is required for class-level aggregation mode"
+                )
                 df_g = df.explode([*self.metrics, "used_labels"])
 
                 if not no_aggregation:
@@ -263,9 +263,9 @@ class MetricAggregation:
             df_additional = agg.grouped_metrics(
                 domains, mode="image_level", dataset_index=dataset_index, best_epoch_only=best_epoch_only
             )
-            assert (
-                df_additional["subject_name"] == df_g["subject_name"]
-            ).all(), "Cannot add additional metrics since the subjects do not match"
+            assert (df_additional["subject_name"] == df_g["subject_name"]).all(), (
+                "Cannot add additional metrics since the subjects do not match"
+            )
             df_g[additional_metrics] = df_additional[additional_metrics]
 
         return self._resolve_id_columns(df_g, domains)

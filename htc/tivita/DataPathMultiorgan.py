@@ -32,9 +32,9 @@ def use_overlap_path(method: Callable) -> Callable:
                     image_dir_new_found = True
                     break
 
-            assert (
-                image_dir_new_found
-            ), f"Cannot find the overlap image name in any of the potential dataset dirs {potential_data_dirs}"
+            assert image_dir_new_found, (
+                f"Cannot find the overlap image name in any of the potential dataset dirs {potential_data_dirs}"
+            )
 
             self.image_dir = image_dir_new
             res = method(self)

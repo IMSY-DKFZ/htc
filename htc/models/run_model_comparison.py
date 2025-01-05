@@ -38,12 +38,12 @@ def generate_model_comparison_runs() -> list[str]:
             new_config["trainer_kwargs/enable_progress_bar"] = False
 
             # Store the config in the configs folder
-            config_name = f'generated_{new_config["config_name"]}_model_comparison'
+            config_name = f"generated_{new_config['config_name']}_model_comparison"
             new_config["config_name"] = config_name
 
             filename = config_name + ".json"
             new_config.save_config(config_dir / filename)
-            run_name = f'{timestring}_{new_config["config_name"]}'
+            run_name = f"{timestring}_{new_config['config_name']}"
 
             data_specs = DataSpecification.from_config(new_config)
             if n_folds is None:

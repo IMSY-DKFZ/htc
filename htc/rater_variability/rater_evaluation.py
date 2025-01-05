@@ -37,11 +37,10 @@ def rater_evaluation(annotation_name: str) -> tuple[pd.DataFrame, dict]:
         mask = sample_true["valid_pixels"].unsqueeze(dim=0)
 
         # It is possible that in the new annotations an image now contains e.g. an "unsure" label. We are ignoring these pixels
-        mask_prediction = predictions < settings.label_index_thresh
-        mask_diff = mask != mask_prediction
+        mask_diff = mask != sample_rater["valid_pixels"].unsqueeze(dim=0)
         if torch.any(mask_diff):
             diff = mask_diff.sum()
-            settings.log.info(f'{sample_true["image_name"]}: There are {diff} pixels different in the mask files')
+            settings.log.info(f"{sample_true['image_name']}: There are {diff} pixels different in the mask files")
             mask_differences.append(diff)
 
         mask[mask_diff] = False
@@ -51,18 +50,18 @@ def rater_evaluation(annotation_name: str) -> tuple[pd.DataFrame, dict]:
         )[0]
 
         labels_rater = {
-            label_mapping.index_to_name(l.item()) for l in predictions.unique() if l < settings.label_index_thresh
+            label_mapping.index_to_name(l.item()) for l in predictions.unique() if label_mapping.is_index_valid(l)
         }
-        labels_gt = {label_mapping.index_to_name(l.item()) for l in labels.unique() if l < settings.label_index_thresh}
+        labels_gt = {label_mapping.index_to_name(l.item()) for l in labels.unique() if label_mapping.is_index_valid(l)}
         if labels_rater != labels_gt:
             if len(labels_rater - labels_gt) > 0:
                 settings.log.info(
-                    f'{sample_true["image_name"]}: Additional labels by the rater: {sorted(labels_rater - labels_gt)}'
+                    f"{sample_true['image_name']}: Additional labels by the rater: {sorted(labels_rater - labels_gt)}"
                 )
                 additional_labels += list(labels_rater - labels_gt)
             if len(labels_gt - labels_rater) > 0:
                 settings.log.info(
-                    f'{sample_true["image_name"]}: Labels missing by the rater: {sorted(labels_gt - labels_rater)}'
+                    f"{sample_true['image_name']}: Labels missing by the rater: {sorted(labels_gt - labels_rater)}"
                 )
                 missing_labels += list(labels_gt - labels_rater)
 

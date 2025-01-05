@@ -146,13 +146,26 @@ class MultiPathMixin:
         return self.find_best_location().write_bytes(*args, **kwargs)
 
     def with_name(self, *args, **kwargs) -> Path:
-        return self.find_best_location().with_name(*args, **kwargs)
+        # New path with replaced name but same custom attributes
+        path = MultiPath(super().with_name(*args, **kwargs))
+        path._alternatives = self._alternatives
+        path._default_needle = self._default_needle
+
+        return path
 
     def with_stem(self, *args, **kwargs) -> Path:
-        return self.find_best_location().with_stem(*args, **kwargs)
+        path = MultiPath(super().with_stem(*args, **kwargs))
+        path._alternatives = self._alternatives
+        path._default_needle = self._default_needle
+
+        return path
 
     def with_suffix(self, *args, **kwargs) -> Path:
-        return self.find_best_location().with_suffix(*args, **kwargs)
+        path = MultiPath(super().with_suffix(*args, **kwargs))
+        path._alternatives = self._alternatives
+        path._default_needle = self._default_needle
+
+        return path
 
     def resolve(self, *args, **kwargs) -> "Path":
         return self.find_best_location().resolve(*args, **kwargs)
@@ -161,13 +174,16 @@ class MultiPathMixin:
         """Adds an alternative location to this path which will be replaced with the root location."""
         self._alternatives.append(str(unify_path(path, resolve_symlinks=False)))
 
-    def set_default_location(self, location_needle: str) -> None:
+    def set_default_location(self, location_needle: str | Path) -> None:
         """
         Sets a needle to select one of the possible locations for find_best_location(). This is mainly interesting for write operations to determine where new folders/files should be stored.
 
         Args:
             location_needle: Part of path of the default location (it is sufficient if a subset matches). The best match (according to the string similarity) will be used in case of non-unique matches.
         """
+        if isinstance(location_needle, Path):
+            location_needle = str(location_needle)
+
         self._default_needle = location_needle
 
     def find_location(self, needle: str) -> Path:

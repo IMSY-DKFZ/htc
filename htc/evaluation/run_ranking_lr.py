@@ -30,7 +30,7 @@ def run_table(run_dir: Path, table_name: str, metrics: list[str]) -> pd.DataFram
     df = MetricAggregation(run_dir / table_name, metrics=metrics).grouped_metrics(domains=domains, mode="image_level")
     df["model_name"] = info["model_name"]
     df["model_type"] = info["model_type"]
-    df["model_id"] = f'{info["model_name"]}#{info["model_type"]}'
+    df["model_id"] = f"{info['model_name']}#{info['model_type']}"
     df["lr"] = info["config"]["optimization/optimizer/lr"]
     df["run_dir"] = run_dir
 

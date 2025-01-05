@@ -94,9 +94,9 @@ def _save_validation_table(
     df_unchanged = df_val_new.query("not (epoch_index == best_epoch_index and dataset_index == 0)")
     assert len(df_changed) + len(df_unchanged) == len(df_val_new), "Tables do not add up"
 
-    assert (
-        pd.isna(df_unchanged[[c for c in df_results.columns if c not in df_val]]).all().all()
-    ), "Old values for non-existing columns must be nan"
+    assert pd.isna(df_unchanged[[c for c in df_results.columns if c not in df_val]]).all().all(), (
+        "Old values for non-existing columns must be nan"
+    )
     assert not pd.isna(df_changed[df_results.columns]).all().all(), "All new values must be non-nan"
     assert len(df_val) == len(df_val_new), "The validation table must not change in length"
 
@@ -115,9 +115,9 @@ def _save_test_table(
     if "fold_name" in df_results:
         for fold_name in df_results["fold_name"].unique():
             df_fold = df_results[df_results["fold_name"] == fold_name]
-            assert len(df_fold) == len(
-                df_fold["image_name"].unique()
-            ), "There must be exactly one row per image and fold"
+            assert len(df_fold) == len(df_fold["image_name"].unique()), (
+                "There must be exactly one row per image and fold"
+            )
     else:
         assert len(df_results) == len(df_results["image_name"].unique()), "There must be exactly one row per image"
 
@@ -209,9 +209,9 @@ class ImageTableConsumer(ImageConsumer):
         assert len(df_results) > 0, "No results calculated"
 
         if self.test:
-            _save_test_table(df_results, self.target_dir, self.metrics, self.tolerance_name, self.test_table_name)
+            _save_test_table(df_results, self.output_dir, self.metrics, self.tolerance_name, self.test_table_name)
         else:
-            _save_validation_table(df_results, self.target_dir, self.metrics, self.tolerance_name, self.run_dir)
+            _save_validation_table(df_results, self.output_dir, self.metrics, self.tolerance_name, self.run_dir)
 
 
 class TableValidationPredictor(EvaluationMixin, ValidationPredictor):
@@ -285,7 +285,6 @@ if __name__ == "__main__":
     runner.add_argument("--test-looc")
     runner.add_argument("--metrics")
     runner.add_argument("--NSD-thresholds")
-    runner.add_argument("--output-dir")
     runner.add_argument("--test-table-name", default="test_table", type=str, help="Name of the generated test table.")
     runner.add_argument(
         "--gpu-only",
@@ -313,10 +312,7 @@ if __name__ == "__main__":
         with torch.autocast(device_type="cuda"):
             predictor.start(task_queue=None, hide_progressbar=runner.args.hide_progressbar)
 
-        target_dir = runner.args.output_dir if runner.args.output_dir is not None else runner.run_dir
-        if isinstance(target_dir, list):
-            target_dir = target_dir[0]
-        predictor.save_table(target_dir)
+        predictor.save_table(runner.output_dir)
     else:
         if runner.args.test:
             TestClass = TestLeaveOneOutPredictor if runner.args.test_looc else TestPredictor

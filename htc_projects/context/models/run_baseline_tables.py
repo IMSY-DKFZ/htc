@@ -63,9 +63,9 @@ def compute_context_tables(runs: list[Path], table_name: str, recalculate: bool 
                     "--output-dir",
                     str(test_table_real.parent),
                 ])
-                assert (
-                    res.returncode == 0
-                ), f"Computation of the masks isolation test table for the run folder {run_dir} was not successful"
+                assert res.returncode == 0, (
+                    f"Computation of the masks isolation test table for the run folder {run_dir} was not successful"
+                )
                 assert test_table_real.exists()
 
         # Tables on the simulated datasets
@@ -96,9 +96,9 @@ def compute_context_tables(runs: list[Path], table_name: str, recalculate: bool 
                 args += ["--test"]
 
             res = subprocess_run(args)
-            assert (
-                res.returncode == 0
-            ), f"Computation of the context table for the run folder {run_dir} was not successful"
+            assert res.returncode == 0, (
+                f"Computation of the context table for the run folder {run_dir} was not successful"
+            )
 
         # The tables are temporarily stored in the neighbour folder and then moved to the corresponding dataset folder
         for dataset in missing_datasets:

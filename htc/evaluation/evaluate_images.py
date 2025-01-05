@@ -29,13 +29,13 @@ def calc_surface_dice(
 
     Returns: Batch of dictionaries with labels of the image, surface dice per label and image surface dice score.
     """
-    assert (
-        predictions_labels.shape == labels.shape and predictions_labels.shape == mask.shape
-    ), "All input tensors must have the same shape"
+    assert predictions_labels.shape == labels.shape and predictions_labels.shape == mask.shape, (
+        "All input tensors must have the same shape"
+    )
     assert predictions_labels.dim() == 3, "Each tensor must have three dimensions (batch, height, width)"
-    assert (
-        predictions_labels.dtype == torch.int64 and labels.dtype == torch.int64
-    ), "Predictions and labels must be label index values"
+    assert predictions_labels.dtype == torch.int64 and labels.dtype == torch.int64, (
+        "Predictions and labels must be label index values"
+    )
     assert mask.dtype == torch.bool, "The mask must be a boolean tensor"
     assert all(t >= 0 for t in tolerances), "The tolerance values must be non-negative"
 
@@ -106,13 +106,13 @@ def calc_dice_metric(predictions_labels: torch.Tensor, labels: torch.Tensor, mas
 
     Returns: Batch of dictionaries with labels of the image, dice per label and image dice score.
     """
-    assert (
-        predictions_labels.shape == labels.shape and predictions_labels.shape == labels.shape
-    ), "All input tensors must have the same shape"
+    assert predictions_labels.shape == labels.shape and predictions_labels.shape == labels.shape, (
+        "All input tensors must have the same shape"
+    )
     assert predictions_labels.dim() == 3, "Each tensor must have three dimensions (batch, height, width)"
-    assert (
-        predictions_labels.dtype == torch.int64 and labels.dtype == torch.int64
-    ), "Predictions and labels must be label index values"
+    assert predictions_labels.dtype == torch.int64 and labels.dtype == torch.int64, (
+        "Predictions and labels must be label index values"
+    )
     assert mask.dtype == torch.bool, "The mask must be a boolean tensor"
 
     # Copy the tensors since we need to modify them for the masking
@@ -157,13 +157,13 @@ def calc_surface_distance(predictions_labels: torch.Tensor, labels: torch.Tensor
 
     Returns: Batch of dictionaries with labels of the image, surface distance per label and image surface distance score.
     """
-    assert (
-        predictions_labels.shape == labels.shape and predictions_labels.shape == labels.shape
-    ), "All input tensors must have the same shape"
+    assert predictions_labels.shape == labels.shape and predictions_labels.shape == labels.shape, (
+        "All input tensors must have the same shape"
+    )
     assert predictions_labels.dim() == 3, "Each tensor must have three dimensions (batch, height, width)"
-    assert (
-        predictions_labels.dtype == torch.int64 and labels.dtype == torch.int64
-    ), "Predictions and labels must be label index values"
+    assert predictions_labels.dtype == torch.int64 and labels.dtype == torch.int64, (
+        "Predictions and labels must be label index values"
+    )
     assert mask.dtype == torch.bool, "The mask must be a boolean tensor"
 
     # Unfortunately, the ASD can only be computed on the CPU
@@ -279,17 +279,17 @@ def evaluate_images(
     """
     if metrics is None:
         metrics = ["DSC", "ECE", "CM"]
-    assert (
-        len(predictions.shape) == 4 or len(predictions.shape) == 3
-    ), "The predictions must either have the shape (batch, channel, height, width) or (batch, height, width)"
+    assert len(predictions.shape) == 4 or len(predictions.shape) == 3, (
+        "The predictions must either have the shape (batch, channel, height, width) or (batch, height, width)"
+    )
     assert len(labels.shape) == 3, "The labels must have the shape (batch, height, width)"
     assert len(mask.shape) == 3, "The mask must have the shape (batch, height, width)"
     assert labels.shape == mask.shape, "The labels and mask tensors must match in their dimensions"
     assert labels.dtype == torch.int64, "labels must be index values"
     assert mask.dtype == torch.bool, "The mask must be a boolean tensor"
-    assert mask.any(
-        dim=(1, 2)
-    ).all(), f"The mask must contain at least one valid pixel per image: {mask.any(dim=(1, 2))}"
+    assert mask.any(dim=(1, 2)).all(), (
+        f"The mask must contain at least one valid pixel per image: {mask.any(dim=(1, 2))}\nIf you want to compute a test table for new images, please make sure that there are no images where no valid pixels remain, i.e. images which only contain excluded organs (check the label mapping of the training run). You may also consider using the --filter-valid-paths switch if possible.\nIf you get this error during training, then there is likely something wrong with your label mapping (e.g., it may maps all labels of an image to invalid)."
+    )
 
     if n_classes is None:
         n_classes = len(settings_seg.labels)
@@ -300,12 +300,12 @@ def evaluate_images(
         predictions_labels = predictions
         predictions_softmaxes = None
     else:
-        assert (
-            predictions.shape[:1] + predictions.shape[2:] == labels.shape
-        ), "All tensors must match in the (batch, height, width) dimensions"
-        assert (
-            predictions.shape[1] == n_classes
-        ), "The second dimensions of the predictions must match the number of classes"
+        assert predictions.shape[:1] + predictions.shape[2:] == labels.shape, (
+            "All tensors must match in the (batch, height, width) dimensions"
+        )
+        assert predictions.shape[1] == n_classes, (
+            "The second dimensions of the predictions must match the number of classes"
+        )
 
         predictions = check_invalid_input(predictions, "predictions")
         predictions_softmaxes_sum = torch.sum(predictions, dim=1)
@@ -356,9 +356,9 @@ def evaluate_images(
     if predictions_softmaxes is not None and "ECE" in metrics:
         # The losses can only be calculated if we have the softmaxes
         valid_predictions_softmaxes = [predictions_softmaxes[b, :, mask[b]] for b in range(n_batch)]
-        assert all(
-            len(t.shape) == 2 for t in valid_predictions_softmaxes
-        ), "Invalid shape of the valid predicted softmaxes"
+        assert all(len(t.shape) == 2 for t in valid_predictions_softmaxes), (
+            "Invalid shape of the valid predicted softmaxes"
+        )
 
         ece = []
         ece_model = ECE()
@@ -370,9 +370,9 @@ def evaluate_images(
 
     # normalized surface dice
     if "NSD" in metrics:
-        assert (
-            tolerances is not None
-        ), "Tolerance thresholds in pixels for each class, should be specified for calculating Surface Dice (NSD)"
+        assert tolerances is not None, (
+            "Tolerance thresholds in pixels for each class, should be specified for calculating Surface Dice (NSD)"
+        )
         nsd = calc_surface_dice(predictions_labels, labels, mask, tolerances)
 
         result_batch |= {

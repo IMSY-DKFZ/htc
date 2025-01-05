@@ -78,9 +78,9 @@ def distance_correlation_features(df: pd.DataFrame, device: str = "cuda") -> pd.
 
     Returns: Table with distance_correlation results across bootstraps for each label.
     """
-    assert all(
-        c in df for c in ["camera_index", "subject_index", "label_name", "features"]
-    ), "Not all required columns available"
+    assert all(c in df for c in ["camera_index", "subject_index", "label_name", "features"]), (
+        "Not all required columns available"
+    )
     assert "image_index" not in df, "The image index will be re-created by this function (it must be consecutive)"
 
     # Image index is just the row index of the table

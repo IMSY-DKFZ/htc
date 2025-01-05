@@ -114,7 +114,7 @@ def adjust_num_workers(config: Config) -> None:
         n_cpus = cpu_count()
         config["dataloader_kwargs/num_workers"] = n_cpus - 1  # One core is reserved for the main process
         settings.log.info(
-            f'The number of workers are set to {config["dataloader_kwargs/num_workers"]} ({n_cpus} physical cores are'
+            f"The number of workers are set to {config['dataloader_kwargs/num_workers']} ({n_cpus} physical cores are"
             " available in total)"
         )
 

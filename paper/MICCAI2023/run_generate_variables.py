@@ -37,14 +37,14 @@ class VariableGeneration:
         )
         df_combined = pd.concat([df_old, df_isolation_real])
 
-        self.vars["varTotalImages"] = f'{df_combined["timestamp"].nunique()}'
-        self.vars["varTotalPigs"] = f'{df_combined["subject_name"].nunique()}'
+        self.vars["varTotalImages"] = f"{df_combined['timestamp'].nunique()}"
+        self.vars["varTotalPigs"] = f"{df_combined['subject_name'].nunique()}"
 
-        self.vars["varTotalImagesOld"] = f'{df_old["timestamp"].nunique()}'
-        self.vars["varTotalPigsOld"] = f'{df_old["subject_name"].nunique()}'
+        self.vars["varTotalImagesOld"] = f"{df_old['timestamp'].nunique()}"
+        self.vars["varTotalPigsOld"] = f"{df_old['subject_name'].nunique()}"
 
-        self.vars["varTotalImagesIsolationReal"] = f'{df_isolation_real["timestamp"].nunique()}'
-        self.vars["varTotalPigsIsolationReal"] = f'{df_isolation_real["subject_name"].nunique()}'
+        self.vars["varTotalImagesIsolationReal"] = f"{df_isolation_real['timestamp'].nunique()}"
+        self.vars["varTotalPigsIsolationReal"] = f"{df_isolation_real['subject_name'].nunique()}"
 
         glove_images = df_old.query("label_name == 'glove'")["image_name"].nunique()
         self.vars["varTotalImagesGlove"] = str(glove_images)
@@ -68,7 +68,7 @@ class VariableGeneration:
         self.vars["varTotalTestImagesInDistribution"] = str(df_old.query('set_type == "test"')["timestamp"].nunique())
 
         self.vars["varTotalClasses"] = f"{len(mapping)}"
-        self.vars["varTotalOrganClasses"] = f'{len([l for l in mapping.label_names() if l != "background"])}'
+        self.vars["varTotalOrganClasses"] = f"{len([l for l in mapping.label_names() if l != 'background'])}"
 
     def add_model_results(self) -> None:
         df_agg = (

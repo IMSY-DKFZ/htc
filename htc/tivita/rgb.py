@@ -39,18 +39,18 @@ def read_tivita_rgb(path: Path, target_shape: tuple = (480, 640)) -> np.ndarray:
         back_color = 15
 
         if image.shape[:2] == (513, 646):  # for Tivita first generation cameras
-            assert np.all(
-                image[0:30, 90:] == back_color
-            ), f"{path}: Top border is not black"  # We do not check the "RGB Image" heading
+            assert np.all(image[0:30, 90:] == back_color), (
+                f"{path}: Top border is not black"
+            )  # We do not check the "RGB Image" heading
             assert np.all(image[:, -3:] == back_color), f"{path}: Right border is not black"
             assert np.all(image[-3:, :] == back_color), f"{path}: Bottom border is not black"
             assert np.all(image[30:, :3] == back_color), f"{path}: Left border is not black"
             image = image[30:-3, 3:-3]  # Crop the image to remove the black border
 
         elif image.shape[:2] == (550, 680):  # for Tivita Surgery 2.0 camera
-            assert np.all(
-                image[0:50, 0:230] == back_color
-            ), f"{path}: Top border is not black"  # We do not check the "RGB Image" heading
+            assert np.all(image[0:50, 0:230] == back_color), (
+                f"{path}: Top border is not black"
+            )  # We do not check the "RGB Image" heading
             assert np.all(image[-20:, :] == back_color), f"{path}: Bottom border is not black"
             assert np.all(image[:, :20] == back_color), f"{path}: Left border is not black"
             assert np.all(image[:, -20:] == back_color), f"{path}: Right border is not black"

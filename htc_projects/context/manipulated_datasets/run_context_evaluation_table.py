@@ -110,7 +110,6 @@ if __name__ == "__main__":
         )
     )
     runner.add_argument("--test")
-    runner.add_argument("--output-dir")
     runner.add_argument(
         "--transformation-name",
         type=str,
@@ -150,13 +149,12 @@ if __name__ == "__main__":
     if runner.args.test:
         predictor = ContextTestPredictor(runner.run_dir, paths=runner.paths, config=config)
     else:
-        assert (
-            runner.args.input_dir is None
-        ), "Using paths from an arbitrary input directory can only be used with the --test switch"
+        assert runner.args.input_dir is None, (
+            "Using paths from an arbitrary input directory can only be used with the --test switch"
+        )
         predictor = ContextValidationPredictor(runner.run_dir, config=config)
 
     with torch.autocast(device_type="cuda"):
         predictor.start(task_queue=None, hide_progressbar=False)
 
-    target_dir = runner.args.output_dir if runner.args.output_dir is not None else runner.run_dir
-    predictor.save_table(target_dir)
+    predictor.save_table(runner.output_dir)

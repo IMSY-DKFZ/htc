@@ -13,6 +13,7 @@ from htc.settings import settings
 from htc.settings_seg import settings_seg
 from htc.tivita.DataPath import DataPath
 from htc.utils.Config import Config
+from htc.utils.LabelMapping import LabelMapping
 
 
 def nsd_thresholds() -> pd.DataFrame:
@@ -21,33 +22,28 @@ def nsd_thresholds() -> pd.DataFrame:
     assert len(paths_rater) == len(paths_true)
     assert len(paths_rater) == 20
 
-    pigs = sorted({p.subject_name for p in paths_rater})
-    assert len(pigs) == 20
+    subjects = sorted({p.subject_name for p in paths_rater})
+    assert len(subjects) == 20
 
-    config = Config({"label_mapping": None})  # We calculate the thresholds based on the original labels
+    mapping = LabelMapping.from_path(paths_true[0])
+    config = Config({"label_mapping": mapping})  # We calculate the thresholds based on the original labels
     dataset_rater = DatasetImage(paths_rater, train=False, config=config)
     dataset_true = DatasetImage(paths_true, train=False, config=config)
 
-    last_valid_label_index = paths_rater[0].dataset_settings["last_valid_label_index"]
-    n_classes = len([
-        l for l in paths_rater[0].dataset_settings["label_mapping"].values() if l <= last_valid_label_index
-    ])
-    estimator = NSDToleranceEstimation(n_classes, n_groups=len(pigs))
+    estimator = NSDToleranceEstimation(len(mapping), n_groups=len(subjects))
 
     # Collect distances for each image
     for sample_rater, sample_true in zip(dataset_rater, dataset_true, strict=True):
         assert sample_rater["image_name"] == sample_true["image_name"]
 
-        subject_name = sample_true["image_name"].split("#")[0]
-        subject_namex = pigs.index(subject_name)
+        subject_name = DataPath.from_image_name(sample_true["image_name"]).subject_name
+        subject_index = subjects.index(subject_name)
 
         predictions = sample_rater["labels"]
         labels = sample_true["labels"]
-        mask = torch.logical_and(
-            labels <= last_valid_label_index, predictions <= last_valid_label_index
-        )  # Ignore unlabeled and overlap pixels
+        mask = torch.logical_and(sample_true["valid_pixels"], sample_rater["valid_pixels"])
 
-        estimator.add_image(predictions, labels, mask, group_index=subject_namex)
+        estimator.add_image(predictions, labels, mask, group_index=subject_index)
 
     # We test different tolerance values by using different aggregation functions
     functions = {
@@ -62,13 +58,13 @@ def nsd_thresholds() -> pd.DataFrame:
 
     # Table with the thresholds for each aggregation
     rows = []
-    for label, label_index in paths_rater[0].dataset_settings["label_mapping"].items():
+    for label in mapping.label_names():
         if label in settings_seg.labels:
             current_row = {"label_name": label, "label_index": settings_seg.label_mapping.name_to_index(label)}
 
             for name, (avg_vec, std_vec) in tolerances.items():
-                current_row[f"tolerance_{name}"] = avg_vec[label_index]
-                current_row[f"tolerance_{name}_std"] = std_vec[label_index]
+                current_row[f"tolerance_{name}"] = avg_vec[mapping.name_to_index(label)]
+                current_row[f"tolerance_{name}_std"] = std_vec[mapping.name_to_index(label)]
 
             rows.append(current_row)
 

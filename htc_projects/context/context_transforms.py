@@ -170,9 +170,9 @@ class HideAndSeek(ContextTransformation):
         if type(self.proportion) == float:
             assert 0 <= self.proportion <= 1, f"The proportion value must be in the range [0;1], not {self.proportion}"
         else:
-            assert all(
-                0 <= p <= 1 for p in self.proportion
-            ), f"Every proportion value must be in the range [0;1], not {self.proportion}"
+            assert all(0 <= p <= 1 for p in self.proportion), (
+                f"Every proportion value must be in the range [0;1], not {self.proportion}"
+            )
 
     def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         selection = self._grid_hiding(batch)
@@ -315,9 +315,9 @@ class SuperpixelMixin:
         if type(self.proportion) == float:
             assert 0 <= self.proportion <= 1, f"The proportion value must be in the range [0;1], not {self.proportion}"
         else:
-            assert all(
-                0 <= p <= 1 for p in self.proportion
-            ), f"Every proportion value must be in the range [0;1], not {self.proportion}"
+            assert all(0 <= p <= 1 for p in self.proportion), (
+                f"Every proportion value must be in the range [0;1], not {self.proportion}"
+            )
         assert 0 <= self.p <= 1, f"Invalid p value: {self.p}"
 
     def superpixel_selection(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
@@ -461,9 +461,9 @@ class OrganTransplantation(HTCTransformation):
         self.annotation_names = annotation_names
         self.paths = paths
         if self.annotation_names is not None:
-            assert (
-                self.paths is not None and len(self.paths) > 0
-            ), "If annotation_names is not None, paths must be set and not empty"
+            assert self.paths is not None and len(self.paths) > 0, (
+                "If annotation_names is not None, paths must be set and not empty"
+            )
 
     def __repr__(self) -> str:
         return f"OrganTransplantation(p={self.p}, annotation_names={self.annotation_names})"

@@ -6,7 +6,6 @@ from pathlib import Path
 
 from htc.models.data.DataSpecification import DataSpecification
 from htc.models.data.SpecsGeneration import SpecsGeneration
-from htc.settings import settings
 
 
 class SpecsGenerationGlove(SpecsGeneration):
@@ -46,7 +45,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=settings.htc_package_dir / "context/models/data",
+        default=Path(__file__).parent,
         help="Directory where the resulting data specification file should be stored.",
     )
     args = parser.parse_args()

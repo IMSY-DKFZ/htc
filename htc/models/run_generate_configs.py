@@ -119,7 +119,7 @@ ssh {settings.dkfz_userid}@{settings.cluster_submission_host} <<"BASH"
         return configs
     else:
         bashstring += "BASH\n"
-        bashsavepath = config_dir / f'submit_jobs_{config["config_name"]}.sh'
+        bashsavepath = config_dir / f"submit_jobs_{config['config_name']}.sh"
         with bashsavepath.open("wb") as f:
             f.write(bashstring.encode())
 

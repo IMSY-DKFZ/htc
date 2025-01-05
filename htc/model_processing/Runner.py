@@ -19,6 +19,8 @@ from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 from htc.utils.Config import Config
+from htc.utils.LabelMapping import LabelMapping
+from htc.utils.MultiPath import MultiPath
 from htc.utils.type_from_string import variable_from_string
 
 
@@ -33,19 +35,19 @@ class Runner:
         >>> import re
         >>> runner = Runner(description="My inference script")
         >>> re.sub(r"\s+", " ", runner.parser.format_usage())  # doctest: +ELLIPSIS
-        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--config CONFIG] [--num-consumers NUM_CONSUMERS] [--num-workers NUM_WORKERS] [--store-predictions] [--use-predictions] [--hide-progressbar] [--input-dir INPUT_DIR] [--spec SPEC] [--spec-fold SPEC_FOLD] [--spec-split SPEC_SPLIT] [--paths-variable PATHS_VARIABLE] '
+        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--config CONFIG] [--num-consumers NUM_CONSUMERS] [--num-workers NUM_WORKERS] [--store-predictions] [--use-predictions] [--hide-progressbar] [--input-dir INPUT_DIR] [--output-dir OUTPUT_DIR] [--spec SPEC] [--spec-fold SPEC_FOLD] [--spec-split SPEC_SPLIT] [--paths-variable PATHS_VARIABLE] [--filter-valid-paths] '
 
         Adding a custom argument with default options:
         >>> runner.add_argument("--annotation-name")
         >>> re.sub(r"\s+", " ", runner.parser.format_usage())  # doctest: +ELLIPSIS
-        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--config CONFIG] [--num-consumers NUM_CONSUMERS] [--num-workers NUM_WORKERS] [--store-predictions] [--use-predictions] [--hide-progressbar] [--input-dir INPUT_DIR] [--spec SPEC] [--spec-fold SPEC_FOLD] [--spec-split SPEC_SPLIT] [--paths-variable PATHS_VARIABLE] [--annotation-name ANNOTATION_NAME] '
+        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--config CONFIG] [--num-consumers NUM_CONSUMERS] [--num-workers NUM_WORKERS] [--store-predictions] [--use-predictions] [--hide-progressbar] [--input-dir INPUT_DIR] [--output-dir OUTPUT_DIR] [--spec SPEC] [--spec-fold SPEC_FOLD] [--spec-split SPEC_SPLIT] [--paths-variable PATHS_VARIABLE] [--filter-valid-paths] [--annotation-name ANNOTATION_NAME] '
 
         Custom argument with a different option (note that --annotation-name is now a required argument):
         >>> runner = Runner(description="My inference script")
         >>> runner.parser.formatter_class = argparse.RawDescriptionHelpFormatter
         >>> runner.add_argument("--annotation-name", required=True)
         >>> re.sub(r"\s+", " ", runner.parser.format_usage())  # doctest: +ELLIPSIS
-        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--config CONFIG] [--num-consumers NUM_CONSUMERS] [--num-workers NUM_WORKERS] [--store-predictions] [--use-predictions] [--hide-progressbar] [--input-dir INPUT_DIR] [--spec SPEC] [--spec-fold SPEC_FOLD] [--spec-split SPEC_SPLIT] [--paths-variable PATHS_VARIABLE] --annotation-name ANNOTATION_NAME '
+        'usage: ... [-h] --model MODEL --run-folder RUN_FOLDER [--config CONFIG] [--num-consumers NUM_CONSUMERS] [--num-workers NUM_WORKERS] [--store-predictions] [--use-predictions] [--hide-progressbar] [--input-dir INPUT_DIR] [--output-dir OUTPUT_DIR] [--spec SPEC] [--spec-fold SPEC_FOLD] [--spec-split SPEC_SPLIT] [--paths-variable PATHS_VARIABLE] [--filter-valid-paths] --annotation-name ANNOTATION_NAME '
 
         All custom arguments are automatically passed to the producer and the consumers, i.e. self.input_dir contains the path which the user submitted as command line argument.
 
@@ -138,6 +140,12 @@ class Runner:
             help="The directory path containing input data for the script.",
         )
         self.parser.add_argument(
+            "--output-dir",
+            type=Path,
+            default=None,
+            help="Output directory where the generated files should be stored. Subfolders for the model and run_folder will be created. In case of nested cross-validation, the first run folder name will be used.",
+        )
+        self.parser.add_argument(
             "--spec",
             type=str,
             default=None,
@@ -174,6 +182,12 @@ class Runner:
                 "Parsable variable string (cf. htc.utils.type_from_string.variable_from_string() function) which"
                 " points to a list of DataPath objects. Those can, for example, be stored in a settings file."
             ),
+        )
+        self.parser.add_argument(
+            "--filter-valid-paths",
+            default=False,
+            action="store_true",
+            help="If set, remove all images which do not contain at least one valid pixel.",
         )
 
         self._used_args = []
@@ -225,17 +239,17 @@ class Runner:
             input_dir = dargs.get("input_dir")
             assert input_dir.exists(), "Directory for which inference should be computed does not exist."
 
-            return list(DataPath.iterate(input_dir, annotation_name=dargs.get("annotation_name")))
+            paths = list(DataPath.iterate(input_dir, annotation_name=dargs.get("annotation_name")))
         elif dargs.get("paths_variable") is not None:
-            assert dargs.get("spec") is None and dargs.get("spec_fold") and dargs.get("input_dir") is None, (
+            assert dargs.get("spec") is None and dargs.get("spec_fold") is None and dargs.get("input_dir") is None, (
                 "--spec, --spec-split, --spec-fold and --input-dir arguments cannot be used together with the"
                 " --paths-variable argument"
             )
-            return variable_from_string(dargs.get("paths_variable"))
+            paths = variable_from_string(dargs.get("paths_variable"))
         else:
-            assert (
-                dargs.get("input_dir") is None and dargs.get("paths_variable") is None
-            ), "--input-dir and --paths-variable arguments cannot be used together with the --spec argument"
+            assert dargs.get("input_dir") is None and dargs.get("paths_variable") is None, (
+                "--input-dir and --paths-variable arguments cannot be used together with the --spec argument"
+            )
             if dargs.get("spec") is not None:
                 spec = DataSpecification(dargs.get("spec"))
             else:
@@ -255,9 +269,33 @@ class Runner:
                 settings.log.info("Activating the test set of the data specification file")
 
             if dargs.get("spec_fold") is not None:
-                return spec.fold_paths(dargs.get("spec_fold"), dargs.get("spec_split"))
+                paths = spec.fold_paths(dargs.get("spec_fold"), dargs.get("spec_split"))
             else:
-                return spec.paths(dargs.get("spec_split"))
+                paths = spec.paths(dargs.get("spec_split"))
+
+        if dargs.get("filter_valid_paths"):
+            mapping = LabelMapping.from_config(self.config)
+            paths = [p for p in paths if any(mapping.is_name_valid(l) for l in p.annotated_labels())]
+
+        return paths
+
+    @property
+    def output_dir(self) -> Path:
+        """
+        Returns: Path to the output directory where the results should be stored. If the --output-dir argument is given, the results will be stored in this directory (with subfolders for model and run_folder). Otherwise, the results will be stored in the run directory.
+        """
+        run_dir = self.run_dir[0] if isinstance(self.run_dir, list) else self.run_dir
+
+        if self.args.output_dir is not None:
+            output_dir: Path = self.args.output_dir / run_dir.parent.name / run_dir.name
+            output_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            output_dir = run_dir
+            if isinstance(output_dir, MultiPath):
+                # New results should be stored in the run directory
+                output_dir.set_default_location(output_dir.find_best_location())
+
+        return output_dir
 
     def add_argument(self, name: str, **kwargs) -> None:
         """
@@ -279,10 +317,6 @@ class Runner:
             kwargs.setdefault("type", Path)
             kwargs.setdefault("default", None)
             kwargs.setdefault("help", "The directory path containing input data for the script.")
-        elif name == "--output-dir":
-            kwargs.setdefault("type", Path)
-            kwargs.setdefault("default", None)
-            kwargs.setdefault("help", "Output directory where the generated files should be stored.")
         elif name == "--metrics":
             kwargs.setdefault("type", str)
             kwargs.setdefault("nargs", "*")
@@ -369,6 +403,8 @@ class Runner:
             additional_kwargs = {name: getattr(self.args, name) for name in self._used_args}
             additional_kwargs["paths"] = self.paths
             additional_kwargs["config"] = self.config
+            additional_kwargs["run_dir"] = self.run_dir
+            additional_kwargs["store_predictions"] = self.args.store_predictions
 
             # In principle, we give every argument to the consumers and producer
             # However, we need to make sure that we do not override arguments which the user passes directly (via partial) to the consumers or producer
@@ -385,8 +421,7 @@ class Runner:
                 task_queue_errors=task_queue_errors,
                 results_list=results_list,
                 results_dict=results_dict,
-                run_dir=self.run_dir,
-                store_predictions=self.args.store_predictions,
+                output_dir=self.output_dir,
                 **consumer_kwargs,
             )
             # A copy is much cheaper if __init__ is expensive
@@ -403,9 +438,7 @@ class Runner:
 
             # The producer creates the predictions (only the main process since we use only 1 GPU)
             predictor = PredictorClass(
-                run_dir=self.run_dir,
                 use_predictions=self.args.use_predictions,
-                store_predictions=self.args.store_predictions,
                 num_workers=self.args.num_workers,
                 **predictor_kwargs,
             )
@@ -443,7 +476,7 @@ class Runner:
 
             if len(errors) > 0:
                 msg = (
-                    f'{len(errors)} consumer{"s" if len(errors) > 1 else ""} failed with an error for the run'
+                    f"{len(errors)} consumer{'s' if len(errors) > 1 else ''} failed with an error for the run"
                     f" {self.run_dir}:\n"
                 )
                 msg += "\n".join([str(e) for e in errors])

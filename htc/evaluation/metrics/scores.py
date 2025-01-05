@@ -50,9 +50,9 @@ def confusion_matrix_groups(
 
     Returns: Confusion matrix for each pig.
     """
-    assert len(predictions) == len(labels) and len(predictions) == len(
-        image_names
-    ), "The tensors must agree in the number of samples"
+    assert len(predictions) == len(labels) and len(predictions) == len(image_names), (
+        "The tensors must agree in the number of samples"
+    )
 
     subject_names = np.array([image_name.split("#")[0] for image_name in image_names])
     result = {}

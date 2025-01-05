@@ -40,9 +40,9 @@ class StreamDataLoader:
             # Number of batches are solely defined by the epoch size
             adjust_epoch_size(self.config)
 
-            assert (
-                self.config["input/epoch_size"] % self.config["dataloader_kwargs/batch_size"] == 0
-            ), "The epoch size must be divisible by the batch size"
+            assert self.config["input/epoch_size"] % self.config["dataloader_kwargs/batch_size"] == 0, (
+                "The epoch size must be divisible by the batch size"
+            )
             self.n_batches = self.config["input/epoch_size"] // self.config["dataloader_kwargs/batch_size"]
         else:
             # If there is a sampler, we want to make sure that we return all images defined by the sampler. The last batch may be smaller in this case
@@ -52,8 +52,8 @@ class StreamDataLoader:
         self.single_mode = not isinstance(self.dataset, IterableDataset)
         if not self.single_mode:
             assert self.config["dataloader_kwargs/batch_size"] % self.config["dataloader_kwargs/num_workers"] == 0, (
-                f'The batch size ({self.config["dataloader_kwargs/batch_size"]}) must be divisible by the number of'
-                f' workers ({self.config["dataloader_kwargs/num_workers"]})'
+                f"The batch size ({self.config['dataloader_kwargs/batch_size']}) must be divisible by the number of"
+                f" workers ({self.config['dataloader_kwargs/num_workers']})"
             )
 
         self.dataset.init_shared()
@@ -65,9 +65,9 @@ class StreamDataLoader:
             "persistent_workers",  # We do not want to re-create the shared buffers in every epoch
             "sampler",  # We either use the batch sampler or no sampler at all
         ]
-        assert all(
-            k not in dataloader_kwargs for k in forbidden_kwargs
-        ), f"The following keyword arguments are not allow to be set: {forbidden_kwargs}"
+        assert all(k not in dataloader_kwargs for k in forbidden_kwargs), (
+            f"The following keyword arguments are not allow to be set: {forbidden_kwargs}"
+        )
 
         loader_kwargs = copy.deepcopy(self.config["dataloader_kwargs"])
         loader_kwargs |= dataloader_kwargs
@@ -121,9 +121,9 @@ class StreamDataLoader:
         worker_indices = self.dataset.shared_dict["worker_index"][buffer_index]
         if batch_size is not None:
             worker_indices = worker_indices[:batch_size]
-        assert (
-            nunique(worker_indices) == 1
-        ), f"Only one worker should have contributed to the batch ({worker_indices.unique() = })"
+        assert nunique(worker_indices) == 1, (
+            f"Only one worker should have contributed to the batch ({worker_indices.unique() = })"
+        )
 
         batch = {}
         for key in self.keys:
@@ -166,18 +166,18 @@ class StreamDataLoader:
         buffer_index = next(iter(results.values()))[
             "buffer_index"
         ]  # Index of the current buffer (same for all workers)
-        assert all(
-            r["buffer_index"] == buffer_index for r in results.values()
-        ), "Each worker must return the same buffer index"
+        assert all(r["buffer_index"] == buffer_index for r in results.values()), (
+            "Each worker must return the same buffer index"
+        )
 
         worker_indices = self.dataset.shared_dict["worker_index"][
             buffer_index
         ]  # Workers which contributed to the batch
         if is_batch_part:
             worker_indices = worker_indices[used_indices]
-        assert worker_indices.unique().tolist() == list(
-            results.keys()
-        ), f"Every worker should contribute to the batch ({worker_indices.unique() = }, {list(results.keys()) = })"
+        assert worker_indices.unique().tolist() == list(results.keys()), (
+            f"Every worker should contribute to the batch ({worker_indices.unique() = }, {list(results.keys()) = })"
+        )
 
         batch = {}
         for key in self.keys:

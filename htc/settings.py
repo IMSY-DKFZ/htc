@@ -191,7 +191,8 @@ class Settings:
             # Otherwise (when installed as package), src_dir is not meaningful (it will point to the site-packages folder)
             # This is mainly relevant for the CLI where we don't want to glob across all installed packages
             # To check how the package was installed, we look for a common file in the source directory
-            self.src_dir = self.htc_package_dir
+            self.src_dir = MultiPath(self.htc_package_dir)
+            self.src_dir.add_alternative(self.htc_projects_dir)
 
         # Read the .env file from the repository root and/or the user settings (if available)
         # Per default, environment variables are overridden by the .env file and the user settings, but this can be disabled (e.g. to allow monkeypatching during testing)
@@ -307,6 +308,7 @@ class Settings:
             "Exterior": "#00000000",  # Unlabeled parts in MITK
             "network_unsure": "#AAAAAA",
             "not_suitable_for_semantic": "#AAAAAA",
+            "unknown": "#00000000",
         }
 
         self.known_envs = (

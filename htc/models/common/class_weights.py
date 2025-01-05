@@ -31,9 +31,9 @@ def calculate_class_weights(
     if weight_method == "1" or not weight_method:
         return torch.ones(n_classes)
 
-    assert (
-        label_indices is not None and label_counts is not None
-    ), "Cannot calculate class weights without label information"
+    assert label_indices is not None and label_counts is not None, (
+        "Cannot calculate class weights without label information"
+    )
     assert len(label_indices) == len(label_counts), "Label ids and counts must match"
 
     n_pixels = label_counts.sum()

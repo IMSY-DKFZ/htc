@@ -157,7 +157,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=settings.htc_package_dir / "models/data",
+        default=Path(__file__).parent,
         help="Directory where the resulting data specification file should be stored.",
     )
     parser.add_argument(

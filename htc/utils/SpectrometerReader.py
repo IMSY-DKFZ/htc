@@ -99,9 +99,9 @@ class SpectrometerReader:
             spectra = np.asarray(spectra)
 
             if calibration:
-                assert (
-                    self.dark is not None and self.white is not None
-                ), "white and/or dark calibration measurements are missing!"
+                assert self.dark is not None and self.white is not None, (
+                    "white and/or dark calibration measurements are missing!"
+                )
                 spectra[:, :, 1] = (spectra[:, :, 1] - self.dark["median_spectrum"]) / (
                     self.white["median_spectrum"] - self.dark["median_spectrum"]
                 )
@@ -113,9 +113,9 @@ class SpectrometerReader:
                 spectra = spectra[:, mask, :]
 
             if normalization is not None:
-                assert not np.any(
-                    np.linalg.norm(spectra[:, :, 1], axis=-1, ord=normalization) == 0
-                ), f"Normalization failure due to zero division for {label_name}"
+                assert not np.any(np.linalg.norm(spectra[:, :, 1], axis=-1, ord=normalization) == 0), (
+                    f"Normalization failure due to zero division for {label_name}"
+                )
                 spectra[:, :, 1] = spectra[:, :, 1] / np.linalg.norm(
                     spectra[:, :, 1], axis=-1, keepdims=True, ord=normalization
                 )

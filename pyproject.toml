@@ -60,6 +60,7 @@ lint.extend-select = [
   "YTT",
 ]
 lint.ignore = [
+  "A004", # Overwriting builtins can be intended
   "B007", # It can be intended to name loop variables even if they are not used
   "B023", # Leads to a lot of false alarms
   "B027", # It is totally valid to prepare more methods in an abstract class without forcing them to be abstract
@@ -84,6 +85,7 @@ lint.ignore = [
   "RUF001",  # Explicitly intended
   "RUF003",  # Same
   "RUF013",  # Produces unnecessary complexity
+  "UP031",   # % formatting can be easier with JS string code
 ]
 lint.per-file-ignores."__init__.py" = [ "F401" ]
 lint.unfixable = [ "B905" ] # We don't want strict=False but strict=True

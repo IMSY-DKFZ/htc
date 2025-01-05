@@ -207,15 +207,15 @@ def adjust_epoch_size(config: Config) -> None:
     Args:
         config: The configuration of the training.
     """
-    assert (
-        "input/epoch_size" in config and "dataloader_kwargs/batch_size" in config
-    ), "Required config variables are missing"
+    assert "input/epoch_size" in config and "dataloader_kwargs/batch_size" in config, (
+        "Required config variables are missing"
+    )
 
     if config["input/epoch_size"] % config["dataloader_kwargs/batch_size"] != 0:
         next_multiple = math.ceil(config["input/epoch_size"] / config["dataloader_kwargs/batch_size"])
         config["input/epoch_size"] = config["dataloader_kwargs/batch_size"] * next_multiple
         settings.log.info(
-            f'the epoch_size was set to {config["input/epoch_size"]} to make it divisible by the batch_size'
+            f"the epoch_size was set to {config['input/epoch_size']} to make it divisible by the batch_size"
         )
 
 

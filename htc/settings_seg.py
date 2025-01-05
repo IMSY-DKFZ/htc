@@ -21,11 +21,10 @@ class SettingsSeg:
             "metal": 0,
             "white_compress": 0,
             "anorganic_artifact": 0,
-            "tube": 0,
             "syringe": 0,
             "glove": 0,
             "abdominal_linen": 0,
-            # Main classes
+            # Organ classes
             "heart": 1,
             "lung": 2,
             "liver": 3,
@@ -44,40 +43,6 @@ class SettingsSeg:
             "kidney": 16,
             "major_vein": 17,
             "kidney_with_Gerotas_fascia": 18,
-            # These classes are ignored
-            "unlabeled": settings.label_index_thresh,
-            "overlap": settings.label_index_thresh + 1,
-            "organic_artifact": settings.label_index_thresh + 2,
-            "ignore": settings.label_index_thresh + 3,
-            "unsure": settings.label_index_thresh + 4,
-            "colon_peritoneum": settings.label_index_thresh + 5,
-            # Ignored because they occur only the masks dataset
-            "aorta": settings.label_index_thresh + 6,
-            "bile_fluid": settings.label_index_thresh + 7,
-            "bone": settings.label_index_thresh + 8,
-            "cartilage": settings.label_index_thresh + 9,
-            "lymph_nodes": settings.label_index_thresh + 10,
-            "silicone_gloves_blue": settings.label_index_thresh + 11,
-            "silicone_gloves_light_blue": settings.label_index_thresh + 12,
-            "silicone_gloves_white": settings.label_index_thresh + 13,
-            "veins": settings.label_index_thresh + 14,
-            "diaphragm": settings.label_index_thresh + 15,
-            "arteries": settings.label_index_thresh + 16,
-            "ovary": settings.label_index_thresh + 17,
-            "ureter": settings.label_index_thresh + 18,
-            "blood": settings.label_index_thresh + 19,
-            "lymph_fluid": settings.label_index_thresh + 20,
-            "urine": settings.label_index_thresh + 21,
-            # Ignored because they occur only the humans dataset
-            "cauterization": settings.label_index_thresh + 22,
-            "lig_teres_hep": settings.label_index_thresh + 23,
-            "fat_visceral": settings.label_index_thresh + 25,
-            "meso": settings.label_index_thresh + 26,
-            "esophagus": settings.label_index_thresh + 27,
-            "unclear_organic": settings.label_index_thresh + 28,
-            "stapler": settings.label_index_thresh + 29,
-            "ligasure": settings.label_index_thresh + 30,
-            "monopolar": settings.label_index_thresh + 31,
         })
         self.labels = self.label_mapping.label_names()
 

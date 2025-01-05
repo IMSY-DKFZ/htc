@@ -223,7 +223,7 @@ def segmentation_to_nrrd(
 
     Args:
         nrrd_file: Path where the nrrd file should be stored.
-        mask: a dict of masks, each key representing an annotation name e.g. {{annotation_name1: mask, annotation_name2: mask...}}. If None, path must be given.
+        mask: Mask data containing the annotations. If 2D, a single MITK layer will be created. If 3D, an MITK layer will be created per layer.
         mapping_mask: Label mapping for the segmentation mask which gives every label index in the segmentation mask a name. If None, path must be given.
         mask_labels_only: ensures that the nrrd file only contains labels in the metadata that are found in the mask, as opposed to adding all labels in the mapping to the metadata
     """
@@ -399,9 +399,9 @@ def segmentation_to_nrrd_annotation_name(
     else:
         annotation_names = mask.keys()
 
-    assert (
-        type(mask) == dict
-    ), "The mask has to be dict containing all annotations, of the form: `{annotation_name: layer_index}`"
+    assert type(mask) == dict, (
+        "The mask has to be dict containing all annotations, of the form: `{annotation_name: layer_index}`"
+    )
 
     stacked_masks = []
 

@@ -22,6 +22,7 @@ class ImageConsumer(multiprocessing.Process):
         results_list: list,
         results_dict: dict,
         run_dir: Path | list[Path],
+        output_dir: Path,
         config: Config | str,
         store_predictions: bool,
         **kwargs,
@@ -37,6 +38,7 @@ class ImageConsumer(multiprocessing.Process):
             results_list: list-like object which can be used to share results across consumers.
             results_dict: dict-like object which can be used to share results across consumers.
             run_dir: Path to the run directory where the predictions are calculated from.
+            output_dir: Path to the output directory where the results should be stored.
             config: Configuration object to use or name of the configuration file to load (relative to the run directory). If None, the default configuration file of the training run will be loaded.
             store_predictions: Whether to store the predictions for later use (e.g. for faster inference on the next run).
             kwargs: All additional keyword arguments will be stored as attributes in this class.
@@ -49,21 +51,13 @@ class ImageConsumer(multiprocessing.Process):
         self.run_dir = run_dir
         if isinstance(self.run_dir, list):
             self.run_dir = self.run_dir[0]
+        self.output_dir = output_dir
+        self.config = config if type(config) == Config else Config(self.run_dir / config)
         self.store_predictions = store_predictions
 
+        # All additional keyword arguments will be stored as attributes in this class
         for name, value in kwargs.items():
             setattr(self, name, value)
-
-        # All the produced files (tables, prediction files, etc.) should be stored either in the output directory (if the user supplied one) or the run folder
-        if hasattr(self, "output_dir") and self.output_dir is not None:
-            self.target_dir = self.output_dir
-            self.target_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            self.target_dir = self.run_dir
-            # New results should be stored in the run directory
-            self.run_dir.set_default_location(str(self.run_dir))
-
-        self.config = config if type(config) == Config else Config(self.run_dir / config)
 
     def run(self):
         try:
@@ -81,17 +75,17 @@ class ImageConsumer(multiprocessing.Process):
                     if self.store_predictions:
                         # Save predictions to avoid re-calculations the next time we need the predictions
                         if "activations" in image_data.keys():
-                            predictions_dir = self.target_dir / image_data["fold_name"] / "activations"
+                            predictions_dir = self.output_dir / image_data["fold_name"] / "activations"
                             predictions_data = image_data["activations"]
                         elif "reconstructions" in image_data.keys():
-                            predictions_dir = self.target_dir / image_data["fold_name"] / "reconstructions"
+                            predictions_dir = self.output_dir / image_data["fold_name"] / "reconstructions"
                             predictions_data = image_data["reconstructions"]
                         elif "predictions" in image_data.keys():
-                            predictions_dir = self.target_dir / "predictions"
+                            predictions_dir = self.output_dir / "predictions"
                             predictions_data = image_data["predictions"]
 
                         predictions_dir.mkdir(parents=True, exist_ok=True)
-                        compress_file(predictions_dir / f'{image_data["path"].image_name()}.blosc', predictions_data)
+                        compress_file(predictions_dir / f"{image_data['path'].image_name()}.blosc", predictions_data)
 
                     self.handle_image_data(image_data)
 

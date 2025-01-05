@@ -11,44 +11,38 @@ from htc.utils.unify_path import unify_path
 
 class SettingsSpecies:
     def __init__(self):
-        self.label_mapping = LabelMapping(
-            {
-                "background": 0,
-                "metal": 0,
-                "abdominal_linen": 0,
-                "blue_cloth": 0,
-                "blanket": 0,
-                "white_compress": 0,
-                "white_compress_dry": 0,
-                "anorganic_artifact": 0,
-                "silicone_gloves_light_blue": 0,
-                "silicone_gloves_blue": 0,
-                "silicone_gloves_white": 0,
-                "glove": 0,
-                "foil": 0,
-                "tube": 0,
-                "syringe": 0,
-                "stapler": 0,
-                "magnets": 0,
-                "sutures": 0,
-                "stomach": 1,
-                "small_bowel": 2,
-                "meso": 2,
-                "colon": 3,
-                "liver": 4,
-                "pancreas": 5,
-                "kidney": 6,
-                "spleen": 7,
-                "omentum": 8,
-                "lung": 9,
-                "skin": 10,
-                "peritoneum": 11,
-            },
-            unknown_invalid=True,
-        )
-        self.label_mapping_organs = LabelMapping(
-            self.label_mapping.mapping_name_index, unknown_invalid=True, zero_is_invalid=True
-        )
+        self.label_mapping = LabelMapping({
+            "background": 0,
+            "metal": 0,
+            "abdominal_linen": 0,
+            "blue_cloth": 0,
+            "blanket": 0,
+            "white_compress": 0,
+            "white_compress_dry": 0,
+            "anorganic_artifact": 0,
+            "silicone_gloves_light_blue": 0,
+            "silicone_gloves_blue": 0,
+            "silicone_gloves_white": 0,
+            "glove": 0,
+            "foil": 0,
+            "syringe": 0,
+            "stapler": 0,
+            "magnets": 0,
+            "sutures": 0,
+            "stomach": 1,
+            "small_bowel": 2,
+            "meso": 2,
+            "colon": 3,
+            "liver": 4,
+            "pancreas": 5,
+            "kidney": 6,
+            "spleen": 7,
+            "omentum": 8,
+            "lung": 9,
+            "skin": 10,
+            "peritoneum": 11,
+        })
+        self.label_mapping_organs = LabelMapping(self.label_mapping.mapping_name_index, zero_is_invalid=True)
 
         self.pig_aortic_labels = ["stomach", "small_bowel", "colon", "liver", "spleen", "fat_visceral"]
 
@@ -69,9 +63,9 @@ class SettingsSpecies:
 
         self.n_nested_folds = 3
         self.species_projection = {
-            "pig": "weights+bias_pig_kidney=P091,P095,P097,P098+aortic",
-            "rat": "weights+bias_rat_subjects=R017,R019,R025,R029",
-            "human": "weights+bias_human_subjects=all",
+            "pig": "weights+bias_malperfusion_pig_kidney=P091,P095,P097,P098+aortic",
+            "rat": "weights+bias_malperfusion_rat_subjects=R017,R019,R025,R029",
+            "human": "weights+bias_malperfusion_human_subjects=all",
         }
         self.species_colors = {
             "pig": "#44AA99",

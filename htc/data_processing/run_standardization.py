@@ -89,9 +89,9 @@ def calc_standardization_folds(specs: DataSpecification) -> dict[str, dict[str, 
 if __name__ == "__main__":
     prep = ParserPreprocessing(description="Precomputes standardization statistics for each fold")
     paths = prep.get_paths()  # Must always be called
-    assert (
-        prep.args.spec is not None
-    ), "The --spec argument must be supplied so that the standardization parameters can be calculated per fold"
+    assert prep.args.spec is not None, (
+        "The --spec argument must be supplied so that the standardization parameters can be calculated per fold"
+    )
 
     specs = DataSpecification(prep.args.spec)
     assert paths == specs.paths()

@@ -60,6 +60,7 @@ def compute_perfusion_scores(run_dir: Path, recalculate: bool) -> None:
 
     predictor = TableTestPredictor(
         run_dirs,
+        config=config,
         test_table_name=table_name,
         metrics=["DSC", "CM"],
         paths=paths,

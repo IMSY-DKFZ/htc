@@ -52,9 +52,9 @@ def baseline_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
 
 def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     """
-    Load ischemic median spectra data from all pig and rat species (species_name column). This includes a diff_spectrum column that contains the difference between the normalized median spectrum for each row and the physiological spectrum.
+    Load ischemic median spectra data from all species (species_name column). Physiological baseline images are included as well (baseline_dataset column) so that this table is the most comprehensive overview of available images.
 
-    The physiological data is loaded as well for each species so that this table is the most comprehensive overview of used images.
+    The diff_spectrum column contains the difference between the normalized median spectrum for each row and the physiological spectrum.
 
     Args:
         label_mapping: Optional label mapping passed on to the median_table function.
@@ -62,11 +62,31 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     Returns: The ischemic median spectra data.
     """
 
-    def _add_diff_spectra(
-        df: pd.DataFrame, base_spectra: pd.DataFrame, base_spectra_global: pd.DataFrame = None
-    ) -> None:
+    def _add_diff_spectra(df: pd.DataFrame) -> None:
+        if "phase_type" in df.columns:
+            df_base = df[df["phase_type"] == "physiological"]
+        elif "perfusion_state" in df.columns:
+            df_base = df[df["perfusion_state"] == "physiological"]
+        else:
+            raise ValueError("Either phase_type or perfusion_state must be present in the dataframe")
+
+        assert len(df_base) > 0, "There must be at least one physiological image"
+
+        base_spectra = df_base.groupby(["subject_name", "label_name"]).agg(
+            median_normalized_spectrum=pd.NamedAgg(
+                column="median_normalized_spectrum", aggfunc=lambda c: np.mean(np.stack(c), axis=0)
+            ),
+        )
+
+        # Some labels like unclear_organic are not available for all subjects
+        base_spectra_global = base_spectra.groupby(["label_name"]).agg(
+            median_normalized_spectrum=pd.NamedAgg(
+                column="median_normalized_spectrum", aggfunc=lambda c: np.mean(np.stack(c), axis=0)
+            ),
+        )
+
         diff_spectra = []
-        for i, row in df.iterrows():
+        for _, row in df.iterrows():
             if (row["subject_name"], row["label_name"]) in base_spectra.index:
                 diff_spectra.append(
                     row["median_normalized_spectrum"]
@@ -81,6 +101,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
                     row["median_normalized_spectrum"]
                     - base_spectra_global.loc[row["label_name"]]["median_normalized_spectrum"]
                 )
+
         df["diff_spectrum"] = diff_spectra
 
     dfk = median_table(
@@ -98,16 +119,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     add_times_table(dfk, groups=["subject_name"])
     dfk.reset_index(drop=True, inplace=True)
 
-    base_spectra = (
-        dfk.query("phase_type == 'physiological'")
-        .groupby(["subject_name", "label_name"])
-        .agg(
-            median_normalized_spectrum=pd.NamedAgg(
-                column="median_normalized_spectrum", aggfunc=lambda c: np.mean(np.stack(c), axis=0)
-            ),
-        )
-    )
-    _add_diff_spectra(dfk, base_spectra)
+    _add_diff_spectra(dfk)
 
     dfa = median_table(
         dataset_name="2023_12_05_Tivita_multiorgan_aortic_clamping",
@@ -117,23 +129,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     add_times_table(dfa, groups=["subject_name"])
     dfa["species_name"] = "pig"
 
-    base_spectra = (
-        dfa.query("phase_type == 'physiological'")
-        .groupby(["subject_name", "label_name"])
-        .agg(
-            median_normalized_spectrum=pd.NamedAgg(
-                column="median_normalized_spectrum", aggfunc=lambda c: np.mean(np.stack(c), axis=0)
-            ),
-        )
-    )
-
-    # Some labels like unclear_organic are not available for all subjects
-    base_spectra_global = base_spectra.groupby(["label_name"]).agg(
-        median_normalized_spectrum=pd.NamedAgg(
-            column="median_normalized_spectrum", aggfunc=lambda c: np.mean(np.stack(c), axis=0)
-        ),
-    )
-    _add_diff_spectra(dfa, base_spectra, base_spectra_global=base_spectra_global)
+    _add_diff_spectra(dfa)
 
     dfr = median_table(
         dataset_name="2023_12_07_Tivita_multiorgan_rat#perfusion_experiments",
@@ -143,32 +139,14 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     add_times_table(dfr, groups=["subject_name"])
     dfr["species_name"] = "rat"
 
-    base_spectra = (
-        dfr.query("phase_type == 'physiological'")
-        .groupby(["subject_name", "label_name"])
-        .agg(
-            median_normalized_spectrum=pd.NamedAgg(
-                column="median_normalized_spectrum", aggfunc=lambda c: np.mean(np.stack(c), axis=0)
-            ),
-        )
-    )
-    _add_diff_spectra(dfr, base_spectra)
+    _add_diff_spectra(dfr)
 
     df_baseline = baseline_table(label_mapping=label_mapping)
 
     dfh_phys = df_baseline[df_baseline["species_name"] == "human"].copy()
     dfh_phys["perfusion_state"] = "physiological"
     dfh_phys["baseline_dataset"] = True
-    base_spectra = dfh_phys.groupby(["subject_name", "label_name"]).agg(
-        median_normalized_spectrum=pd.NamedAgg(
-            column="median_normalized_spectrum", aggfunc=lambda c: np.mean(np.stack(c), axis=0)
-        ),
-    )
-    base_spectra_global = base_spectra.groupby(["label_name"]).agg(
-        median_normalized_spectrum=pd.NamedAgg(
-            column="median_normalized_spectrum", aggfunc=lambda c: np.mean(np.stack(c), axis=0)
-        ),
-    )
+
     dfh_mal = median_table(
         dataset_name="2021_07_26_Tivita_multiorgan_human",
         annotation_name="polygon#malperfused",
@@ -179,13 +157,12 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     # There is unavoidable overlap between the physiological and malperfused images for humans but this is only for the non-target labels
     n_target_labels = dfh_mal.label_name.isin(settings_species.malperfused_labels).sum()
     dfh_mal = dfh_mal[~dfh_mal.image_name.isin(dfh_phys.image_name)].copy()
-    assert (
-        dfh_mal.label_name.isin(settings_species.malperfused_labels).sum() == n_target_labels
-    ), "The number of target labels must not change"
+    assert dfh_mal.label_name.isin(settings_species.malperfused_labels).sum() == n_target_labels, (
+        "The number of target labels must not change"
+    )
 
     dfh_mal["species_name"] = "human"
     dfh_mal["perfusion_state"] = "malperfused"
-    _add_diff_spectra(dfh_mal, base_spectra, base_spectra_global)
 
     # Every semantically annotated image which has not been used previously
     dfh_unclear = median_table(
@@ -197,25 +174,29 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     dfh_unclear = dfh_unclear[
         ~(dfh_unclear.image_name.isin(dfh_phys.image_name) | dfh_unclear.image_name.isin(dfh_mal.image_name))
     ].copy()
-    assert set(settings_species.malperfused_kidney_subjects).issubset(
-        set(dfh_unclear.subject_name)
-    ), "All manually excluded kidney subjects must be unclear"
+    assert set(settings_species.malperfused_kidney_subjects).issubset(set(dfh_unclear.subject_name)), (
+        "All manually excluded kidney subjects must be unclear"
+    )
     dfh_unclear["species_name"] = "human"
     dfh_unclear["perfusion_state"] = "unclear"
+
+    dfh = pd.concat([dfh_phys, dfh_mal, dfh_unclear], ignore_index=True)
+    _add_diff_spectra(dfh)
 
     # Also add the other physiological images we have for pig and rat
     df_baseline_rest = df_baseline[df_baseline["species_name"] != "human"].copy()
     df_baseline_rest["phase_type"] = "physiological"
     df_baseline_rest["baseline_dataset"] = True
+    _add_diff_spectra(df_baseline_rest)
 
-    df = pd.concat([dfk, dfa, dfr, dfh_phys, dfh_mal, dfh_unclear, df_baseline_rest], ignore_index=True)
+    df = pd.concat([dfk, dfa, dfr, dfh, df_baseline_rest], ignore_index=True)
     with pd.option_context("future.no_silent_downcasting", True):
         df["baseline_dataset"] = df["baseline_dataset"].fillna(False).astype(bool)
 
     # There may be multiple label names which get mapped to background and hence would have the same image_name and label_name in this table
-    assert (
-        df[df.label_name != "background"].set_index(["image_name", "label_name"]).index.is_unique
-    ), "There must be no overlap between the different tables"
+    assert df[df.label_name != "background"].set_index(["image_name", "label_name"]).index.is_unique, (
+        "There must be no overlap between the different tables"
+    )
 
     return df
 

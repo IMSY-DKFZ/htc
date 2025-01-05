@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 
 from htc.models.data.SpecsGeneration import SpecsGeneration
-from htc.settings import settings
 from htc_projects.atlas.tables import median_cam_table
 
 
@@ -25,9 +24,9 @@ class SpecsGenerationTissueAtlas(SpecsGeneration):
         self.test_pigs = np.random.choice(pigs_118, n_pigs, replace=False)
         n_test_labels = len(df_118.query("subject_name in @self.test_pigs")["label_name"].unique())
         n_train_labels = len(df_118.query("subject_name not in @self.test_pigs")["label_name"].unique())
-        assert (
-            n_test_labels == n_labels and n_train_labels == n_labels
-        ), "All labels must be represented in the train and the test set"
+        assert n_test_labels == n_labels and n_train_labels == n_labels, (
+            "All labels must be represented in the train and the test set"
+        )
 
     def generate_folds(self) -> list[dict]:
         data_specs = []
@@ -69,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=settings.htc_package_dir / "atlas/data",
+        default=Path(__file__).parent,
         help="Directory where the resulting data specification file should be stored.",
     )
     parser.add_argument("--pigs", type=int, default=8, help="Number of pigs to include in the test set.")

@@ -26,7 +26,7 @@ class LabelMapping:
         mapping_name_index: dict[str, int],
         last_valid_label_index: int = None,
         zero_is_invalid: bool = False,
-        unknown_invalid: bool = False,
+        unknown_invalid: bool = True,
         mapping_index_name: dict[int, str] = None,
         label_colors: dict[str, str] = None,
     ):
@@ -37,7 +37,7 @@ class LabelMapping:
             mapping_name_index: Mapping of label identifiers (name of the organs) to indices (integer values).
             last_valid_label_index: The index of the last valid label in the mapping. This is useful to distinguish between valid and invalid pixels. If None, every label index smaller than settings.label_index_thresh will be considered valid.
             zero_is_invalid: If True, 0 will be treated as invalid label (additional labels may be treated as invalid via last_valid_label_index).
-            unknown_invalid: If True, all labels which are not part of this mapping are considered invalid (except of raising an error).
+            unknown_invalid: If True, all labels which are not part of this mapping are considered invalid (instead of raising an error).
             mapping_index_name: Mapping of label indices to names (used to construct a mapping based on a saved config).
             label_colors: Mapping of label names to color values (e.g. '#ffffff'). If None, settings.label_colors will be used.
         """
@@ -78,9 +78,9 @@ class LabelMapping:
             sorted(self.mapping_name_index.items(), key=lambda item: item[1])
         )  # Sort by value
 
-        assert set(self.mapping_name_index.values()) == set(
-            self.mapping_index_name.keys()
-        ), "Both mappings must have the same ids (it is only allowed to have more names for the same id)"
+        assert set(self.mapping_name_index.values()) == set(self.mapping_index_name.keys()), (
+            "Both mappings must have the same ids (it is only allowed to have more names for the same id)"
+        )
 
     def __repr__(self):
         labels = ", ".join([f"{l}={self.name_to_index(l)}" for l in self.label_names()])

@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from htc.settings import settings
+
 _type_cache = {}
 
 
@@ -30,7 +32,7 @@ def type_from_string(class_definition: str) -> type:
     {'data': 2}
 
     Args:
-        class_definition: Class definition in the form module>class (e.g. htc.models.image.LightningImage>LightningImage). The first part (module) may also be the full path to the Python file.
+        class_definition: Class definition in the form module>class (e.g. htc.models.image.LightningImage>LightningImage). The first part (module) may also be the path to the Python file (absolute, relative, or relative to the src/htc/htc_projects directory).
 
     Returns: Class type.
     """
@@ -51,8 +53,9 @@ def type_from_string(class_definition: str) -> type:
         try:
             module = importlib.import_module(match.group(1))
         except ModuleNotFoundError:
+            path = _find_existing_path(match.group(1))
             # Try path importing (https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly)
-            spec = importlib.util.spec_from_file_location(match.group(2), match.group(1))
+            spec = importlib.util.spec_from_file_location(match.group(2), path)
             module = importlib.util.module_from_spec(spec)
             sys.modules[match.group(2)] = module
             spec.loader.exec_module(module)
@@ -78,7 +81,7 @@ def variable_from_string(definition: str) -> Any:
     19
 
     Args:
-        definition: Variable definition in the form module>variable (e.g. htc.settings_seg>label_mapping). The first part (module) may also be the full path to the Python file.
+        definition: Variable definition in the form module>variable (e.g. htc.settings_seg>label_mapping). The first part (module) may also be the path to the Python file (absolute, relative, or relative to the src/htc/htc_projects directory).
 
     Returns: The imported variable.
     """
@@ -93,7 +96,8 @@ def variable_from_string(definition: str) -> Any:
         is_path = False
     except ModuleNotFoundError:
         # Try path importing (https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly)
-        spec = importlib.util.spec_from_file_location(match.group(2), match.group(1))
+        path = _find_existing_path(match.group(1))
+        spec = importlib.util.spec_from_file_location(match.group(2), path)
         module = importlib.util.module_from_spec(spec)
         sys.modules[match.group(2)] = module
         spec.loader.exec_module(module)
@@ -109,3 +113,24 @@ def variable_from_string(definition: str) -> Any:
         module = getattr(module, name)
 
     return getattr(module, match.group(2))
+
+
+def _find_existing_path(file_location: str) -> Path:
+    possible_paths = [
+        Path(file_location),
+        settings.htc_package_dir / file_location,
+        settings.htc_projects_dir / file_location,
+        settings.src_dir / file_location,
+    ]
+    selected_path = None
+    for path in possible_paths:
+        if path.exists():
+            selected_path = path
+            break
+
+    if selected_path is None:
+        raise FileNotFoundError(
+            f"Could not find the file {file_location}. Tried the following locations:\n{possible_paths}"
+        )
+
+    return selected_path

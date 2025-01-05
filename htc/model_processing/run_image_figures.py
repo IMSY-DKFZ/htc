@@ -24,10 +24,7 @@ class ImageFigureConsumer(ImageConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.target_dir == self.run_dir:
-            self.target_dir = self.target_dir / "prediction_figures"
-        else:
-            self.target_dir = self.target_dir / self.run_dir.parent.name / self.run_dir.name
+        self.target_dir = self.output_dir / "prediction_figures"
         self.target_dir.mkdir(parents=True, exist_ok=True)
 
     def handle_image_data(self, image_data: dict[str, torch.Tensor | DataPath | str]) -> None:
@@ -99,7 +96,6 @@ if __name__ == "__main__":
     )
     runner.add_argument("--test")
     runner.add_argument("--test-looc")
-    runner.add_argument("--output-dir")
 
     if runner.args.test:
         TestClass = TestLeaveOneOutPredictor if runner.args.test_looc else TestPredictor

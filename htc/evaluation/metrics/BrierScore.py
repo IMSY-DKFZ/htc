@@ -30,9 +30,9 @@ class BrierScore(nn.Module):
             predictions: The predicted probabilities for each class (batch, classes).
             labels: The reference labels (batch).
         """
-        assert (
-            predictions.size(1) == self.n_classes
-        ), "The second dimensions of the predictions tensor does not match with the number of classes"
+        assert predictions.size(1) == self.n_classes, (
+            "The second dimensions of the predictions tensor does not match with the number of classes"
+        )
         assert labels.ndim == 1, "Labels should be a vector"
 
         if self.variant == "binary":

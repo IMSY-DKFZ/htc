@@ -58,7 +58,7 @@ class RunGenerator:
 
         # Run properties
         run_name = f"{self.timestring}_{base_name}"
-        config_relative_path = config.path_config.relative_to(settings.htc_package_dir)
+        config_relative_path = config.path_config.relative_to(settings.src_dir)
 
         # Generate submit command
         if single_submit:

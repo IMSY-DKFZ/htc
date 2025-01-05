@@ -23,7 +23,7 @@
             },
             {
                 "class": "htc_projects.species.species_transforms>ProjectionTransform",
-                "base_name": "weights+bias_pig_kidney=P091,P095,P097,P098+aortic",
+                "base_name": "weights+bias_malperfusion_pig_kidney=P091,P095,P097,P098+aortic",
                 "interpolate": true,
                 "target_labels": ["kidney"],
                 "p": 0.8

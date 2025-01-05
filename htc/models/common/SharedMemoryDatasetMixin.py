@@ -85,9 +85,9 @@ class SharedMemoryDatasetMixin:
             self.path_indices_worker[:] = indices
         else:
             sampler_indices = list(self.sampler)
-            assert (
-                len(sampler_indices) == len(self.sampler) == len(self.path_indices_worker)
-            ), "Number of sampled indices must match the length of the sampler across epochs"
+            assert len(sampler_indices) == len(self.sampler) == len(self.path_indices_worker), (
+                "Number of sampled indices must match the length of the sampler across epochs"
+            )
 
             self.path_indices_worker[:] = torch.tensor(sampler_indices)
 

@@ -34,10 +34,12 @@ class HierarchicalSampler(Sampler[int]):
         self.config = config
         self.batch_size = batch_size or config["dataloader_kwargs/batch_size"]
 
+        assert len(paths) > 0, "No paths provided for the sampler"
+
         target_domain = self.config["input/target_domain"]
-        assert (
-            target_domain is not None and len(target_domain) >= 1
-        ), "At least one target domain must be specified in the config (input/target_domain)"
+        assert target_domain is not None and len(target_domain) >= 1, (
+            "At least one target domain must be specified in the config (input/target_domain)"
+        )
         if len(target_domain) > 1:
             settings.log.info(
                 f"More than one target domain specified. Only the first one ({target_domain[0]}) will be used for"
@@ -61,9 +63,9 @@ class HierarchicalSampler(Sampler[int]):
             self.label_images_mapping = {}
             dataset = DatasetImage(paths, train=False, config=self.config)  # Only needed to retrieve the image labels
         else:
-            assert (
-                type(sampling_strategy) == bool
-            ), "At the moment, only True, label or image_label can be used to set a hierarchical sampling strategy"
+            assert type(sampling_strategy) == bool, (
+                "At the moment, only True, label or image_label can be used to set a hierarchical sampling strategy"
+            )
             self.label_images_mapping = None
 
         self.domain_mapping = {}
@@ -91,9 +93,9 @@ class HierarchicalSampler(Sampler[int]):
                     self.label_images_mapping[label_index].append(image_index)
             elif sampling_strategy == "image_label":
                 image_label_index = dataset.read_image_labels(path)
-                assert (
-                    image_label_index.ndim == 0
-                ), f"Only scalar image labels are supported for hierarchical sampling: {image_label_index}"
+                assert image_label_index.ndim == 0, (
+                    f"Only scalar image labels are supported for hierarchical sampling: {image_label_index}"
+                )
                 image_label_index = image_label_index.item()
 
                 if image_label_index not in self.label_images_mapping:
@@ -107,9 +109,14 @@ class HierarchicalSampler(Sampler[int]):
                 )
 
         assert self.config["dataloader_kwargs/batch_size"] >= len(self.domain_mapping), (
-            f'The batch size ({self.config["dataloader_kwargs/batch_size"]}) must be >= the number of domains'
+            f"The batch size ({self.config['dataloader_kwargs/batch_size']}) must be >= the number of domains"
             f" ({len(self.domain_mapping)}) in the training set"
         )
+
+        if self.label_images_mapping is not None:
+            assert len(self.label_images_mapping) > 0, (
+                "Could not find any valid labels in the dataset. This usually indicates a problem with the label mapping, e.g., when all labels in an image are mapped to invalid."
+            )
 
     def __iter__(self) -> Iterator[int]:
         n_subjects = math.ceil(self.batch_size / len(self.domain_mapping))
@@ -129,9 +136,9 @@ class HierarchicalSampler(Sampler[int]):
                 oversampling=oversampling,
             )
 
-        assert (
-            sample_indices.size(1) >= self.batch_size
-        ), f"Number of batch indices ({sample_indices.size(1)}) does not much the batch size"
+        assert sample_indices.size(1) >= self.batch_size, (
+            f"Number of batch indices ({sample_indices.size(1)}) does not much the batch size"
+        )
         for row in range(sample_indices.size(0)):
             # The order of images in a batch should never matter, so we make a random selection per batch
             selection = torch.randperm(sample_indices.size(1))[: self.batch_size]

@@ -100,9 +100,9 @@ class HTCDataset(ABC, Dataset):
     def apply_transforms(
         self, sample: dict[str, torch.Tensor] | torch.Tensor
     ) -> dict[str, torch.Tensor] | torch.Tensor:
-        assert (
-            len(self.transforms) >= 1 and type(self.transforms[0]) == ToType
-        ), "There must always be the ToType transformation"
+        assert len(self.transforms) >= 1 and type(self.transforms[0]) == ToType, (
+            "There must always be the ToType transformation"
+        )
 
         was_tensor = False
         if type(sample) == torch.Tensor:
@@ -491,9 +491,8 @@ class HTCDataset(ABC, Dataset):
 
         assert data is not None, (
             f"Could not find the image {path.image_name()}. This probably means that you have not registered the"
-            " dataset where this image is from, i.e. you need to set the corresponding environment variable. The"
-            f" following intermediate directories are registered: {settings.intermediates_dir_all} and the following"
-            f" file extensions were tried: {[e[0] for e in extensions]}"
+            " dataset where this image is from, i.e. you need to set the corresponding environment variable."
+            f"\nFolder name: {folder_name}\nTried file extensions: {[e[0] for e in extensions]}\nRegistered intermediate directories:\n{settings.intermediates_dir_all!r}"
         )
 
         if type(data) != int and self.features_dtype != torch.float16:
@@ -506,9 +505,9 @@ class HTCDataset(ABC, Dataset):
 
         if folder_name.startswith("parameter_images"):
             assert len(parameter_names) > 0, "At least the name of one parameter is required"
-            assert all(
-                n in data for n in parameter_names
-            ), "Not all parameter names are stored in the preprocessed file"
+            assert all(n in data for n in parameter_names), (
+                "Not all parameter names are stored in the preprocessed file"
+            )
 
             # Store all parameters in one array
             array = np.empty((*data[parameter_names[0]].shape, len(parameter_names)), data[parameter_names[0]].dtype)

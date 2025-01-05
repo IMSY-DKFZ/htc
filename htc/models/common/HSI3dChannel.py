@@ -25,7 +25,7 @@ class HSI3dChannel(nn.Module):
         ]
 
         if self.config["model/channel_preprocessing/normalization"]:
-            NormalizationLayer = getattr(nn, f'{config["model/channel_preprocessing/normalization"]}3d')
+            NormalizationLayer = getattr(nn, f"{config['model/channel_preprocessing/normalization']}3d")
         else:
             NormalizationLayer = nn.Identity
 

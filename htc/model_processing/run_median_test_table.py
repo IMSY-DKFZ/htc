@@ -13,11 +13,10 @@ from htc.models.median_pixel.DatasetMedianPixel import DatasetMedianPixel
 if __name__ == "__main__":
     # htc median_test_table --model median_pixel --run-folder 2024-02-23_14-08-16_median_18classes --spec tissue-atlas_loocv_test-8_seed-0_cam-118.json --table-name test_table_pigs
     runner = Runner(description="Create a test table based on a trained median spectra model for a new set of paths.")
-    runner.add_argument("--output-dir")
     runner.add_argument("--table-name", default="test_table_new", type=str, help="Name of the generated table")
 
     # Inference for the median spectra is super fast, so we just use the single predictor here
-    predictor = SinglePredictor("median_pixel", runner.run_dir.name, test=True)
+    predictor = SinglePredictor(runner.args.model, runner.run_dir.name, test=True, config=runner.config)
     predictor.config["dataloader_kwargs/num_workers"] = 1
     dataset = DatasetMedianPixel(runner.paths, config=predictor.config, train=False)
     dataloader = DataLoader(dataset, **predictor.config["dataloader_kwargs"])
@@ -49,6 +48,4 @@ if __name__ == "__main__":
 
     df = pd.DataFrame(df)
 
-    target_dir = runner.args.output_dir if runner.args.output_dir is not None else runner.run_dir
-    target_dir.mkdir(exist_ok=True, parents=True)
-    df.to_pickle(target_dir / f"{runner.args.table_name}.pkl.xz")
+    df.to_pickle(runner.output_dir / f"{runner.args.table_name}.pkl.xz")

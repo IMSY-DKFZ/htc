@@ -13,9 +13,9 @@ class CalibrationLoss(nn.Module):
         if predictions.is_floating_point():
             # Softmax input
             assert predictions.ndim >= 2, "Softmax values should be at least 2-dimensional"
-            assert (
-                predictions.shape[1:] == labels.shape[0:]
-            ), "The sample dimension does not match between softmaxes and labels"
+            assert predictions.shape[1:] == labels.shape[0:], (
+                "The sample dimension does not match between softmaxes and labels"
+            )
 
             softmaxes_sum = torch.sum(predictions, dim=0)
             assert torch.allclose(softmaxes_sum, torch.ones_like(softmaxes_sum)), (
@@ -123,9 +123,9 @@ class ECE(CalibrationLoss):
 
         Returns: A dictionary with "accuracies", "confidences" and "probabilities" vectors (all normalized) as well as the ece "error".
         """
-        assert (
-            acc_mat.shape == conf_mat.shape and acc_mat.shape == prob_mat.shape
-        ), "All matrices must have the same shape"
+        assert acc_mat.shape == conf_mat.shape and acc_mat.shape == prob_mat.shape, (
+            "All matrices must have the same shape"
+        )
         assert np.all(acc_mat >= 0) and np.all(conf_mat >= 0) and np.all(prob_mat >= 0), "All matrices must be positive"
 
         with np.errstate(invalid="ignore"):

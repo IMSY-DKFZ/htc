@@ -14,8 +14,12 @@ class DatasetMedianPixel(HTCDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Load precomputed spectra
-        df = median_table(paths=self.paths, config=self.config)
+        # Load precomputed spectra while keeping the sorting of the data specs
+        df = median_table(
+            paths=self.paths,
+            config=self.config,
+            sorting_kwargs={"sorting_cols": ["image_name", "annotation_name", "label_name"]},
+        )
 
         self.labels = torch.from_numpy(df["label_index_mapped"].values) if self.config["label_mapping"] else None
         self.image_labels = (

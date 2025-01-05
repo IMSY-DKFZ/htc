@@ -18,10 +18,7 @@ class InferenceConsumer(ImageConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.target_dir == self.run_dir:
-            self.target_dir = self.target_dir / "predictions"
-        else:
-            self.target_dir = self.target_dir / self.run_dir.parent.name / self.run_dir.name
+        self.target_dir = self.output_dir / "predictions"
         self.target_dir.mkdir(parents=True, exist_ok=True)
 
         self.config.save_config(self.target_dir / "config.json")
@@ -58,7 +55,6 @@ if __name__ == "__main__":
             " output directory."
         )
     )
-    runner.add_argument("--output-dir")
     runner.add_argument("--annotation-name")
     runner.add_argument("--predictions-type", type=str, choices=["softmax", "labels"], default="labels")
 

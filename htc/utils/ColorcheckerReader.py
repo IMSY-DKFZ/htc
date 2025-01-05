@@ -197,12 +197,12 @@ class ColorcheckerReader:
         else:
             self.rot_angle = rot_angle
 
-        assert (
-            self.rot_angle is not None
-        ), "Rotation angle could not be determined as None was returned, doublechecking of the HSI cube is needed!"
-        assert (
-            -30 <= self.rot_angle <= 30
-        ), f"Rotation angle of {self.rot_angle} is not applied, doublechecking is needed!"
+        assert self.rot_angle is not None, (
+            "Rotation angle could not be determined as None was returned, doublechecking of the HSI cube is needed!"
+        )
+        assert -30 <= self.rot_angle <= 30, (
+            f"Rotation angle of {self.rot_angle} is not applied, doublechecking is needed!"
+        )
 
         if flipped:
             self.rot_angle = 180 + self.rot_angle
@@ -297,9 +297,9 @@ class ColorcheckerReader:
 
             return left_mask + right_mask
         else:
-            assert (
-                len(mask_params) == 1
-            ), f"Only one mask is supported for cc_classic, but {len(mask_params)} were given"
+            assert len(mask_params) == 1, (
+                f"Only one mask is supported for cc_classic, but {len(mask_params)} were given"
+            )
             return mask_from_params(mask_params["mask_0"])
 
     def create_automask(self) -> torch.Tensor:

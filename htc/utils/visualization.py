@@ -9,6 +9,7 @@ import re
 import uuid
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -273,9 +274,9 @@ def show_loss_chart(df_train: pd.DataFrame, df_val: pd.DataFrame = None) -> None
     n_metrics = len(loss_names)
     ece_name = []
     if df_val is not None and "ece" in df_val:
-        assert (
-            df_train["epoch_index"].max() == df_val["epoch_index"].max()
-        ), "train and validation do not have the same epochs"
+        assert df_train["epoch_index"].max() == df_val["epoch_index"].max(), (
+            "train and validation do not have the same epochs"
+        )
         n_metrics += 1
         ece_name = ["ece_error"]
 
@@ -907,6 +908,7 @@ def create_overview_document(
     navigation_link_callback: Callable[[str, str, DataPath], str] = None,
     nav_width: str = "23em",
     searchable_meta_attributes: list[str] = None,
+    segmentation_kwargs: dict[str, Any] = None,
 ) -> str:
     """
     Create an overview figure for the given image. It will show the RGB image with all the available annotations plus the tissue parameter images.
@@ -918,11 +920,14 @@ def create_overview_document(
         navigation_link_callback: Callback which receives the label name, number and data path of the target image and should create a relative link where the corresponding local html file for the target image can be found. If parts of the link contain invalid URL characters (e.g. # in image name), then please wrap it in quote_plus before (e.g. quote_plus(p.image_name())). For example, ('spleen', '08', DataPath) --> '../08_spleen/P086%232021_04_15_09_22_20.html'.
         nav_width: Width of the navigation bar (in CSS units).
         searchable_meta_attributes: List of meta attributes which should be searchable. If None, the annotation_name will be searchable per default. You need to include the annotation_name yourself if you change this parameter.
+        segmentation_kwargs: Keyword arguments passed on to the `create_segmentation_overlay()` function.
 
     Returns: HTML string which is best saved with the `compress_html()` function.
     """
     if searchable_meta_attributes is None:
         searchable_meta_attributes = ["annotation_name"]
+    if segmentation_kwargs is None:
+        segmentation_kwargs = {}
 
     seg = path.read_segmentation(annotation_name="all")
     if seg is None or len(path.annotated_labels(annotation_name="all")) == 0:
@@ -936,7 +941,7 @@ def create_overview_document(
         fig_seg.update_layout(title_x=0.5, title_text=path.image_name())
         fig_median = None
     else:
-        fig_seg = create_segmentation_overlay(seg, path)
+        fig_seg = create_segmentation_overlay(seg, path, **segmentation_kwargs)
         fig_median = create_median_spectra_figure(path)
 
     # Remove the Plotly title because it cannot be selected
@@ -980,9 +985,9 @@ def create_overview_document(
         meta_html = ""
 
     if navigation_paths is not None:
-        assert (
-            navigation_link_callback is not None
-        ), "navigation_link_callback must be provided if a navigation pane should be created"
+        assert navigation_link_callback is not None, (
+            "navigation_link_callback must be provided if a navigation pane should be created"
+        )
 
         # Use the label ordering if available
         masks_settings = DatasetSettings(settings.data_dirs.masks)
@@ -1409,7 +1414,7 @@ body {
     justify-content: center;
 }
 #image_container > h2 {
-    margin-bottom: 0;
+    margin-bottom: 0.2em;
     text-align: center;
 }
 </style>
@@ -1443,7 +1448,9 @@ def create_segmentation_overlay(
     segmentation: np.ndarray | dict[str, np.ndarray],
     path: DataPath = None,
     rgb_image: np.ndarray = None,
+    rgb_image_sensor: np.ndarray | np.ma.MaskedArray = None,
     label_mapping: LabelMapping = None,
+    show_rgb_image: bool = True,
 ) -> go.Figure:
     """
     Overlays a segmentation result over an RGB image with an opacity slider.
@@ -1453,18 +1460,32 @@ def create_segmentation_overlay(
     Args:
         segmentation: Segmentation image with a label index for each image. Either of shape (H, W) or (2, H, W) in case of a multi-layered segmentation mask. If a dict with names as keys and segmentations as values, a button element will be added allowing to switch between the segmentations (useful to plot the annotations from different annotators).
         path: Path to the file image file. Used to get the name of the image, the label mapping of the dataset or the rgb image (if not provided explicitly).
-        rgb_image: Image data which is shown in the background.
+        rgb_image: Image data which is shown in the background. If None, the reconstructed RGB image is loaded from the path.
+        rgb_image_sensor: If not None, a button is added to switch between the reconstructed and the RGB sensor image. If None, the RGB sensor image is loaded from the path if available.
         label_mapping: The label mapping which defines how the values in the segmentation image should be interpreted. This is also used to get the colors and names for the labels.
+        show_rgb_image: If True, show the rgb_image per default, otherwise show the rgb_image_sensor per default.
 
     Returns: Plotly figure object (layout properties can still be adjusted).
     """
     if type(segmentation) == np.ndarray:
         segmentation = {"name": segmentation}
 
+    # Semantic segmentations first
+    segmentation = dict(sorted(segmentation.items(), key=lambda x: x[0].replace("semantic", "1_semantic")))
+
     # Load original image
     if rgb_image is None:
         assert path is not None, "A path is required if no rgb file is given"
         rgb_image = path.read_rgb_reconstructed()
+    if rgb_image_sensor is None:
+        rgb_image_sensor = path.align_rgb_sensor()
+
+    if isinstance(rgb_image_sensor, np.ma.MaskedArray):
+        # Hide the shifted area
+        _data = rgb_image_sensor.data
+        _data[rgb_image_sensor.mask] = 0
+        rgb_image_sensor = _data
+        del _data
 
     if label_mapping is None:
         assert path is not None, "A path is required if no label mapping is given"
@@ -1516,9 +1537,9 @@ def create_segmentation_overlay(
         if len(label_mapping_valid) == 1:
             tickvals = [0, 1]
         else:
-            assert (
-                len(label_mapping_valid) > 0
-            ), f"No valid labels found for the image:\n{path = }\n{path.annotated_labels(annotation_name='all') = }"
+            assert len(label_mapping_valid) > 0, (
+                f"No valid labels found for the image:\n{path = }\n{path.annotated_labels(annotation_name='all') = }"
+            )
 
             # For example, with three colors, Plotly uses 0, 1, 2 and the colors change at 2/3, 4/3
             # We want the ticks to be placed in the middle of the color rectangles 2/6=2/3*0.5, 6/6=2/6+2/3
@@ -1534,15 +1555,11 @@ def create_segmentation_overlay(
             "y": 1.01,
         }
 
-    default_annotation_name = path.dataset_settings.get("annotation_name_default", "default")
-    default_index = (
-        0 if default_annotation_name not in layer1.keys() else list(layer1.keys()).index(default_annotation_name)
-    )
-
     # The buttons hide or unhide individual plots but the number of plots per button state (=annotation_name) could be different due to multi-layer segmentations
     # Plotly only sees a global list of all plots (heatmaps in this case) and we need to tell Plotly which plots should be hidden or unhidden for each button state
     plot_index = 0  # Global plot index
     name_plot_mapping = {name: [] for name in layer1.keys()}  # List of global plot indices for each annotation name
+    default_index = 0  # First segmentation is shown by default
     for i, name in enumerate(layer1.keys()):
         visible = i == default_index
 
@@ -1606,6 +1623,9 @@ def create_segmentation_overlay(
                 "args": [{"visible": visible_state}],
             })
 
+    if rgb_image_sensor is None:
+        show_rgb_image = True
+
     fig.add_layout_image(
         source=Image.fromarray(rgb_image),
         xref="x",
@@ -1617,6 +1637,45 @@ def create_segmentation_overlay(
         sizing="stretch",
         layer="below",
     )
+    fig.layout.images[0].visible = show_rgb_image
+
+    if rgb_image_sensor is not None:
+        fig.add_layout_image(
+            source=Image.fromarray(rgb_image_sensor),
+            xref="x",
+            yref="y",
+            x=-0.5,
+            y=img_height - 0.5,
+            sizex=img_width,
+            sizey=img_height,
+            sizing="stretch",
+            layer="below",
+        )
+        fig.layout.images[1].visible = not show_rgb_image
+
+        updatemenu = go.layout.Updatemenu(
+            active=0 if show_rgb_image else 1,
+            type="buttons",
+            direction="right",
+            showactive=True,
+            x=0.5,
+            xanchor="center",
+            y=1.064,
+            yanchor="top",
+            buttons=[
+                dict(
+                    method="relayout",
+                    args=[{"images[0].visible": True, "images[1].visible": False}],
+                    label="RGB reconstructed",
+                ),
+                dict(
+                    method="relayout",
+                    args=[{"images[0].visible": False, "images[1].visible": True}],
+                    label="RGB sensor aligned",
+                ),
+            ],
+        )
+        fig.update_layout(updatemenus=[updatemenu])
 
     # Create and add slider
     steps = []
@@ -1641,7 +1700,7 @@ def create_segmentation_overlay(
         height=img_height * 1.5, width=img_width * 1.53 * scale_annotator, template="plotly_white", margin=dict(t=40)
     )
     fig.update_layout(
-        sliders=[opacity_slider], title_x=0.5, title_y=0.98, title_text=path.image_name() if path is not None else ""
+        sliders=[opacity_slider], title_x=0.1, title_y=0.98, title_text=path.image_name() if path is not None else ""
     )
     fig.update_layout(yaxis=dict(scaleanchor="x", scaleratio=1))  # Keep the aspect ratio while zooming
     fig.update_xaxes(showgrid=False, zeroline=False)
@@ -1920,7 +1979,7 @@ def create_ece_figure(df: pd.DataFrame) -> None:
 
     for f, fold_name in enumerate(folds):
         df_fold = df.query(f'fold_name == "{fold_name}"')
-        df_fold = df_fold.query(f'epoch_index == {df_fold["best_epoch_index"].unique().item()}')
+        df_fold = df_fold.query(f"epoch_index == {df_fold['best_epoch_index'].unique().item()}")
 
         # Aggregate information from all images
         acc_mat = np.stack([v["accuracies"] for v in df_fold["ece"]])
@@ -1952,7 +2011,7 @@ def create_ece_figure(df: pd.DataFrame) -> None:
         button_states.append({
             "label": fold_name,
             "method": "update",
-            "args": [{"title": f'Confidence histogram ({fold_name}, ece={ece["error"]:0.3f})'}],
+            "args": [{"title": f"Confidence histogram ({fold_name}, ece={ece['error']:0.3f})"}],
         })
 
     # Calculate the visible states (find out which lines have to be activated for which fold)
@@ -1994,7 +2053,7 @@ def show_utilization(run_dir: Path) -> None:
         button_states.append({
             "label": fold_dir.stem,
             "method": "update",
-            "args": [{"visible": visible_state}, {"title": f'avg_gpuutil = {np.mean(data["gpu_load_mean"]):0.4f}'}],
+            "args": [{"visible": visible_state}, {"title": f"avg_gpuutil = {np.mean(data['gpu_load_mean']):0.4f}"}],
         })
 
     fig.layout.update(updatemenus=[go.layout.Updatemenu(type="dropdown", active=0, buttons=button_states)])
@@ -2599,9 +2658,9 @@ def boxplot_symbols(
 
     if ci_mean is not None and ci_median is not None:
         assert len(ci_mean) == 2 and len(ci_median) == 2, "Confidence interval values must be [q025, q975]"
-        assert (
-            ci_mean[0] <= ci_mean[1] and ci_median[0] <= ci_median[1]
-        ), "Confidence interval values must be increasing"
+        assert ci_mean[0] <= ci_mean[1] and ci_median[0] <= ci_median[1], (
+            "Confidence interval values must be increasing"
+        )
 
         for ci_values, x_offset, dash, marker_open, name in zip(
             [ci_mean, ci_median], [0.5, 0.7], ["dot", "solid"], ["-open", ""], ["mean", "median"], strict=True
@@ -2645,32 +2704,3 @@ def boxplot_symbols(
                     row=row,
                     col=col,
                 )
-
-
-def performance_comparison_figure(df: pd.DataFrame) -> go.Figure:
-    fig = go.Figure()
-
-    for i, network in enumerate(df["network"].unique()):
-        df_network = df[df["network"] == network]
-        boxplot_symbols(
-            fig,
-            df_network["dice_metric"],
-            df_network["label_name"],
-            trace_name=network,
-            box_index=i,
-            color=px.colors.qualitative.T10[i],
-        )
-
-    fig.update_layout(height=550, width=800, template="plotly_white")
-    fig.update_layout(title_x=0.5, title_text="network performance on the validation set (physiological images)")
-    fig.update_xaxes(
-        tickmode="array",
-        tickvals=0.5 + np.arange(df["network"].nunique()),
-        ticktext=df["network"].unique(),
-        title="network",
-    )
-    fig.update_yaxes(title="DSC")
-    fig.update_layout(legend2=dict(orientation="h", yanchor="bottom", y=1, xanchor="center", x=0.50))
-    fig.update_layout(legend_tracegroupgap=0)
-
-    return fig

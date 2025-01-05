@@ -48,9 +48,9 @@ class ProjectionPairs:
                 & (df.reperfused == False)  # noqa: E712
             ]
             assert df.subject_name.nunique() == 4, "Missing some subjects"
-            assert set(df.label_name.unique()) == set(
-                settings_species.pig_aortic_labels
-            ), f"Labels are missing: {df.label_name.unique()}"
+            assert set(df.label_name.unique()) == set(settings_species.pig_aortic_labels), (
+                f"Labels are missing: {df.label_name.unique()}"
+            )
 
             paths = DataPath.from_table(df)
 
@@ -73,9 +73,9 @@ class ProjectionPairs:
                 & (df.reperfused == False)  # noqa: E712
                 & (~df.baseline_dataset)
             ]
-            assert (
-                df.clamping_location.nunique() == 2
-            ), f"Aorta and organ clamping locations are needed for rats: {df.clamping_location.unique()}"
+            assert df.clamping_location.nunique() == 2, (
+                f"Aorta and organ clamping locations are needed for rats: {df.clamping_location.unique()}"
+            )
             assert set(df.label_name.unique()) == set(labels), f"Labels are missing: {df.label_name.unique()}"
 
             paths = DataPath.from_table(df)
@@ -135,16 +135,16 @@ class ProjectionPairs:
         assert len(paths_physiological) > 0, "No physiological images found."
         assert len(paths_ischemic) > 0, "No ischemic images found."
 
-        assert sorted(set(paths_physiological + paths_ischemic)) == sorted(
-            paths_physiological + paths_ischemic
-        ), "No duplicates allowed."
+        assert sorted(set(paths_physiological + paths_ischemic)) == sorted(paths_physiological + paths_ischemic), (
+            "No duplicates allowed."
+        )
         settings.log.info(f"Physiological images: {len(paths_physiological)}")
         settings.log.info(f"Ischemic images: {len(paths_ischemic)}")
 
         variables_labels = {}
         meta_labels = {}
         for label_name in label_names:
-            mapping = LabelMapping({label_name: 0}, unknown_invalid=True)
+            mapping = LabelMapping({label_name: 0})
             pairs = []
             for p_physiological in paths_physiological:
                 if label_name not in p_physiological.annotated_labels():

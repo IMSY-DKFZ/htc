@@ -21,7 +21,7 @@ def dataset_size_table(runs: list[Path], metric_name: str = "dice_metric") -> pd
         model = run_dir.parent.name
         if model == "patch":
             config = Config(run_dir / "config.json")
-            model = f'{model}_{config["input/patch_size"][0]}'
+            model = f"{model}_{config['input/patch_size'][0]}"
 
         df_val = pd.read_pickle(run_dir / "validation_table.pkl.xz")
         for fold_name in df_val["fold_name"].unique():

@@ -331,13 +331,14 @@ class DataPath:
 
         Returns: Path to the RGB file from the RGB sensor (with or without the black header).
         """
-        rgb_path_reconstructed = (
-            self() / f"{self.timestamp}_HSI-RGB-Image.png"
-        )  # checking indirectly whether the image was taken with a Tivita Surgery 2.0 camera
-        assert rgb_path_reconstructed.exists(), "RGB sensor data is only available for the Tivita Surgery 2.0 camera"
+        # Only available for the Tivita Surgery 2.0 camera
+        rgb_path_reconstructed = self() / f"{self.timestamp}_HSI-RGB-Image.png"
         rgb_path = self() / f"{self.timestamp}_RGB-Capture.png"
-        if not rgb_path.exists():
+
+        if rgb_path_reconstructed.exists() and not rgb_path.exists():
+            # Fallback
             rgb_path = self() / f"{self.timestamp}_RGB-Image.png"
+
         return rgb_path
 
     def read_rgb_sensor(self, *reading_args, **reading_kwargs) -> np.ndarray:
@@ -355,7 +356,7 @@ class DataPath:
         rgb_path = self.rgb_path_sensor()
         return read_tivita_rgb(rgb_path, *reading_args, **reading_kwargs)
 
-    def align_rgb_sensor(self, *args, recompute: bool = False, **kwargs) -> np.ndarray:
+    def align_rgb_sensor(self, *args, recompute: bool = False, **kwargs) -> np.ndarray | None:
         """
         Align the RGB image from the RGB sensor to the reconstructed RGB image of the HSI cube.
 
@@ -366,8 +367,18 @@ class DataPath:
             args: Positional arguments to be passed to `align_rgb_sensor()` function.
             kwargs: Keyword arguments to pass to `align_rgb_sensor()` function.
 
-        Returns: Aligned RGB sensor image.
+        Returns: Aligned RGB sensor image or None if the RGB sensor image could not be aligned (e.g., because no RGB sensor image is available).
         """
+        if not self.rgb_path_sensor().exists():
+            return None
+
+        try:
+            # Check whether we can read the RGB sensor image (it may be broken)
+            self.read_rgb_sensor()
+        except Exception as e:
+            settings.log.error(f"Cannot read the RGB sensor image for {self}: {e}")
+            return None
+
         if not recompute:
             precomputed_path = (
                 self.intermediates_dir / "preprocessing" / "rgb_sensor_aligned" / f"{self.image_name()}.blosc"
@@ -1055,9 +1066,9 @@ class DataPath:
                 meta = {"annotation_name": list(names.keys()) if names is not None else None}
             else:
                 meta = dict(generate_metadata_table([self]).iloc[0])
-        assert (
-            meta is not None and type(meta) == dict
-        ), "There must always be at least some meta information (e.g. image_name)"
+        assert meta is not None and type(meta) == dict, (
+            "There must always be at least some meta information (e.g. image_name)"
+        )
 
         if key is None:
             # User requests all available information
@@ -1383,6 +1394,7 @@ class DataPath:
         data_dir: str | Path,
         filters: list[Callable[["DataPath"], bool]] = None,
         annotation_name: str | list[str] = None,
+        follow_links: bool = True,
     ) -> Iterator["DataPath"]:
         """
         Helper function to iterate over the folder structure of a dataset (e.g. subjects folder), yielding one image at a time.
@@ -1405,6 +1417,7 @@ class DataPath:
             data_dir: The path where the data is stored. The data folder should contain a dataset_settings.json file.
             filters: List of filters which can be used to alter the set of images returned by this function. Every filter receives a DataPath instance and the instance is only yielded when all filter return True for this path.
             annotation_name: Include only paths with this annotation name and use it as default in read_segmentation(). Must either be a lists of annotation names or as string in the form name1&name2 (which will automatically be converted to ['name1', 'name2']). If None, no default annotation name will be set and no images will be filtered by annotation name.
+            follow_links: If set to True and the data directory contains a `path_links.json` links files, include all paths which are listed in this file as well. Be aware that this might lead to duplicate paths if you combine the result of this iterate with the result of a dataset where the links point to.
 
         Returns: Generator with all path objects.
         """
@@ -1448,6 +1461,16 @@ class DataPath:
             DataPathClass = DataPathTivita
 
         yield from DataPathClass.iterate(data_dir, filters, annotation_name)
+
+        if follow_links and (links_file := data_dir / "path_links.json").exists():
+            with links_file.open() as f:
+                link_data = json.load(f)
+
+            for links in link_data.values():
+                for link in links:
+                    path = DataPath.from_image_name(link)
+                    if all(f(path) for f in filters):
+                        yield path
 
     @staticmethod
     def _iterate_parse_inputs(

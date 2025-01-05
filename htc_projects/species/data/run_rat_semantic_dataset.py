@@ -60,7 +60,7 @@ class SpecsGenerationRatSemantic(SpecsGeneration):
     def generate_folds(self) -> list[dict]:
         data_specs = []
 
-        imgs_test = [p.image_name_annotations() for p in self.paths if p.subject_name in self.test_subjects]
+        imgs_test = sorted([p.image_name_annotations() for p in self.paths if p.subject_name in self.test_subjects])
         paths_train = [p for p in self.paths if p.subject_name in self.main_subjects]
 
         subjects, label_distribution = self.compute_label_distribution(paths_train, self.mapping)
@@ -88,7 +88,7 @@ class SpecsGenerationRatSemantic(SpecsGeneration):
                     ]),
                 },
                 "test": {
-                    "image_names": sorted(imgs_test),
+                    "image_names": imgs_test,
                 },
             } | self.imgs_species
 

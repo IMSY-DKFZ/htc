@@ -1,3 +1,4 @@
+# Base components which are needed for cluster jobs and testing
 FROM nvidia/cuda:12.4.1-base-ubuntu22.04
 
 # Avoid Docker build freeze due to region selection

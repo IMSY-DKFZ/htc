@@ -47,9 +47,9 @@ class PathHashMapper:
 
         Returns: Data path object.
         """
-        assert (
-            len(sha256_hash) == 64
-        ), f"The hash {sha256_hash} is not a valid sha256 hash (it should be 64 characters long)"
+        assert len(sha256_hash) == 64, (
+            f"The hash {sha256_hash} is not a valid sha256 hash (it should be 64 characters long)"
+        )
         assert self.path_hashes is not None, "No paths available for the reverse mapping"
         assert sha256_hash in self.path_hashes, (
             f"No path mapping for the hash {sha256_hash} found. Does the hash belong to a path provided in the paths"

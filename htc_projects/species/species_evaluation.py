@@ -35,9 +35,9 @@ def load_nested_table(run_folder: str, table_name: str, model: str = "image") ->
         table_path = run_dir / f"{table_name}.pkl.xz"
         if table_path.exists():
             df = pd.read_pickle(table_path)
-            assert set(df["image_name"]).isdisjoint(
-                image_names
-            ), f"The same images must not be used across runs:\n{runs = }\n{run_dir = }"
+            assert set(df["image_name"]).isdisjoint(image_names), (
+                f"The same images must not be used across runs:\n{runs = }\n{run_dir = }"
+            )
             image_names.update(df["image_name"])
             dfs.append(df)
 
@@ -124,17 +124,17 @@ def parameter_comparison(
         if image_names_prev is None:
             image_names_prev = set(df["image_name"])
         else:
-            assert image_names_prev == set(
-                df["image_name"]
-            ), f"The same images must be used across runs: {run_dir.name}"
+            assert image_names_prev == set(df["image_name"]), (
+                f"The same images must be used across runs: {run_dir.name}"
+            )
 
         df_baseline = load_nested_table(run_folder=run_dir.name, table_name=table_name.removesuffix("_perfusion"))
         if image_names_prev_baseline is None:
             image_names_prev_baseline = set(df_baseline["image_name"])
         else:
-            assert image_names_prev_baseline == set(
-                df_baseline["image_name"]
-            ), f"The same images must be used across baseline runs: {run_dir.name}"
+            assert image_names_prev_baseline == set(df_baseline["image_name"]), (
+                f"The same images must be used across baseline runs: {run_dir.name}"
+            )
 
         df = pd.concat([df, df_baseline], ignore_index=True)
 
@@ -152,12 +152,13 @@ def parameter_comparison(
         assert match is not None, f"Could not infer species from run folder name {run_dir.name}"
         species = match.group(1)
         df_ischemic = ischemic_table(label_mapping)
-        df_ischemic = df_ischemic[
-            (df_ischemic["species_name"] == species) & (df_ischemic["label_name"].isin(target_labels))
-        ]
-        assert set(image_name_annotations) == set(
-            df_ischemic["image_name"] + "@" + df_ischemic["annotation_name"]
-        ), "Unexpected image names"
+        df_ischemic = df_ischemic[df_ischemic["species_name"] == species]
+        if target_labels is not None:
+            df_ischemic = df_ischemic[df_ischemic["label_name"].isin(target_labels)]
+
+        assert set(image_name_annotations) == set(df_ischemic["image_name"] + "@" + df_ischemic["annotation_name"]), (
+            "Unexpected image names"
+        )
 
         df_median = median_table(image_names=image_name_annotations.tolist())
         df = df.merge(
@@ -167,9 +168,9 @@ def parameter_comparison(
             suffixes=("", "_y"),
             validate="one_to_one",
         )
-        assert not pd.isna(
-            df["median_sto2"]
-        ).any(), "Could not match every image to find the corresponding parameter value"
+        assert not pd.isna(df["median_sto2"]).any(), (
+            "Could not match every image to find the corresponding parameter value"
+        )
 
         # Exclude images with "broken" tissues
         df = df[df["median_sto2"] > 0.01]

@@ -58,7 +58,7 @@ def main() -> int:
 
         print("The following script files were found in this repository:")
         for s in scripts:
-            print(f'{s["full_name"]} [dim](script path = {s["module_path"]})[/]')
+            print(f"{s['full_name']} [dim](script path = {s['module_path']})[/]")
     else:
         needle = sys.argv[1]
 
@@ -88,7 +88,7 @@ def main() -> int:
         else:
             print(f"Found more than one candidate script for [cyan]{needle}[/]:")
             for s in candidates:
-                print(f'{s["full_name"]} [dim](script path = {s["module_path"]})[/]')
+                print(f"{s['full_name']} [dim](script path = {s['module_path']})[/]")
 
             exitcode = 1
 

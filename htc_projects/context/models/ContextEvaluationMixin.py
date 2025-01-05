@@ -53,9 +53,9 @@ class ContextEvaluationMixin:
 
     def validation_step(self, batch: dict[str, torch.Tensor], batch_idx: int, dataloader_idx: int = 0) -> None:
         if batch_idx == 0 and dataloader_idx == 0:
-            assert all(
-                len(values) == 0 for values in self.validation_results_epoch.values()
-            ), "Validation results are not properly cleared"
+            assert all(len(values) == 0 for values in self.validation_results_epoch.values()), (
+                "Validation results are not properly cleared"
+            )
 
         self.validation_results_epoch["baseline"].append(self._validation_baseline(batch, batch_idx, dataloader_idx))
         for k in self.context_keys:
@@ -75,12 +75,12 @@ class ContextEvaluationMixin:
         # Check for isolation context transforms that baseline and context tables have the same length:
         for k in context_tables.keys():
             if self.is_isolation_transform[k]:
-                assert len(df_baseline) == len(
-                    context_tables[k]
-                ), "Baseline and context tables must have the same length for isolation context transforms"
-                assert (
-                    df_baseline["image_name"] == context_tables[k]["image_name"]
-                ).all(), "Images must align in both baseline and context tables for isolation context transforms"
+                assert len(df_baseline) == len(context_tables[k]), (
+                    "Baseline and context tables must have the same length for isolation context transforms"
+                )
+                assert (df_baseline["image_name"] == context_tables[k]["image_name"]).all(), (
+                    "Images must align in both baseline and context tables for isolation context transforms"
+                )
                 assert all(
                     (df_baseline["used_labels"].iloc[i] == context_tables[k]["used_labels"].iloc[i]).all()
                     for i in range(len(df_baseline))

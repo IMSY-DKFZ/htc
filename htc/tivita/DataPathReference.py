@@ -74,9 +74,9 @@ class DataPathReference(DataPath):
     def rgb_path_reconstructed(self) -> Path:
         if self.image_dir is None:
             # image_dir may not be available if no network directory is set (e.g. on the cluster)
-            assert (
-                self.intermediates_dir is not None
-            ), "Either the network drive or the intermediates directory must be set to get the RGB image path"
+            assert self.intermediates_dir is not None, (
+                "Either the network drive or the intermediates directory must be set to get the RGB image path"
+            )
             return self.intermediates_dir / "preprocessing" / "rgb_reconstructed" / f"{self.image_name()}.blosc"
         else:
             return super().rgb_path_reconstructed()

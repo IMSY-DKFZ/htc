@@ -53,9 +53,9 @@ class NSDToleranceEstimation:
         """
         distances = self._distances_image(seg1, seg2, mask)
         for c, d in enumerate(distances):
-            assert (
-                c < self.distances.shape[1]
-            ), f"The segmentations contain a label with the id {c} but only {self.distances.shape[1]} classes are used"
+            assert c < self.distances.shape[1], (
+                f"The segmentations contain a label with the id {c} but only {self.distances.shape[1]} classes are used"
+            )
 
             if d is not None:
                 self.distances[group_index, c] = np.append(self.distances[group_index, c], d)

@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     total = {"time": [], "main_memory": [], "cpus_load": [], "gpus_memory": [], "gpus_load": []}
 
-    log_path = args.output_dir / f'system_log_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.json'
+    log_path = args.output_dir / f"system_log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
     log_path_finished = Path(str(log_path).replace("running_", ""))
     refresh_rate = float(os.getenv("HTC_SYSTEM_MONITOR_REFRESH_RATE", "5"))
 

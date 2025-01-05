@@ -158,9 +158,9 @@ class HTCLightning(EvaluationMixin, LightningModule):
         # We need to make sure the the GPU transforms get applied to the batch
         if not batch.get("transforms_applied", False):
             batch = self.on_after_batch_transfer(batch, dataloader_idx=0)
-            assert batch[
-                "transforms_applied"
-            ], "Your on_after_batch_transfer method did not apply the GPU transformations"
+            assert batch["transforms_applied"], (
+                "Your on_after_batch_transfer method did not apply the GPU transformations"
+            )
 
         predictions = self._predict_images(batch)
 

@@ -14,35 +14,35 @@ class VariableGeneration:
         self.commands = []
 
     def add_dataset_statistics(self) -> None:
-        self.vars["varTotalImages"] = "\\num{" + f'{self.df["image_name"].nunique()}' + "}"
-        self.vars["varTotalSubjects"] = "\\num{" + f'{self.df["subject_name"].nunique()}' + "}"
+        self.vars["varTotalImages"] = "\\num{" + f"{self.df['image_name'].nunique()}" + "}"
+        self.vars["varTotalSubjects"] = "\\num{" + f"{self.df['subject_name'].nunique()}" + "}"
 
         df_annotation_counts = self.df[["image_name", "annotation_name"]].drop_duplicates(ignore_index=True)
         df_annotation_counts = df_annotation_counts.annotation_name.value_counts(dropna=False)
         assert len(df_annotation_counts) == 3, "There should be three different types of annotations"
-        self.vars["varTotalImagesSemantic"] = "\\num{" + f'{df_annotation_counts["semantic#primary"]}' + "}"
+        self.vars["varTotalImagesSemantic"] = "\\num{" + f"{df_annotation_counts['semantic#primary']}" + "}"
         self.vars["varTotalImagesPolygon"] = (
             "\\num{"
-            + f'{df_annotation_counts["polygon#annotator1"] + df_annotation_counts["polygon#malperfused"]}'
+            + f"{df_annotation_counts['polygon#annotator1'] + df_annotation_counts['polygon#malperfused']}"
             + "}"
         )
 
         df_phys = self.df[self.df.baseline_dataset | self.df.standardized_recordings]
         df_mal = self.df[~(self.df.baseline_dataset | self.df.standardized_recordings)]
 
-        self.vars["varTotalImagesPhys"] = "\\num{" + f'{df_phys["image_name"].nunique()}' + "}"
+        self.vars["varTotalImagesPhys"] = "\\num{" + f"{df_phys['image_name'].nunique()}" + "}"
 
         for species in settings_species.species_colors.keys():
             df_species = self.df[self.df.species_name == species]
             self.vars[f"varTotalImages{species.capitalize()}"] = (
-                "\\num{" + f'{df_species["image_name"].nunique()}' + "}"
+                "\\num{" + f"{df_species['image_name'].nunique()}" + "}"
             )
             self.vars[f"varTotalSubjects{species.capitalize()}"] = (
-                "\\num{" + f'{df_species["subject_name"].nunique()}' + "}"
+                "\\num{" + f"{df_species['subject_name'].nunique()}" + "}"
             )
 
             self.vars[f"varTotalImagesMal{species.capitalize()}"] = (
-                "\\num{" + f'{df_mal[df_mal.species_name == species]["image_name"].nunique()}' + "}"
+                "\\num{" + f"{df_mal[df_mal.species_name == species]['image_name'].nunique()}" + "}"
             )
 
     def baseline_performance_scores(self) -> None:

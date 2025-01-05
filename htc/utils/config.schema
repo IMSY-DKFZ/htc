@@ -312,6 +312,10 @@
                     "description": "Name of the metric which should be used for checkpointing (the name will also be part of the filename of the checkpoint).",
                     "type": "string"
                 },
+                "checkpoint_metric_kwargs": {
+                    "description": "Additional keyword arguments which are passed to the corresponding torchmetrics function (as defined by checkpoint_metric).",
+                    "type": "object"
+                },
                 "checkpoint_saving": {
                     "description": "Strategy for checkpoint saving. Either the best or the last checkpoint is saved. If set to false, no checkpoints are saved.",
                     "type": ["string", "boolean"],

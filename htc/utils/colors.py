@@ -34,6 +34,27 @@ def lighten_color(color: str, amount: float) -> str:
     return to_hex(cmap(amount))
 
 
+def darken_color(color: str, amount: float) -> str:
+    """
+    Darkens the given color by the specified amount.
+
+    The color is interpolated with black so that this function has a similar effect as if a transparency is added to the color on a black background.
+
+    >>> darken_color("#FF0000", 0.5)
+    '#7f0000'
+
+    Args:
+        color: The color to be darkened as hex string.
+        amount: The amount by which to darken the color. Must be between 0 and 1.
+
+    Returns: The darkened color as hex string.
+    """
+    assert 0 <= amount <= 1, "Amount must be between 0 and 1"
+    cmap = LinearSegmentedColormap.from_list("darken", [color, (0, 0, 0)])
+
+    return to_hex(cmap(amount))
+
+
 def generate_distinct_colors(n_colors: int, existing_colors: list[tuple] = None) -> list[tuple]:
     """
     Generates distinct random colors by maximizing the distance between the colors.

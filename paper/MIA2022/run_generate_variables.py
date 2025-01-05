@@ -138,36 +138,36 @@ class VariableGeneration:
         top3_labels = df_counts.query('label_name != "gallbladder"')["label_name"].values[:3]
         top3_counts = df_counts.query('label_name != "gallbladder"')["count"].values[:3]
 
-        self.vars["varTotalImages"] = f'{df["timestamp"].nunique()}'
-        self.vars["varTotalPigs"] = f'{df["subject_name"].nunique()}'
+        self.vars["varTotalImages"] = f"{df['timestamp'].nunique()}"
+        self.vars["varTotalPigs"] = f"{df['subject_name'].nunique()}"
         self.vars["varTotalTrainingPigs"] = str(df.query('set_type == "train"')["subject_name"].nunique())
         self.vars["varTotalTrainingImages"] = str(df.query('set_type == "train"')["timestamp"].nunique())
         self.vars["varMaxTrainingPigsDatasetSize"] = str(df.query('set_type == "train"')["subject_name"].nunique() - 1)
         self.vars["varTotalClassesDatasetSize"] = self.num_mapping[len(labels_size)]
         self.vars["varClassesDatasetSize"] = ", ".join(labels_size[:-1]) + f" and {labels_size[-1]}"
-        self.vars["varTotalOrganClasses"] = f'{len([l for l in mapping.label_names() if l != "background"])}'
+        self.vars["varTotalOrganClasses"] = f"{len([l for l in mapping.label_names() if l != 'background'])}"
         self.vars["varTotalClasses"] = f"{len(mapping)}"
 
-        self.vars["varMinPigsOrgan"] = f'{df_organ["n_pigs"].min()}'
-        self.vars["varMaxPigsOrgan"] = f'{df_organ["n_pigs"].max()}'
-        self.vars["varMinImagesOrgan"] = f'{df_organ["n_images"].min()}'
-        self.vars["varMaxImagesOrgan"] = f'{df_organ["n_images"].max()}'
+        self.vars["varMinPigsOrgan"] = f"{df_organ['n_pigs'].min()}"
+        self.vars["varMaxPigsOrgan"] = f"{df_organ['n_pigs'].max()}"
+        self.vars["varMinImagesOrgan"] = f"{df_organ['n_images'].min()}"
+        self.vars["varMaxImagesOrgan"] = f"{df_organ['n_images'].max()}"
 
         self.vars["varInvalidImages"] = f"{len(df_invalid)}"
         self.vars["varBackgroundPixelRatio"] = (
             "\\SI{"
-            + f'{100 * df_background["pixel_ratio"].mean():0.0f}'
+            + f"{100 * df_background['pixel_ratio'].mean():0.0f}"
             + "}{\\percent} ("
             + "\\ac{sd} \\SI{"
-            + f' {100 * df_background["pixel_ratio"].std():0.0f}'
+            + f" {100 * df_background['pixel_ratio'].std():0.0f}"
             + "}{\\percent})"
         )
         self.vars["varInvalidPixelRatio"] = (
             "\\SI{"
-            + f'{100 * df_invalid["pixel_ratio"].mean():0.0f}'
+            + f"{100 * df_invalid['pixel_ratio'].mean():0.0f}"
             + "}{\\percent} ("
             + "\\ac{sd} \\SI{"
-            + f' {100 * df_invalid["pixel_ratio"].std():0.0f}'
+            + f" {100 * df_invalid['pixel_ratio'].std():0.0f}"
             + "}{\\percent})"
         )
 
@@ -266,9 +266,9 @@ model & \\# pixels & epoch size & batch size \\\\
         self.vars["varCMVenaCavaTotalImages"] = df_major_vein["timestamp"].nunique()
         self.vars["varCMVenaCavaPixels"] = (
             "\\SI{"
-            + f'{df_major_vein["n_pixels"].mean():.0f}'
+            + f"{df_major_vein['n_pixels'].mean():.0f}"
             + "}{\\px} (\\ac{sd} \\SI{"
-            + f'{df_major_vein["n_pixels"].std():.0f}'
+            + f"{df_major_vein['n_pixels'].std():.0f}"
             + "}{\\px})"
         )
 
@@ -278,7 +278,7 @@ model & \\# pixels & epoch size & batch size \\\\
 
             self.vars[f"varRater{name}Additional"] = len(stats["additional_labels"])
             self.vars[f"varRater{name}Missing"] = len(stats["missing_labels"])
-            self.vars[f"varRater{name}TotalMaskDiffPixels"] = "\\SI{" + f'{sum(stats["mask_differences"])}' + "}{\\px}"
+            self.vars[f"varRater{name}TotalMaskDiffPixels"] = "\\SI{" + f"{sum(stats['mask_differences'])}" + "}{\\px}"
             self.vars[f"varRater{name}TotalMaskDiffImages"] = len(stats["mask_differences"])
 
             for short, long in self.metric_mapping.items():
@@ -376,8 +376,8 @@ model & \\# pixels & epoch size & batch size \\\\
         img = df_dice.iloc[round(0.95 * len(df_dice))]
         entry = df.query('model_type == "hsi" and timestamp == @img.timestamp and name == "pixel"')
 
-        self.vars["varImageExamplesPixelDSC"] = f'{entry["dice"].item():0.2f}'
-        self.vars["varImageExamplesPixelASD"] = f'{entry["asd"].item():0.2f}'
+        self.vars["varImageExamplesPixelDSC"] = f"{entry['dice'].item():0.2f}"
+        self.vars["varImageExamplesPixelASD"] = f"{entry['asd'].item():0.2f}"
 
     def add_threshold_info(self) -> None:
         df_thresholds = pd.read_csv(settings_seg.nsd_tolerances_path)

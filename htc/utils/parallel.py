@@ -73,6 +73,10 @@ def p_map(
     elif type(num_cpus) == float:
         num_cpus = int(round(num_cpus * psutil.cpu_count(logical=False)))
 
+    if num_cpus > len(iterables[0]):
+        # We don't need more cpus than tasks
+        num_cpus = len(iterables[0])
+
     items = []
     with Progress(
         *Progress.get_default_columns(),

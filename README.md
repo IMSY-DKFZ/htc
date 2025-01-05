@@ -283,6 +283,15 @@ This is very similar to option 1 but may be more convenient if you already train
 
 > 💡 We have a [JSON Schema file](./htc/utils/config.schema) which describes the structure of our config files including descriptions of the attributes.
 
+### Prediction Tables
+
+The above options will only make predictions for your data without evaluating those predictions. If you want to compare the predictions against some reference annotations and compute some metric values (e.g., DSC), then there are two possibilities:
+
+1. Use the `htc tables --input-dir YOUR_INPUT_DIR --output-dir YOUR_OUTPUT_DIR --test --metrics DSC --model image --run-folder 2023-02-08_14-48-02_organ_transplantation_0.8` command to create predictions for a set of paths (cf. `htc tables --help` for more information on the arguments). This will save a validation or test table on disk.
+2. Similar to the `SinglePredictor` class from before, there is also a [`SinglePredictionTable`](./htc/model_processing/SinglePredictionTable.py) class to compute a metrics table for your data within your own code (the validation or test table will be returned instead of saved to disk). This is useful if you only want to compute metrics for a custom set of paths.
+
+In any case, it is required that reference segmentations are available for every image so that the output of the network can be compared against something.
+
 ## CLI
 
 There is a common command line interface for many scripts in this repository. More precisely, every script which is prefixed with `run_NAME.py` can also be run via `htc NAME` from any directory. For more details, just type `htc`.

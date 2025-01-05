@@ -77,9 +77,9 @@ class LightningMedianPixel(HTCLightning):
 
     def validation_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
         if batch_idx == 0:
-            assert all(
-                len(values) == 0 for values in self.validation_results_epoch.values()
-            ), "Validation results are not properly cleared"
+            assert all(len(values) == 0 for values in self.validation_results_epoch.values()), (
+                "Validation results are not properly cleared"
+            )
 
         predictions = self(batch).argmax(dim=1)
 
@@ -116,9 +116,9 @@ class LightningMedianPixel(HTCLightning):
 
     def test_step(self, batch: dict[str, torch.Tensor], batch_idx: int) -> None:
         if batch_idx == 0:
-            assert all(
-                len(values) == 0 for values in self.test_results_epoch.values()
-            ), "Test results are not properly cleared"
+            assert all(len(values) == 0 for values in self.test_results_epoch.values()), (
+                "Test results are not properly cleared"
+            )
 
         labels = batch["labels"]
         image_names = batch["image_name_annotations"]

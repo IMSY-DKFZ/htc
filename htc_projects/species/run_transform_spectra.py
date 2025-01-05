@@ -14,7 +14,7 @@ from htc_projects.species.tables import baseline_table
 if __name__ == "__main__":
     # Transform images and compute the median spectra to show that the xeno-learning method works
     labels = settings_species.malperfused_labels
-    mapping = LabelMapping({l: i for i, l in enumerate(labels)}, unknown_invalid=True)
+    mapping = LabelMapping({l: i for i, l in enumerate(labels)})
     df = baseline_table(mapping)
 
     dfs = []

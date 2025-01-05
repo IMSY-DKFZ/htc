@@ -61,6 +61,7 @@ if __name__ == "__main__":
     print(repr(settings.intermediates_dir_all))
     print(f"src_dir={settings.src_dir}")
     print(f"htc_package_dir={settings.htc_package_dir}")
+    print(f"htc_projects_dir={settings.htc_projects_dir}")
 
     print("\n[b]System:[/]")
     collect_env.main()

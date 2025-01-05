@@ -57,7 +57,10 @@ class Benchmark:
         # Mount config files if they are outside of this repository
         for config in self.configs:
             config_path = config.path_config
-            if not config_path.is_relative_to(settings.htc_package_dir):
+            if not (
+                config_path.is_relative_to(settings.htc_package_dir)
+                or config_path.is_relative_to(settings.htc_projects_dir)
+            ):
                 cmd += f" -v {config_path}:{config_path}:ro"
 
         # Log more often than the default
@@ -74,6 +77,8 @@ class Benchmark:
             config_path = config.path_config
             if config_path.is_relative_to(settings.htc_package_dir):
                 config_path = config_path.relative_to(settings.htc_package_dir)
+            elif config_path.is_relative_to(settings.htc_projects_dir):
+                config_path = config_path.relative_to(settings.htc_projects_dir)
             config_name = config["config_name"]
 
             for seed in range(n_seeds):

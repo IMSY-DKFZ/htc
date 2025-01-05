@@ -346,9 +346,9 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                 self.config["model/pretrained_model/model"],
                 self.config["model/pretrained_model/run_folder"],
             )
-        assert (
-            pretrained_dir is not None or model_path is not None
-        ), f"Could not find the pretrained model as specified in the config: {self.config['model/pretrained_model']}"
+        assert pretrained_dir is not None or model_path is not None, (
+            f"Could not find the pretrained model as specified in the config: {self.config['model/pretrained_model']}"
+        )
 
         if model_path is None:
             if self.config["model/pretrained_model/fold_name"]:
@@ -569,13 +569,13 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                         location = location.parent
 
                     if model_name is not None:
-                        assert (
-                            location.parent.name == model_name
-                        ), f"The found location {location} does not match the given model_name {model_name}"
+                        assert location.parent.name == model_name, (
+                            f"The found location {location} does not match the given model_name {model_name}"
+                        )
                     if run_folder is not None:
-                        assert (
-                            location.name == run_folder
-                        ), f"The found location {location} does not match the given run_folder {run_folder}"
+                        assert location.name == run_folder, (
+                            f"The found location {location} does not match the given run_folder {run_folder}"
+                        )
 
                     return location
                 elif location.is_file():
@@ -610,9 +610,9 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
 
                 # Option 3: download the model to the local hub dir
                 name = f"{model_name}@{run_folder}"
-                assert (
-                    name in HTCModel.known_models
-                ), f"Could not find the training run for {model_name}/{run_folder} (neither locally nor as download option)"
+                assert name in HTCModel.known_models, (
+                    f"Could not find the training run for {model_name}/{run_folder} (neither locally nor as download option)"
+                )
                 model_info = HTCModel.known_models[name]
 
                 hub_dir.mkdir(parents=True, exist_ok=True)
@@ -655,9 +655,9 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                 for match in re.findall(r"\*-(\d+)", run_folder):
                     max_indices.append(int(match))
 
-                assert (
-                    len(max_indices) > 0
-                ), f"Could not infer any maximum index from {run_folder} for the run folder collection. The collection must for example be be named nested-0-2, nested-1-2, nested-2-2."
+                assert len(max_indices) > 0, (
+                    f"Could not infer any maximum index from {run_folder} for the run folder collection. The collection must for example be be named nested-0-2, nested-1-2, nested-2-2."
+                )
 
                 run_folders = []
                 for indices in itertools.product(*[range(i + 1) for i in max_indices]):
@@ -706,9 +706,9 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                     model_path = checkpoint_paths[0]
                 else:
                     checkpoint_paths = sorted(fold_dir.rglob(f"epoch={df_best.iloc[0].epoch_index}*.ckpt"))
-                    assert (
-                        len(checkpoint_paths) == 1
-                    ), f"More than one checkpoint found for the epoch {df_best.iloc[0].epoch_index}: {checkpoint_paths}"
+                    assert len(checkpoint_paths) == 1, (
+                        f"More than one checkpoint found for the epoch {df_best.iloc[0].epoch_index}: {checkpoint_paths}"
+                    )
                     model_path = checkpoint_paths[0]
             else:
                 model_path = checkpoint_paths[0]
@@ -779,8 +779,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
                 run_folder_md = f"[`{run_folder}`]({download_info['url']})"
 
             model_lines.append(
-                f"| {model_type} | {model_info['model_type']} | [`{class_name}`](./{class_path}) |"
-                f" {run_folder_md} |"
+                f"| {model_type} | {model_info['model_type']} | [`{class_name}`](./{class_path}) | {run_folder_md} |"
             )
 
         table_lines += reversed(model_lines)

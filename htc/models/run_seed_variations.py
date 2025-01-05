@@ -19,7 +19,7 @@ def generate_seed_variations() -> list[str]:
     model = "image"
     config_file = settings.models_dir / model / "configs" / "default.json"
     for new_config in generate_configs(model, config_file, params=params, return_config_only=True):
-        run_name = f'{timestring}_{new_config["config_name"]}'
+        run_name = f"{timestring}_{new_config['config_name']}"
         rel_config_path = new_config.path_config.relative_to(settings.htc_package_dir)
         Config.from_model_name(rel_config_path, model)  # Make sure we can load the config
 

@@ -20,9 +20,9 @@ class DatasetSuperpixelImage(DatasetImage):
 
             # Extract superpixel in image
             spx_indices_rows, spx_indices_cols = torch.nonzero(img_spx_mask, as_tuple=True)
-            assert (
-                spx_indices_rows.shape[0] == spx_indices_cols.shape[0]
-            ), "row and col index must be available for pixels"
+            assert spx_indices_rows.shape[0] == spx_indices_cols.shape[0], (
+                "row and col index must be available for pixels"
+            )
             spxs_sizes.append(spx_indices_rows.shape[0])
 
             spxs_indices_rows.append(spx_indices_rows)

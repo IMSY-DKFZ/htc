@@ -284,7 +284,7 @@ class DataSpecification:
         """
         Returns: String representing the path to the data specification file.
         """
-        if str(self.path).startswith(str(settings.htc_package_dir)):
+        if self.path.is_relative_to(settings.htc_package_dir) or self.path.is_relative_to(settings.htc_projects_dir):
             return self.path.name
         else:
             return str(self.path)

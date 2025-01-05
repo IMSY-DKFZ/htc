@@ -64,9 +64,9 @@ def compute_test_tables(runs: list[Path], recalculate: bool = False) -> None:
                 "--dataset-name",
                 "masks_isolation",
             ])
-            assert (
-                res.returncode == 0
-            ), f"Computation of the masks isolation test table for the run folder {run_dir} was not successful"
+            assert res.returncode == 0, (
+                f"Computation of the masks isolation test table for the run folder {run_dir} was not successful"
+            )
             assert test_table_real.exists()
 
         # Test tables on the simulated datasets
@@ -85,9 +85,9 @@ def compute_test_tables(runs: list[Path], recalculate: bool = False) -> None:
                 "--transformation-name",
                 *missing,
             ])
-            assert (
-                res.returncode == 0
-            ), f"Computation of the context test table for the run folder {run_dir} was not successful"
+            assert res.returncode == 0, (
+                f"Computation of the context test table for the run folder {run_dir} was not successful"
+            )
 
         assert all((run_dir / f"test_table_{d}.pkl.xz").exists() for d in simulated_datasets)
 

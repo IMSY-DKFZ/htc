@@ -137,9 +137,9 @@ def tensor_mapping(tensor: torch.Tensor | np.ndarray, mapping: dict[int, int]) -
     Returns: Same as the input tensor with the remapping applied in-place.
     """
     assert len(mapping) > 0, "Empty mapping"
-    assert all(
-        type(k) == type(v) for k, v in mapping.items()
-    ), "All keys and values of the mapping must have the same type"
+    assert all(type(k) == type(v) for k, v in mapping.items()), (
+        "All keys and values of the mapping must have the same type"
+    )
 
     if tensor.ndim == 0:
         # Map scalar values directly (in-place)
@@ -324,10 +324,11 @@ def hierarchical_bootstrapping_labels(
         for images in subjects.values()
         for img in images
     }
+    assert len(label_images_mapping) > 0, "The mapping from labels to images is empty"
     for label, images in label_images_mapping.items():
-        assert (
-            len({images2domain[img] for img in images}) == n_domains
-        ), f"Label {label} is not present in all domains (only the images {images} have this label)"
+        assert len({images2domain[img] for img in images}) == n_domains, (
+            f"Label {label} is not present in all domains (only the images {images} have this label)"
+        )
 
     # We are generating a random number which will be used as seed during bootstraping
     # This produces different bootstraps when the user calls this function multiple times while still allowing to set a seed

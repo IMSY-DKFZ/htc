@@ -20,9 +20,9 @@ def collect_comparison_runs(timestamp: str) -> pd.DataFrame:
         else:
             raise ValueError(f"Could not find any run directories with the timestamp {timestamp}")
 
-    assert (
-        len(run_dirs) == settings_seg.n_algorithms
-    ), f"Could not find runs for all algorithms (only {len(run_dirs)} runs found)"
+    assert len(run_dirs) == settings_seg.n_algorithms, (
+        f"Could not find runs for all algorithms (only {len(run_dirs)} runs found)"
+    )
     model_type_rows = {"rgb": [], "param": [], "hsi": []}
     model_image_size = {
         "image": 1,

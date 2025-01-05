@@ -18,7 +18,7 @@ class ModelPixelRGB(HTCModel):
         self.F = htc.models.common.functions.activation_functions[self.config["model/activation_function"]]
 
         if self.config["model/normalization"]:
-            NormalizationLayer = getattr(nn, f'{self.config["model/normalization"]}1d')
+            NormalizationLayer = getattr(nn, f"{self.config['model/normalization']}1d")
         else:
             NormalizationLayer = nn.Identity
 

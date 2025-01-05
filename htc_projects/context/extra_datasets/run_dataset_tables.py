@@ -24,7 +24,6 @@ if __name__ == "__main__":
     runner.add_argument("--test")
     runner.add_argument("--metrics")
     runner.add_argument("--NSD-thresholds")
-    runner.add_argument("--output-dir")
     runner.add_argument(
         "--dataset-name",
         type=str,

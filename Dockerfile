@@ -1,3 +1,4 @@
+# Components which are needed for testing
 FROM htc-base
 
 # We need the Docker binaries for challenger-pydocker

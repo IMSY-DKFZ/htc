@@ -186,9 +186,9 @@ class DatasetSettings:
             data["shape"] = tuple(data["shape"])
             if "shape_names" in data:
                 names = data["shape_names"]
-                assert (
-                    "height" in names and "width" in names
-                ), f"shape_names must at least include height and width (got: {names})"
+                assert "height" in names and "width" in names, (
+                    f"shape_names must at least include height and width (got: {names})"
+                )
                 data["spatial_shape"] = (
                     data["shape"][names.index("height")],
                     data["shape"][names.index("width")],

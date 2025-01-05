@@ -32,15 +32,15 @@ class HTCTransformation:
         self.paths = paths
 
     def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        assert "features" in batch and (
-            "image_name_annotations" in batch or "image_index" in batch
-        ), "features and image_name_annotations/image_index are required"
+        assert "features" in batch and ("image_name_annotations" in batch or "image_index" in batch), (
+            "features and image_name_annotations/image_index are required"
+        )
         if "image_name_annotations" in batch:
             paths = [DataPath.from_image_name(image_name) for image_name in batch["image_name_annotations"]]
         else:
-            assert (
-                self.paths is not None
-            ), "self.paths must be provided if image_name_annotations is not part of the batch"
+            assert self.paths is not None, (
+                "self.paths must be provided if image_name_annotations is not part of the batch"
+            )
             paths = [self.paths[image_index] for image_index in batch["image_index"]]
 
         # Default implementation to apply a random transformation for each image
@@ -262,9 +262,9 @@ class StandardizeHSI(HTCTransformation):
         assert params_path.exists(), f"could not find the precomputed standardization parameter at {params_path}"
 
         params = pickle.load(params_path.open("rb"))
-        assert (
-            fold_name in params
-        ), f"Could not find {fold_name} in standardization file (available keys: {params.keys()})"
+        assert fold_name in params, (
+            f"Could not find {fold_name} in standardization file (available keys: {params.keys()})"
+        )
         params = params[fold_name]
 
         if config["input/n_channels"] == 100:
@@ -373,9 +373,9 @@ class ToType(HTCTransformation):
 
 class KorniaTransform(HTCTransformation):
     def __init__(self, transformation_names: list[str], transformation_kwargs: list[dict], **kwargs):
-        assert len(transformation_names) == len(
-            transformation_kwargs
-        ), "There must be arguments for each transformation"
+        assert len(transformation_names) == len(transformation_kwargs), (
+            "There must be arguments for each transformation"
+        )
 
         transforms = []
         for name, t_kwargs in zip(transformation_names, transformation_kwargs, strict=True):
