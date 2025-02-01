@@ -3,7 +3,8 @@
 
 #include <torch/extension.h>
 
-torch::Tensor segmentation_mask(const torch::Tensor& label_image, std::map<std::tuple<int, int, int>, int>& color_mapping) {
+torch::Tensor segmentation_mask(const torch::Tensor& label_image,
+                                std::map<std::tuple<int, int, int>, int>& color_mapping) {
     auto seg = torch::empty({label_image.size(0), label_image.size(1)}, torch::kUInt8);
 
     auto seg_a = seg.accessor<unsigned char, 2>();

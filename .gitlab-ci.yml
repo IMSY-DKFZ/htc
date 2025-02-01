@@ -12,8 +12,8 @@ stages:
 build-docker:
   stage: build
   script:
-    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build $BUILD_OPT
-    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc conda list --export
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build $BUILD_OPT
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc conda list --export
 
 code-checks:
   stage: test
@@ -21,21 +21,21 @@ code-checks:
     # We trigger the build process again before running the actual checks in case the code changed
     # This may happen if jobs from multiple branches run at the same time
     # If the code did not change, the build cache will be used
-    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build
-    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash run_hooks.sh
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash run_hooks.sh
 
 tests:
   stage: test
   script:
-    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build
-    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc htc tests --parallel 4 $TEST_OPT
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc htc tests --parallel 4 $TEST_OPT
 
 test-package:
   stage: test
   script:
-    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build
     - >
-      docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c '
+      docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c '
       CIBW_BUILD="cp312-*"
       CIBW_TEST_COMMAND=""
       cibuildwheel --platform linux --output-dir dist &&
@@ -50,9 +50,9 @@ package:
   stage: deploy
   script:
     # cibuildwheel is configured via pyproject.toml
-    - docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build
     - >
-      docker compose -f docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c "
+      docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c "
       pip install --upgrade cibuildwheel twine &&
       CIBW_ENVIRONMENT=CI_COMMIT_TAG=${CI_COMMIT_TAG}
       python -m cibuildwheel --platform linux --output-dir dist &&

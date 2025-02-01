@@ -3,7 +3,10 @@
 
 #include <torch/extension.h>
 
-std::tuple<torch::Tensor, torch::Tensor> spxs_predictions(torch::Tensor& spxs, torch::Tensor& labels, torch::Tensor& mask, int n_classes) {
+std::tuple<torch::Tensor, torch::Tensor> spxs_predictions(torch::Tensor& spxs,
+                                                          torch::Tensor& labels,
+                                                          torch::Tensor& mask,
+                                                          int n_classes) {
     auto shape = labels.sizes();
     spxs = spxs.flatten();
     labels = labels.flatten();
@@ -25,7 +28,8 @@ std::tuple<torch::Tensor, torch::Tensor> spxs_predictions(torch::Tensor& spxs, t
     }
 
     // The label of the superpixel is the mode of the labels, i.e. the max count
-    auto spx_label = spx_label_counts.argmax(1);  // The index of the max count corresponds to the label of the superpixel (mask-only superpixels are assigned to the background)
+    auto spx_label = spx_label_counts.argmax(1);  // The index of the max count corresponds to the label of the
+                                                  // superpixel (mask-only superpixels are assigned to the background)
     auto spx_label_a2 = spx_label.accessor<int64_t, 1>();
 
     // Project the calculated labels for each superpixel back to the image

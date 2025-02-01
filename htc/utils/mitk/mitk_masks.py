@@ -71,6 +71,7 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, np.ndarray | LabelMapping]:
         - label_mapping: Label mapping to interpret the label indices.
         - labels_per_layer: A list containing label names present in each layer of the nrrd file
         - conflicting_label_found: A boolean which indicates if a label value conflict i.e. same label value specified more than once in the nrrd file metadata, is found
+        - layer_names: Optional list of names for the layers. This key is only present if the information is contained in the NRRD file.
     """
     data, header = nrrd.read(nrrd_file)
 
@@ -88,6 +89,7 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, np.ndarray | LabelMapping]:
 
     # keep track of labels within each layer in the nrrd metadata. This is useful for validating nrrd files.
     labels_per_layer = []
+    layer_names = []
 
     # keep track of all indexes and the corresponding labels in the nrrd file. This is useful for validating nrrd files
     index_to_label_layers = {}
@@ -108,6 +110,9 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, np.ndarray | LabelMapping]:
                 total_n_labels += len(label_groups[layer]["labels"])
             else:
                 label_groups[layer]["labels"] = []
+
+            if "name" in label_groups[layer]:
+                layer_names.append(label_groups[layer]["name"])
 
             if mask.ndim == 3:
                 # MITK assigns the label index for each layer individually according to the order in which the annotation was performed. This leads to different label indices for the same class in different layers. Therefore, a remapping is performed using the label_index of the previous layer(s).
@@ -194,17 +199,25 @@ def nrrd_mask(nrrd_file: Path) -> dict[str, np.ndarray | LabelMapping]:
 
     assert nunique(mask) <= total_n_labels
 
-    return {
+    res = {
         "mask": mask,
         "label_mapping": mappings_nrrd,
         "labels_per_layer": labels_per_layer,
         "conflicting_label_found": conflicting_label_found,
     }
+    if len(layer_names) > 0:
+        res["layer_names"] = layer_names
+
+    return res
 
 
 @requires_extra(_missing_library)
 def segmentation_to_nrrd(
-    nrrd_file: Path, mask: np.ndarray, mapping_mask: LabelMapping, mask_labels_only: bool = True
+    nrrd_file: Path,
+    mask: np.ndarray,
+    mapping_mask: LabelMapping,
+    mask_labels_only: bool = True,
+    layer_names: list[str] = None,
 ) -> None:
     """
     Converts an existing segmentation mask to an nrrd file which can be read by MITK. This is useful if existing masks should be loaded into MITK for visualization or adaptations.
@@ -225,7 +238,8 @@ def segmentation_to_nrrd(
         nrrd_file: Path where the nrrd file should be stored.
         mask: Mask data containing the annotations. If 2D, a single MITK layer will be created. If 3D, an MITK layer will be created per layer.
         mapping_mask: Label mapping for the segmentation mask which gives every label index in the segmentation mask a name. If None, path must be given.
-        mask_labels_only: ensures that the nrrd file only contains labels in the metadata that are found in the mask, as opposed to adding all labels in the mapping to the metadata
+        mask_labels_only: Ensures that the nrrd file only contains labels in the metadata that are found in the mask, as opposed to adding all labels in the mapping to the metadata.
+        layer_names: Optional list with names for the layers in the mask. Those names will show up in MITK and usually correspond to the annotation names of the layers.
     """
 
     # create a copy of mask
@@ -268,6 +282,9 @@ def segmentation_to_nrrd(
     else:
         n_layers = 1
         mask = np.expand_dims(mask.T, -1)
+
+    if layer_names is not None:
+        assert len(layer_names) == n_layers, "The number of layer names must match the number of layers in the mask"
 
     def mitk_label_header(label_index: int, label_name: str, label_color: str) -> dict:
         # 0 = background/invalid in MITK
@@ -312,6 +329,8 @@ def segmentation_to_nrrd(
 
     for layer_index in range(n_layers):
         labelgroup = {"labels": []}
+        if layer_names is not None:
+            labelgroup["name"] = layer_names[layer_index]
 
         if mask.ndim == 4:
             label_indices = np.unique(mask[layer_index, ...])
@@ -355,60 +374,3 @@ def segmentation_to_nrrd(
 
     with nrrd_file.open("wb") as f:
         f.write(io_stream.getbuffer())
-
-
-def segmentation_to_nrrd_annotation_name(
-    nrrd_file: Path,
-    mask: dict[str, np.ndarray],
-    mapping_mask: LabelMapping,
-    annotation_name_to_layer: dict[str, int] = None,
-) -> None:
-    """
-    Converts an existing segmentation mask to an nrrd file which can be read by MITK. This is useful if existing masks should be loaded into MITK for visualization or adaptations.
-    This function can be used to directly convert a dictionary of masks read from the path.
-
-    >>> from htc.tivita.DataPath import DataPath
-    >>> import tempfile
-    >>> with tempfile.NamedTemporaryFile() as tmpfile:
-    ...     tmpfile = Path(tmpfile.name)
-    ...     path = DataPath.from_image_name("SPACE_000001#2020_08_14_11_11_22")
-    ...     mask = path.read_segmentation(annotation_name="all")
-    ...     segmentation_to_nrrd_annotation_name(
-    ...         nrrd_file=tmpfile,
-    ...         mask=mask,
-    ...         mapping_mask=LabelMapping.from_path(path),
-    ...         annotation_name_to_layer={"semantic#primary": 0, "polygon#annotator1": 1},
-    ...     )
-    ...     labels = nrrd_mask(nrrd_file=tmpfile)["label_mapping"].label_names()
-    >>> labels
-    ['background', 'blue_cloth', 'colon', 'omentum', 'small_bowel', 'unclear_organic']
-
-    Args:
-        nrrd_file: Path where the nrrd file should be stored.
-        mask: a dict of masks, each key representing an annotation name e.g. {{annotation_name1: mask, annotation_name2: mask...}}. If None, path must be given.
-        mapping_mask: Label mapping for the segmentation mask which gives every label index in the segmentation mask a name. If None, path must be given.
-        annotation_name_to_layer: Maps annotation names to layers in MITK. Layers must be integers and define the order of the segmentation masks in MITK. The dictionary has the form: `{annotation_name: layer_index}`
-    """
-    mask = deepcopy(mask)
-
-    # take annotation names from annotation_name_to_layer attribute
-    # if the annotation_name_to_layer is None, then the default annotation names are used
-    # use all of the annotation names from the mask if annotation_name_to_layer is not set
-    if annotation_name_to_layer is not None:
-        annotation_names = list(annotation_name_to_layer.keys())
-    else:
-        annotation_names = mask.keys()
-
-    assert type(mask) == dict, (
-        "The mask has to be dict containing all annotations, of the form: `{annotation_name: layer_index}`"
-    )
-
-    stacked_masks = []
-
-    for annotation_name in annotation_names:
-        assert annotation_name in mask, f"Request annotation name {annotation_name} not present in mask"
-        stacked_masks.append(mask[annotation_name])
-
-    mask = np.stack(stacked_masks)
-
-    segmentation_to_nrrd(nrrd_file=nrrd_file, mask=mask, mapping_mask=mapping_mask)

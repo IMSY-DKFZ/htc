@@ -328,10 +328,16 @@ if sys.version_info >= (3, 12):
         """
 
         def __init__(self, *pathsegments, _alternatives=None, _default_needle=None):
-            super().__init__(*pathsegments)
+            if len(pathsegments) == 1 and type(pathsegments[0]) == dict:
+                # Construction from old pickled objects which used an older version of the MultiPath class
+                super().__init__(pathsegments[0]["path"])
+                self._alternatives = pathsegments[0]["alternatives"]
+                self._default_needle = pathsegments[0]["default_needle"]
+            else:
+                super().__init__(*pathsegments)
 
-            self._alternatives = _alternatives if _alternatives is not None else [str(self)]
-            self._default_needle = _default_needle
+                self._alternatives = _alternatives if _alternatives is not None else [str(self)]
+                self._default_needle = _default_needle
 
             if self._alternatives is not None:
                 # Always make sure that the path is set to the best location

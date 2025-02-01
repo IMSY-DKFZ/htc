@@ -120,6 +120,10 @@ class SharedMemoryDatasetMixin:
         if self.config["input/superpixels"]:
             self._add_tensor_shared("spxs", torch.int64, *spatial_shape)
 
+        if self.config["input/test_time_transforms_cpu"] is not None:
+            if any(t == "SimulationTransform" for t in self.config["input/test_time_transforms_cpu"]):
+                self._add_tensor_shared("modified_pixels", torch.bool, *spatial_shape)
+
         for domain in self.target_domains:
             self._add_tensor_shared(domain, torch.int64)
 

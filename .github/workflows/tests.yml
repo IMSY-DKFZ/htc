@@ -23,7 +23,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r dependencies/requirements.txt
           pip install pytest pytest-xdist wheel
 
       - name: Install htc

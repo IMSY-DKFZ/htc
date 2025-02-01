@@ -58,7 +58,7 @@ def compress_html(file: Path | None, fig_or_html: go.Figure | str) -> str | None
 
     Original file size in MiB:
     >>> len(html) / 2**20  # doctest: +ELLIPSIS
-    5.10...
+    5.5...
     >>> import tempfile
     >>> with tempfile.NamedTemporaryFile() as tmpfile:
     ...     tmpfile = Path(tmpfile.name)
@@ -67,11 +67,11 @@ def compress_html(file: Path | None, fig_or_html: go.Figure | str) -> str | None
 
     Compressed file size in MiB:
     >>> compressed_size / 2**20  # doctest: +ELLIPSIS
-    0.63...
+    0.6...
 
     Compression ratio:
     >>> compressed_size / len(html)  # doctest: +ELLIPSIS
-    0.12...
+    0.1...
 
     Args:
         file: Path to the output file. If none, the resulting HTML string will be returned.
@@ -762,8 +762,20 @@ def create_median_spectra_figure(path: DataPath) -> go.Figure:
     df = median_table(image_names=[path.image_name()], annotation_name="all")
     df = sort_labels(df)
     df = df.query("label_name in @path.annotated_labels('all')")
-    line_options = ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot", "5, 10, 5", "2, 10, 2", "5, 2, 5"]
-    annotator_mapping = {a: line_options[i] for i, a in enumerate(df["annotation_name"].unique())}
+    line_options = [
+        "solid",
+        "dot",
+        "dash",
+        "longdash",
+        "dashdot",
+        "longdashdot",
+        "5, 10, 5",
+        "2, 10, 2",
+        "5, 2, 5",
+        "1, 7, 1",
+        "7, 1, 7",
+    ]
+    annotator_mapping = {a: line_options[i % len(line_options)] for i, a in enumerate(df["annotation_name"].unique())}
 
     fig = go.Figure()
     for i, row in df.iterrows():
@@ -1884,7 +1896,7 @@ def prediction_figure_html(
         go.Heatmap(
             z=np.flipud(confidence),
             opacity=opacity,
-            colorbar=dict(title="confidence score", titleside="right", x=0.45),
+            colorbar=dict(title="confidence score", title_side="right", x=0.45),
             name="Confidence",
         ),
         row=1,

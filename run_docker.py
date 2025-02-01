@@ -66,7 +66,9 @@ if __name__ == "__main__":
     for s in symlinks:
         volumes.append(f"{s}:{s}:ro")
 
-    override_file = file_dir / "docker-compose.override.yml"
+    compose_file_cmd = ["-f", "dependencies/docker-compose.yml"]
+
+    override_file = file_dir / "dependencies" / "docker-compose.override.yml"
     if len(volumes) > 0:
         volumes = "\n      - ".join(volumes)
         envs = "\n      - ".join(envs)
@@ -82,9 +84,14 @@ services:
 
         with override_file.open("w") as f:
             f.write(override_yml)
+
+        compose_file_cmd.append("-f")
+        compose_file_cmd.append("dependencies/docker-compose.override.yml")
     else:
         if override_file.exists():
             override_file.unlink()
 
-    subprocess.run(["docker", "compose", "build"], cwd=file_dir, check=True)
-    subprocess.run(["docker", "compose", "run", "--rm", "htc", *args.cmd_args], cwd=file_dir, check=True)
+    subprocess.run(["docker", "compose", *compose_file_cmd, "build"], cwd=file_dir, check=True)
+    subprocess.run(
+        ["docker", "compose", *compose_file_cmd, "run", "--rm", "htc", *args.cmd_args], cwd=file_dir, check=True
+    )

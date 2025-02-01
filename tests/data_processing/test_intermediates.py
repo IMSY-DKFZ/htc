@@ -18,6 +18,7 @@ class TestIntermediates:
             "2021_02_05_Tivita_multiorgan_semantic",
             "2021_02_05_Tivita_multiorgan_masks",
             "2021_07_26_Tivita_multiorgan_human",
+            "2023_04_22_Tivita_multiorgan_kidney",
         ],
     )
     def test_preprocessing(
@@ -28,7 +29,10 @@ class TestIntermediates:
         elif dataset_name == "2021_07_26_Tivita_multiorgan_human":
             check_human_data_accessible()
 
-        if dataset_name == "2021_02_05_Tivita_multiorgan_masks":
+        if (
+            dataset_name == "2021_02_05_Tivita_multiorgan_masks"
+            or dataset_name == "2023_04_22_Tivita_multiorgan_kidney"
+        ):
             paths = list(DataPath.iterate(settings.data_dirs[dataset_name]))
             paths += list(DataPath.iterate(settings.data_dirs[dataset_name] / "overlap"))
         elif dataset_name == "2021_02_05_Tivita_multiorgan_semantic":

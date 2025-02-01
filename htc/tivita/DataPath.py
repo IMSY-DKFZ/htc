@@ -420,8 +420,8 @@ class DataPath:
         >>> for l in np.unique(seg):
         ...     print(f"{l} = {mapping.index_to_name(l)}")
         4 = blue_cloth
-        13 = heart
-        18 = lung
+        14 = heart
+        19 = lung
 
         Args:
             annotation_name: Unique name of the annotation(s) for cases where multiple annotations exist (e.g. inter-rater variability). If None, will use the default set to this path or the default set in the dataset settings (in that order and only if available). If annotation_name is a string, it can also be in the form name1&name which will be treated identical to ['name1', 'name2']. If 'all', the original annotation file with all available annotations is returned.

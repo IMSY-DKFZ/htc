@@ -3,7 +3,9 @@
 
 #include <torch/extension.h>
 
-torch::Tensor map_label_image(const torch::Tensor& label_image, std::unordered_map<int64_t, std::tuple<float, float, float, float>>& label_color_mapping) {
+torch::Tensor map_label_image(
+    const torch::Tensor& label_image,
+    std::unordered_map<int64_t, std::tuple<float, float, float, float>>& label_color_mapping) {
     auto mapped_image = torch::empty({label_image.size(0), label_image.size(1), 4}, torch::kFloat32);
 
     auto label_image_a = label_image.accessor<int64_t, 2>();

@@ -1,11 +1,13 @@
 services:
   htc-base:
     build:
-      context: .
-      dockerfile: base.Dockerfile
+      context: ..
+      dockerfile: dependencies/base.Dockerfile
     image: htc-base
   htc:
-    build: .
+    build:
+      context: ..
+      dockerfile: dependencies/Dockerfile
     depends_on:
       - htc-base
     image: htc

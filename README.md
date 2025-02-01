@@ -39,10 +39,10 @@ If you use the `htc` framework, please consider citing the [corresponding papers
   author    = {Sellner, Jan and Seidlitz, Silvia},
   publisher = {Zenodo},
   url       = {https://github.com/IMSY-DKFZ/htc},
-  date      = {2025-01-06},
+  date      = {2025-02-01},
   doi       = {10.5281/zenodo.6577614},
   title     = {Hyperspectral Tissue Classification},
-  version   = {v0.0.18},
+  version   = {v0.0.19},
 }
 ```
 
@@ -58,7 +58,7 @@ This package can be installed via pip:
 pip install imsy-htc
 ```
 
-This installs all the required dependencies defined in [`requirements.txt`](./requirements.txt). The requirements include [PyTorch](https://pytorch.org/), so you may want to install it manually before installing the package in case you have specific needs (e.g. CUDA version).
+This installs all the required dependencies defined in [`requirements.txt`](./dependencies/requirements.txt). The requirements include [PyTorch](https://pytorch.org/), so you may want to install it manually before installing the package in case you have specific needs (e.g. CUDA version).
 
 > &#x26a0;&#xfe0f; This framework was developed and tested using the Ubuntu 20.04+ Linux distribution. Despite we do provide wheels for Windows and macOS as well, they are not tested.
 
@@ -82,6 +82,7 @@ We cannot provide wheels for all PyTorch versions. Hence, a version of `imsy-htc
 | 0.0.16     | 2.4     |
 | 0.0.17     | 2.5     |
 | 0.0.18     | 2.5     |
+| 0.0.19     | 2.6     |
 
 However, we do not make explicit version constraints in the dependencies of the `imsy-htc` package because a future version of PyTorch may still work and we don't want to break the installation if it is not necessary.
 
@@ -105,7 +106,7 @@ or by adding the following lines to your `requirements.txt`
 imsy-htc[extra]
 ```
 
-This installs the optional dependencies defined in [`requirements-extra.txt`](./requirements-extra.txt), including for example our Python wrapper for the [challengeR toolkit](https://github.com/wiesenfa/challengeR).
+This installs the optional dependencies defined in [`requirements-extra.txt`](./dependencies/requirements-extra.txt), including for example our Python wrapper for the [challengeR toolkit](https://github.com/wiesenfa/challengeR).
 
 </details>
 
@@ -129,7 +130,7 @@ export PATH_Tivita_HeiPorSPECTRAL="/path/to/the/dataset"
 python run_docker.py bash
 ```
 
-You can now run any commands you like. All datasets you provided via an environment variable that starts with `PATH_Tivita` will be accessible in your container (you can also check the generated `docker-compose.override.yml` file for details). Please note that the Docker container is meant for small testing only and not for development. This is also reflected by the fact that per default all results are stored inside the container and hence will also be deleted after exiting the container. If you want to keep your results, let the environment variable `PATH_HTC_DOCKER_RESULTS` point to the directory where you want to store the results.
+You can now run any commands you like. All datasets you provided via an environment variable that starts with `PATH_Tivita` will be accessible in your container (you can also check the generated `dependencies/docker-compose.override.yml` file for details). Please note that the Docker container is meant for small testing only and not for development. This is also reflected by the fact that per default all results are stored inside the container and hence will also be deleted after exiting the container. If you want to keep your results, let the environment variable `PATH_HTC_DOCKER_RESULTS` point to the directory where you want to store the results.
 
 </details>
 
@@ -144,7 +145,7 @@ conda create --yes --name htc python=3.12
 conda activate htc
 
 # Install the htc package and its requirements
-pip install -r requirements-dev.txt
+pip install -r dependencies/requirements-dev.txt
 pip install --no-use-pep517 -e .
 ```
 

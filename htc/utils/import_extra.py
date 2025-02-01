@@ -42,7 +42,7 @@ def requires_extra(missing_library: str) -> Callable:
                 raise ImportError(
                     f"{missing_library} library is missing. You can fix this by installing the extra dependencies"
                     " (`imsy-htc[extra]`) as described in the README or by installing additional dependencies as described"
-                    " in the documentation of the class/function you want to use."
+                    " in the documentation of the class/function you want to use or by installing the requirements of the project where the class/function you want to use is located (e.g., dependencies/requirements-organ-clamping.txt)."
                 )
             return function(*args, **kwargs)
 

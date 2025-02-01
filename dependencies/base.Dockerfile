@@ -21,15 +21,17 @@ ENV PATH="/opt/conda/bin:${PATH}"
 
 RUN curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh \
  && bash Miniforge3-Linux-x86_64.sh -b -p "/opt/conda" \
+ && conda update -y --all \
+ && conda install -y python=3.12 \
  && rm -f Miniforge3-Linux-x86_64.sh
 
 # Cache common pretrained models
 RUN curl -L https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b5-b6417697.pth --create-dirs -o /root/.cache/torch/hub/checkpoints/efficientnet-b5-b6417697.pth
 
 # Install all requirements separately so that this step can be cached
-COPY requirements.txt /requirements.txt
-COPY requirements-extra.txt /requirements-extra.txt
-COPY requirements-dev.txt /requirements-dev.txt
+COPY dependencies/requirements.txt /requirements.txt
+COPY dependencies/requirements-extra.txt /requirements-extra.txt
+COPY dependencies/requirements-dev.txt /requirements-dev.txt
 RUN python -m pip install -U pip \
  && pip install -r /requirements-dev.txt
 

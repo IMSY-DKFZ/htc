@@ -21,6 +21,9 @@ RUN apt install -y libmagickwand-dev \
  && pip install Wand \
  && sed -i '/disable ghostscript format types/,+6d' /etc/ImageMagick-6/policy.xml
 
+# Install chromium for kaleido, as it is explicitly required now
+RUN apt update && apt install -y chromium-browser
+
 # Install and cache the static code checks
 # We need a git repo for pre-commit to work but we don't want to copy the main repo to the Docker container as it unnecessarily slows down the build process
 # Instead, we create a new empty git repo and make sure that files are staged before the hooks run (because pre-commit does not consider unstaged files)
@@ -33,4 +36,4 @@ RUN git init \
 COPY . /home/src
 RUN pip install --no-use-pep517 -e /home/src
 
-ENTRYPOINT ["python", "docker_startup.py"]
+ENTRYPOINT ["python", "dependencies/docker_startup.py"]

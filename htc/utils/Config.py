@@ -105,8 +105,7 @@ class Config:
                     self.path_config = unify_path(p)
                     break
             assert self.path_config is not None, (
-                f"Cannot find the config file at {self.path_config}. Please make sure that the file exists at this"
-                " location"
+                f"Cannot find the config file {path_or_dict}. Tried the following locations:\n{Config.get_possible_paths(path_or_dict)}"
             )
 
             with self.path_config.open() as fp:

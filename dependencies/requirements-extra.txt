@@ -1,5 +1,4 @@
 -r requirements.txt
-matplotlib-venn
 pynrrd
 pypdf
 ipywidgets

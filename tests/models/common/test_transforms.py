@@ -215,28 +215,6 @@ class TestNormalization:
         assert t(sample)["features"].dtype == torch.float16
 
 
-class TestTransformPCA:
-    def test_basics(self, check_sepsis_data_accessible: Callable) -> None:
-        check_sepsis_data_accessible()
-
-        path = DataPath.from_image_name("S001#2022_10_24_13_49_45")
-        config = Config({
-            "input/preprocessing": "L1_recalibrated",
-            "input/data_spec": "sepsis-inclusion_palm_5folds_test-0.25_seed-0.json",
-        })
-        sample_original = DatasetImage([path], train=True, config=config, fold_name="fold_0")[0]
-        config["input/transforms_cpu"] = [
-            {"class": "TransformPCA", "n_components": 3},
-            {"class": "ToType", "dtype": "float16"},
-        ]
-        sample_pca = DatasetImage([path], train=True, config=config, fold_name="fold_0")[0]
-
-        assert torch.all(sample_original["labels"] == sample_pca["labels"])
-        assert sample_original["features"].size(-1) == 100
-        assert sample_pca["features"].size(-1) == 3
-        assert not torch.allclose(sample_original["features"][..., :3], sample_pca["features"])
-
-
 class TestStandardNormalVariate:
     def test_basics(self) -> None:
         path = DataPath.from_image_name("P058#2020_05_13_18_09_26")

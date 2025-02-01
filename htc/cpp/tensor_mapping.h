@@ -3,7 +3,7 @@
 
 #include <torch/extension.h>
 
-template<typename map_t>
+template <typename map_t>
 torch::Tensor tensor_mapping(torch::Tensor& tensor, std::unordered_map<map_t, map_t>& mapping) {
     torch::TensorIteratorConfig iter_config;
     iter_config.add_input(tensor);
@@ -31,8 +31,9 @@ torch::Tensor tensor_mapping(torch::Tensor& tensor, std::unordered_map<map_t, ma
     return tensor;
 }
 
-// We need two functions for the mapping in Python since we need to call one of the functions depending on the type of the mapping (which is a dict in Python)
-// Bot mappings have the largest type so that there are no type conversion issues (the tensor type can only be <= the mapping type and casting to a higher type is ok)
+// We need two functions for the mapping in Python since we need to call one of the functions depending on the type of
+// the mapping (which is a dict in Python) Bot mappings have the largest type so that there are no type conversion
+// issues (the tensor type can only be <= the mapping type and casting to a higher type is ok)
 torch::Tensor tensor_mapping_integer(torch::Tensor& tensor, std::unordered_map<int64_t, int64_t>& mapping) {
     return tensor_mapping<int64_t>(tensor, mapping);
 }

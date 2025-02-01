@@ -45,6 +45,23 @@ class TestEnsemble(nn.Module):
             model.cuda(*args, **kwargs)
         return self
 
+    def update_dataset(self, config: Config, paths: list[DataPath]) -> None:
+        """
+        This function is used to update the dataset in order to use the new paths after
+        a model has been loaded previously. This function is useful for saving the time taken to load the model
+        from the checkpoint, when only the dataset needs to be updated
+        Args:
+            config: configuration file, to get the lightning class
+            paths: new paths to be loaded
+        """
+        self.config = config
+        self.paths = paths
+
+        for fold_dir in self.models.keys():
+            LightningClass = HTCLightning.class_from_config(self.config)
+            dataset = LightningClass.dataset(paths=self.paths, train=False, config=self.config, fold_name=fold_dir.stem)
+            self.models[fold_dir].datasets_val = [dataset]
+
     def to(self, *args, **kwargs) -> Self:
         for model in self.models.values():
             model.to(*args, **kwargs)

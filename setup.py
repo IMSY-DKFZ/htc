@@ -76,7 +76,7 @@ else:
 
 setup(
     name="imsy-htc",
-    version="0.0.18",
+    version="0.0.19",
     # We are using find_namespace_packages() instead of find_packages() to resolve this deprecation warning: https://github.com/pypa/setuptools/issues/3340
     packages=find_namespace_packages(include=["htc*"]),
     author="Division of Intelligent Medical Systems, DKFZ",
@@ -112,9 +112,9 @@ setup(
     long_description=parse_readme(repo_root / "README.md"),
     long_description_content_type="text/markdown",
     python_requires=">=3.10",
-    install_requires=parse_requirements(repo_root / "requirements.txt"),
+    install_requires=parse_requirements(repo_root / "dependencies" / "requirements.txt"),
     extras_require={
-        "extra": parse_requirements(repo_root / "requirements-extra.txt"),
+        "extra": parse_requirements(repo_root / "dependencies" / "requirements-extra.txt"),
     },
     include_package_data=True,
     entry_points={

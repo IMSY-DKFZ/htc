@@ -35,7 +35,7 @@ class Benchmark:
         device = self._find_semantic_disk()
 
         # Build the Docker image
-        for tag, dockerfile in [("htc-base", "base.Dockerfile"), ("htc", "Dockerfile")]:
+        for tag, dockerfile in [("htc-base", "dependencies/base.Dockerfile"), ("htc", "dependencies/Dockerfile")]:
             res = subprocess.run(f"docker build --tag {tag} --file {dockerfile} .", shell=True, cwd=settings.src_dir)
             assert res.returncode == 0, "Could not build the base docker image"
 

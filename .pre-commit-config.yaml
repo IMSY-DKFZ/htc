@@ -1,10 +1,15 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
+    rev: v0.9.3
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v19.1.7
+    hooks:
+      - id: clang-format
+        types_or: [c++, c, cuda]
   # Avoid potential problems with py.test if __init__.py files are missing
   - repo: https://github.com/lk16/detect-missing-init
     rev: v0.1.6

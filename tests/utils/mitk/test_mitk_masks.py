@@ -7,21 +7,7 @@ import numpy as np
 
 from htc.tivita.DataPath import DataPath
 from htc.utils.LabelMapping import LabelMapping
-from htc.utils.mitk.mitk_masks import nrrd_mask, segmentation_to_nrrd, segmentation_to_nrrd_annotation_name
-
-
-def assert_nrrd_files_equal(file1: Path, file2: Path) -> dict[str, np.ndarray | LabelMapping]:
-    # We cannot compare the files directly because nrrd files usually (in case we don't remove it with our functions) contain the current timestamp, so we compare the relevant content instead
-    mitk_data1 = nrrd_mask(file1)
-    mitk_data2 = nrrd_mask(file2)
-    assert mitk_data1.keys() == mitk_data2.keys()
-    for k in mitk_data1.keys():
-        if isinstance(mitk_data1[k], np.ndarray):
-            assert np.all(mitk_data1[k] == mitk_data2[k])
-        else:
-            assert mitk_data1[k] == mitk_data2[k]
-
-    return mitk_data1
+from htc.utils.mitk.mitk_masks import nrrd_mask, segmentation_to_nrrd
 
 
 def test_segmentation_to_nrrd(tmp_path: Path) -> None:
@@ -30,15 +16,13 @@ def test_segmentation_to_nrrd(tmp_path: Path) -> None:
     mask = path.read_segmentation()
     mapping_mask = LabelMapping.from_path(path)
 
-    segmentation_to_nrrd(nrrd_file=tmp_path / "nrrd_file.nrrd", mask=mask, mapping_mask=mapping_mask)
-    segmentation_to_nrrd_annotation_name(
-        tmp_path / "nrrd_file2.nrrd",
-        mask={path.annotation_name_default: mask},
-        mapping_mask=LabelMapping.from_path(path),
-        annotation_name_to_layer={path.annotation_name_default: 0},
+    segmentation_to_nrrd(
+        nrrd_file=tmp_path / "nrrd_file.nrrd",
+        mask=mask,
+        mapping_mask=mapping_mask,
+        layer_names=[path.annotation_name_default],
     )
-
-    mitk_data = assert_nrrd_files_equal(tmp_path / "nrrd_file.nrrd", tmp_path / "nrrd_file2.nrrd")
+    mitk_data = nrrd_mask(tmp_path / "nrrd_file.nrrd")
 
     with (tmp_path / "nrrd_file.nrrd").open("rb") as f:
         data = f.read().decode("ascii", "ignore")
@@ -51,6 +35,7 @@ def test_segmentation_to_nrrd(tmp_path: Path) -> None:
     assert mapping_path.name_to_color("stomach").lower() == mitk_data["label_mapping"].name_to_color("stomach").lower()
 
     assert np.all(path.read_segmentation() == mitk_data["mask"])
+    assert mitk_data["layer_names"] == [path.annotation_name_default]
 
 
 def test_segmentation_to_nrrd_multi_layer(tmp_path: Path) -> None:
@@ -62,23 +47,18 @@ def test_segmentation_to_nrrd_multi_layer(tmp_path: Path) -> None:
     mapping_mask = LabelMapping.from_path(path)
     mask = np.stack(list(mask_dict.values()))
 
-    segmentation_to_nrrd(tmp_path / "nrrd_file.nrrd", mask=mask, mapping_mask=mapping_mask)
-    segmentation_to_nrrd_annotation_name(
-        nrrd_file=tmp_path / "nrrd_file2.nrrd",
-        mask={
-            annotation_name: path.read_segmentation(annotation_name=annotation_name)
-            for annotation_name in annotation_names
-        },
-        mapping_mask=LabelMapping.from_path(path),
-        annotation_name_to_layer=annotation_name_to_layer,
+    segmentation_to_nrrd(
+        tmp_path / "nrrd_file.nrrd", mask=mask, mapping_mask=mapping_mask, layer_names=annotation_names
     )
+    mitk_data = nrrd_mask(tmp_path / "nrrd_file.nrrd")
 
-    mitk_data = assert_nrrd_files_equal(tmp_path / "nrrd_file.nrrd", tmp_path / "nrrd_file2.nrrd")
     mapping_path = LabelMapping.from_path(path)
     mapping_path.map_tensor(mitk_data["mask"], mitk_data["label_mapping"])
 
     for annotation_name, i in annotation_name_to_layer.items():
         assert np.all(path.read_segmentation(annotation_name=annotation_name) == mitk_data["mask"][i])
+
+    assert mitk_data["layer_names"] == annotation_names
 
 
 def test_xml_nrrd_to_segmentation() -> None:

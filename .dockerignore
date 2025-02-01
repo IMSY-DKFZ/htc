@@ -567,8 +567,8 @@ migrated
 **/*.lprof
 
 # Stuff only needed to run Docker
-base.Dockerfile
-Dockerfile
-docker-compose.yml
-docker-compose.override.yml
+dependencies/base.Dockerfile
+dependencies/Dockerfile
+dependencies/docker-compose.yml
+dependencies/docker-compose.override.yml
 run_docker.py

@@ -37,7 +37,7 @@ jobs:
         with:
           # Include requirements.txt so that the caching works
           sparse-checkout: |
-            requirements.txt
+            dependencies/requirements.txt
             tutorials/website_example.py
           sparse-checkout-cone-mode: false
 

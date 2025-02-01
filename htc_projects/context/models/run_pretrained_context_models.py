@@ -11,8 +11,8 @@ def compress_context_runs() -> None:
     target_dir.mkdir(exist_ok=True, parents=True)
 
     run_dirs = [
-        settings_context.best_transform_runs["organ_transplantation"],
         settings_context.best_transform_runs_rgb["organ_transplantation"],
+        settings_context.best_transform_runs["organ_transplantation"],
     ]
 
     known_models = {}

@@ -5,6 +5,7 @@ import torch
 import torch.multiprocessing as multiprocessing
 from rich.progress import Progress, TimeElapsedColumn
 
+from htc import Config
 from htc.model_processing.Predictor import Predictor
 from htc.model_processing.TestEnsemble import TestEnsemble
 from htc.models.common.HTCLightning import HTCLightning
@@ -37,6 +38,11 @@ class TestPredictor(Predictor):
         self.model = TestEnsemble(model_paths, paths, self.config)
         self.model.eval()
         self.model.cuda()
+
+    def update_dataset(self, config: Config, paths: list[DataPath]):
+        self.config = config
+        self.paths = paths
+        self.model.update_dataset(config, paths)
 
     @torch.no_grad()
     def start(self, task_queue: multiprocessing.JoinableQueue, hide_progressbar: bool) -> None:

@@ -42,7 +42,7 @@ def test_compress_html(tmp_path: Path) -> None:
     # Large file, compressed file is used
     base_dir = tmp_path / "large"
     base_dir.mkdir(parents=True, exist_ok=True)
-    img = np.arange(15**2).reshape((15, 15))
+    img = np.arange(150**2).reshape((150, 150))
     fig = px.imshow(img)
     file_original, file_fig, file_html = compress_fig(fig, base_dir)
     assert file_fig.stat().st_size < file_original.stat().st_size

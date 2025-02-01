@@ -123,6 +123,7 @@ _import_structure = {
     "utils.LabelMapping": ["LabelMapping"],
     "utils.LDA": ["LDA"],
     "utils.MeasureTime": ["MeasureTime"],
+    "utils.mitk.mitk_masks": ["nrrd_mask", "segmentation_to_nrrd"],
     "utils.MultiPath": ["MultiPath"],
     "utils.parallel": ["p_map"],
     "utils.SpectrometerReader": ["SpectrometerReader"],
@@ -253,6 +254,7 @@ if TYPE_CHECKING:
     from htc.utils.LabelMapping import LabelMapping
     from htc.utils.LDA import LDA
     from htc.utils.MeasureTime import MeasureTime
+    from htc.utils.mitk.mitk_masks import nrrd_mask, segmentation_to_nrrd
     from htc.utils.MultiPath import MultiPath
     from htc.utils.parallel import p_map
     from htc.utils.SpectrometerReader import SpectrometerReader

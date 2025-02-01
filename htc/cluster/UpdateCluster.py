@@ -76,7 +76,7 @@ class UpdateCluster(ClusterConnection):
 
         # Build docker and apptainer container
         self.run_command(
-            command="docker build --tag htc-base --file base.Dockerfile .",
+            command="docker build --tag htc-base --file dependencies/base.Dockerfile .",
             task="building the htc-base container",
         )
         self.run_command(

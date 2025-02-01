@@ -288,44 +288,6 @@ class StandardizeHSI(HTCTransformation):
         return f"StandardizeHSI(mean.shape={self.mean.shape})"
 
 
-class TransformPCA(HTCTransformation):
-    def __init__(self, n_components: int, config: Config, fold_name: str, device: str, **kwargs):
-        self.n_components = n_components
-
-        # PCA is precomputed based on the complete dataset
-        specs_name = DataSpecification.from_config(config).name()
-        pca_path = (
-            settings.intermediates_dir_all / "data_stats" / f"{specs_name}#pca#{config['input/preprocessing']}.pkl"
-        )
-        assert pca_path.exists(), f"could not find the precomputed PCA data at {pca_path}"
-
-        pcas = pickle.load(pca_path.open("rb"))
-        assert fold_name in pcas, f"Could not find {fold_name} in pca file (available keys: {pcas.keys()})"
-
-        pca = pcas[fold_name]
-        variance = [f"{x:.3f}" for x in pca.explained_variance_ratio_[:n_components]]
-        settings.log_once.info(
-            f"Using PCA with {n_components} components explaining"
-            f" {np.sum(pca.explained_variance_ratio_[:n_components]):.3} of the variance ({variance})."
-        )
-
-        self.mean = torch.from_numpy(pca.mean_).to(dtype=torch.float32, device=device)
-        self.components = torch.from_numpy(pca.components_[:n_components].transpose(1, 0)).to(
-            dtype=torch.float32, device=device
-        )
-
-    def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
-        original_shape = batch["features"].shape[:-1]
-        x = batch["features"].reshape(-1, batch["features"].size(-1))
-        x = (x - self.mean) @ self.components
-        batch["features"] = x.reshape(*original_shape, self.n_components)
-
-        return batch
-
-    def __repr__(self) -> str:
-        return f"TransformPCA(n_components={self.n_components})"
-
-
 class StandardNormalVariate(HTCTransformation):
     """
     Standardizes each pixel separately. The 100 reflectance values will have zero mean and unit variance.
@@ -399,6 +361,7 @@ class KorniaTransform(HTCTransformation):
             "valid_pixels": "mask",
             "spxs": "mask",
             "regions": "mask",
+            "modified_pixels": "mask",
         }
         self.skip_keys = ["meta"]
 
