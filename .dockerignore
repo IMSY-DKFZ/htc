@@ -565,10 +565,3 @@ migrated
 **/*.pkl
 **/*.pdf
 **/*.lprof
-
-# Stuff only needed to run Docker
-dependencies/base.Dockerfile
-dependencies/Dockerfile
-dependencies/docker-compose.yml
-dependencies/docker-compose.override.yml
-run_docker.py

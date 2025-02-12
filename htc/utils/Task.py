@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 from enum import Enum, unique
-
-from typing_extensions import Self
+from typing import Self
 
 
 @unique

@@ -3,11 +3,10 @@
 
 import itertools
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
 import torch
-from typing_extensions import Self
 
 from htc.cpp import automatic_numpy_conversion, tensor_mapping
 from htc.settings import settings

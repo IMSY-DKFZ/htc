@@ -8,10 +8,9 @@ import pprint
 from collections.abc import Callable, Iterator
 from multiprocessing import Manager
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import commentjson
-from typing_extensions import Self
 
 from htc.settings import settings
 from htc.utils.AdvancedJSONEncoder import AdvancedJSONEncoder

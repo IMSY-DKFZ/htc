@@ -1,0 +1,9 @@
+---
+BasedOnStyle: Chromium
+AllowAllArgumentsOnNextLine: "false"
+AllowAllConstructorInitializersOnNextLine: "false"
+AllowAllParametersOfDeclarationOnNextLine: "false"
+BinPackArguments: "false"
+BinPackParameters: "false"
+ColumnLimit: "120"
+IndentWidth: "4"

@@ -7,13 +7,12 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, ClassVar, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Self, Union
 
 import numpy as np
 import pandas as pd
 import torch
 from PIL import Image
-from typing_extensions import Self
 
 from htc.settings import settings
 from htc.tivita.DatasetSettings import DatasetSettings

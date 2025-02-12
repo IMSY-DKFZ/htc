@@ -8,9 +8,9 @@ Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) accordin
 
 > The instructions of this document were tested on the `paper_atlas_v1` tag. However, for reproducing, we recommend to use the latest master instead as there are some general dependencies (e.g. dataset version, cluster access) which are not guaranteed to work on an old tag in the future. Further, the following hardware was used for reproducing:
 >
-> -   GPU: NVIDIA GeForce RTX 3090
-> -   CPU: Intel(R) Xeon(R) W-2145 CPU @ 3.70GHz
-> -   Storage space requirements for the dataset: at least 2.5 TiB
+> - GPU: NVIDIA GeForce RTX 3090
+> - CPU: Intel(R) Xeon(R) W-2145 CPU @ 3.70GHz
+> - Storage space requirements for the dataset: at least 2.5 TiB
 
 You need the masks datasets for this paper. Please copy it from the network drive to your computer, for example via: [≈ 12–16 hours]
 

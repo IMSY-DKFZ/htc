@@ -13,7 +13,7 @@ build-docker:
   stage: build
   script:
     - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build $BUILD_OPT
-    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc conda list --export
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc conda list --name htc --export
 
 code-checks:
   stage: test
@@ -28,7 +28,7 @@ tests:
   stage: test
   script:
     - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build
-    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc htc tests --parallel 4 $TEST_OPT
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc htc tests --parallel 2 $TEST_OPT
 
 test-package:
   stage: test
@@ -36,15 +36,30 @@ test-package:
     - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build
     - >
       docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c '
-      CIBW_BUILD="cp312-*"
+      CIBW_BUILD="cp313-*"
       CIBW_TEST_COMMAND=""
       cibuildwheel --platform linux --output-dir dist &&
       cd /home &&
-      conda create --yes --name htc_test python=3.12 &&
-      conda run --no-capture-output --name htc_test pip install pytest &&
+      conda create --yes --name htc_test python=3.13 &&
+      conda run --no-capture-output --name htc_test pip install -r /home/src/dependencies/requirements-tests.txt &&
       conda run --no-capture-output --name htc_test pip install /home/src/dist/* &&
       conda run --no-capture-output --name htc_test py.test --doctest-modules --import-mode=importlib --collect-only --pyargs "htc" "htc_projects"' || exit_code=$?
     - if [ ${exit_code:-0} -ne 0 ]; then echo "Import errors were encountered with the default installation of the htc package. This usually happens if you imported an extra module without making the import optional and without wrapping the function with an requires_extra decorator (see htc/utils/import_extra.py for details)" && exit 1; fi;
+
+test-sdist:
+  stage: test
+  script:
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - >
+      docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c '
+      conda create --yes --name htc_test python=3.13 &&
+      conda run --no-capture-output --name htc_test pip install -r /home/src/dependencies/requirements-tests.txt &&
+      conda run --no-capture-output --name htc_test pip install build torch &&
+      conda run --no-capture-output --name htc_test python -m build . --sdist &&
+      conda run --no-capture-output --name htc_test pip install --no-build-isolation dist/htc-*.tar.gz &&
+      cd /home &&
+      conda run --no-capture-output --name htc_test py.test --doctest-modules --import-mode=importlib --collect-only --pyargs "htc" "htc_projects"' || exit_code=$?
+    - if [ ${exit_code:-0} -ne 0 ]; then echo "Installation of the source distribution failed. Similar to test-package, this can be due to import issues or an issue with the source distribution itself" && exit 1; fi;
 
 package:
   stage: deploy
@@ -53,9 +68,10 @@ package:
     - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build
     - >
       docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c "
-      pip install --upgrade cibuildwheel twine &&
+      pip install --upgrade cibuildwheel twine build &&
       CIBW_ENVIRONMENT=CI_COMMIT_TAG=${CI_COMMIT_TAG}
       python -m cibuildwheel --platform linux --output-dir dist &&
+      python -m build . --sdist &&
       TWINE_PASSWORD=${CI_JOB_TOKEN}
       TWINE_USERNAME=gitlab-ci-token
       python -m twine upload --verbose --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*"

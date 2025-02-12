@@ -30,7 +30,7 @@ class DatasetPatchStream(HTCDatasetStream):
         ...     "label_mapping": "htc.settings_seg>label_mapping",
         ... })
         >>> paths = [DataPath.from_image_name("P043#2019_12_20_12_38_35")]
-        >>> dataset = DatasetPatchStream(paths, train=False, config=config)
+        >>> dataset = DatasetPatchStream(paths, train=True, config=config)
         >>> dataloader = StreamDataLoader(dataset, config)
         >>> for sample in dataloader:
         ...     print(sample["features"].shape)

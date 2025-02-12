@@ -105,8 +105,29 @@ class SpectrometerReader:
                 spectra[:, :, 1] = (spectra[:, :, 1] - self.dark["median_spectrum"]) / (
                     self.white["median_spectrum"] - self.dark["median_spectrum"]
                 )
+                spectra[:, :, 1] = np.nan_to_num(spectra[:, :, 1], posinf=0, neginf=0)
+
+            if transform_to_tivita:
+                # transform spectrometer measurements to 100 channels of Tivita measurements
+                spectra_transformed = np.zeros((spectra.shape[0], 100))
+                spectrometer_wavelengths = spectra[0, :, 0]
+                tivita_wavelengths = np.linspace(500, 1000, 101)
+                for i in np.arange(len(tivita_wavelengths) - 1):
+                    mask = (tivita_wavelengths[i] <= spectrometer_wavelengths) & (
+                        spectrometer_wavelengths < tivita_wavelengths[i + 1]
+                    )
+                    if spectra[:, mask, 1].shape[-1] == 0:
+                        spectra_transformed[:, i] = 0  # missing data is set to 0
+                    else:
+                        spectra_transformed[:, i] = np.mean(spectra[:, mask, 1], axis=1)
+
+                # overwrite the original spectra with the transformed spectra
+                spectra = np.zeros((spectra.shape[0], 100, 2))
+                spectra[:, :, 1] = spectra_transformed
+                spectra[:, :, 0] = np.linspace(500, 1000, 100)
 
             if adapt_to_tivita:
+                # Crop the spectrometer measurements to the range of the TIVITA camera
                 x = spectra[0, :, 0]
                 mask = (x <= 1000) & (x >= 500)
                 x = x[mask]
@@ -120,32 +141,9 @@ class SpectrometerReader:
                     spectra[:, :, 1], axis=-1, keepdims=True, ord=normalization
                 )
 
-                if adapt_to_tivita:
-                    # Scale the spectrometer measurements to the same range as the TIVITA measurements
-                    spectra[:, :, 1] = spectra[:, :, 1] * spectra.shape[1] / 100
-
-            # transform spectrometer measurements to Tivita measurements
-            if transform_to_tivita:
-                spectra_transformed = np.zeros((spectra.shape[0], 100))
-                spectrometer_wavelengths = spectra[0, :, 0]
-                tivita_wavelengths = np.linspace(500, 1000, 101)
-                for i in np.arange(len(tivita_wavelengths) - 1):
-                    mask = (tivita_wavelengths[i] <= spectrometer_wavelengths) & (
-                        spectrometer_wavelengths < tivita_wavelengths[i + 1]
-                    )
-                    if spectra[:, mask, 1].shape[-1] == 0:
-                        spectra_transformed[:, i] = 0  # missing data is set to 0
-                    else:
-                        spectra_transformed[:, i] = np.mean(spectra[:, mask, 1], axis=1)
-
-                return {
-                    "wavelengths": spectra[0, :, 0],
-                    "spectra": spectra[:, :, 1],
-                    "median_spectrum": np.median(spectra[:, :, 1], axis=0),
-                    "std_spectrum": np.std(spectra[:, :, 1], axis=0),
-                    "median_spectrum_transformed": np.median(spectra_transformed, axis=0),
-                    "std_spectrum_transformed": np.std(spectra_transformed, axis=0),
-                }
+            if adapt_to_tivita:
+                # Scale the spectrometer measurements to the same range as the TIVITA measurements
+                spectra[:, :, 1] = spectra[:, :, 1] * spectra.shape[1] / 100
 
             return {
                 "wavelengths": spectra[0, :, 0],

@@ -34,9 +34,7 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
         self.image_index = None
 
         # Each worker is responsible for one part of the batch of this size
-        self.batch_part_size = (
-            self.config["dataloader_kwargs/batch_size"] // self.config["dataloader_kwargs/num_workers"]
-        )
+        self.batch_part_size = self.batch_size // self.num_workers
 
         if self.config["input/oversampling"]:
             # Class weights for data sampling (not weights for the loss function)
@@ -55,7 +53,7 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
         assert self.batch_part_size > 0, (
             f"batch_part_size must not be {self.batch_part_size}. Incompatible batch size"
             f" ({self.config['dataloader_kwargs/batch_size']}) or number of workers"
-            f" ({self.config['dataloader_kwargs/num_workers']})"
+            f" ({self.num_workers})"
         )
 
         worker_base_index = self._get_worker_index() * self.batch_part_size
@@ -139,7 +137,7 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
 
         if self.sampler is None:
             path_indices = np.array_split(
-                self.path_indices_worker.numpy(), self.config["dataloader_kwargs/num_workers"]
+                self.path_indices_worker.numpy(), self.num_workers
             )  # Split the path indices across all workers
 
             if self.config["input/dataset_sampling"]:
@@ -170,7 +168,7 @@ class HTCDatasetStream(SharedMemoryDatasetMixin, HTCDataset, IterableDataset):
                 # w1: 0, 3, 6
                 # w2: 1, 4, 7
                 # w3. 2, 5, 8
-                sampler_index = worker_index + i * self.config["dataloader_kwargs/num_workers"]
+                sampler_index = worker_index + i * self.num_workers
                 if sampler_index >= len(self.path_indices_worker):
                     break
 

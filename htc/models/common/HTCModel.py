@@ -7,12 +7,12 @@ import itertools
 import re
 from pathlib import Path
 from types import MappingProxyType
+from typing import Self
 from zipfile import ZipFile
 
 import pandas as pd
 import torch
 import torch.nn as nn
-from typing_extensions import Self
 
 from htc.models.common.MetricAggregation import MetricAggregation
 from htc.settings import settings

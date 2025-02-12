@@ -180,24 +180,31 @@ blabla
     ])
     spec_sel = np.array([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24])
     spec_norm = (spec_sel / 299 * 23) / 100
-    adapted_spec = reader.read_spectrum("realistic", adapt_to_tivita=True, normalization=1, transform_to_tivita=True)
+    adapted_spec = reader.read_spectrum("realistic", adapt_to_tivita=True, normalization=1)
     assert np.all(adapted_spec["wavelengths"] == wavelengths), "Mismatch between wavelengths"
     assert np.allclose(adapted_spec["median_spectrum"], spec_norm), "Mismatch for median spectrum"
     assert np.all(adapted_spec["std_spectrum"] == np.zeros(23)), "Mismatch for std"
-    assert np.all(np.nan_to_num(adapted_spec["std_spectrum_transformed"]) == np.zeros(100)), (
-        "Mismatch for std transformed"
-    )
+
+    generated_transformed_spec = reader.read_spectrum("realistic", transform_to_tivita=True, normalization=1)
     transformed_spec = np.zeros(100, dtype=np.float64)
-    transformed_spec[0] = np.mean(spec_norm[:5])
-    transformed_spec[1] = np.mean(spec_norm[5:10])
-    transformed_spec[2] = np.mean(spec_norm[10:15])
-    transformed_spec[3] = np.mean(spec_norm[15])
-    transformed_spec[10] = spec_norm[16]
-    transformed_spec[20] = spec_norm[17]
-    transformed_spec[40] = spec_norm[18]
-    transformed_spec[50] = spec_norm[19]
-    transformed_spec[60] = spec_norm[20]
-    transformed_spec[80] = spec_norm[21]
-    assert all(np.nan_to_num(adapted_spec["median_spectrum_transformed"]) == transformed_spec), (
+    transformed_spec[0] = np.mean(spec_sel[:5])
+    transformed_spec[1] = np.mean(spec_sel[5:10])
+    transformed_spec[2] = np.mean(spec_sel[10:15])
+    transformed_spec[3] = np.mean(spec_sel[15])
+    transformed_spec[10] = spec_sel[16]
+    transformed_spec[20] = spec_sel[17]
+    transformed_spec[40] = spec_sel[18]
+    transformed_spec[50] = spec_sel[19]
+    transformed_spec[60] = spec_sel[20]
+    transformed_spec[80] = spec_sel[21]
+    transformed_spec = transformed_spec / np.linalg.norm(transformed_spec, ord=1)
+    assert all(np.nan_to_num(generated_transformed_spec["median_spectrum"]) == transformed_spec), (
         "Mismatch for median spectrum transformed"
     )
+
+    generated_adapted_transformed_spec = reader.read_spectrum(
+        "realistic", adapt_to_tivita=True, transform_to_tivita=True, normalization=1
+    )
+    assert all(
+        generated_transformed_spec["median_spectrum"] == generated_adapted_transformed_spec["median_spectrum"]
+    ), "Mismatch for adapted and non-adapted transformed spectrum"

@@ -1,20 +1,21 @@
 [build-system]
+build-backend = "setuptools.build_meta"
+
 requires = [
   "ninja",
   "setuptools",
   "torch",
-  "wheel",
 ]
 
 [tool.cibuildwheel]
-build = "cp310-* cp311-* cp312-*"
+build = "cp311-* cp312-* cp313-*"
 skip = "*musllinux*"
-# If more than one wheel is built (e.g. cp310 and cp311), the second wheel fails due to a non-clean build directory
+# If multiple wheels are built (e.g., all Python versions), the second wheel will fail due to a non-clean build directory
 # Hence, we just delete it to start fresh
 before-build = """\
 python -c "import shutil; shutil.rmtree('build', ignore_errors=True)"\
 """
-before-test = "pip install pytest"
+before-test = "pip install -r dependencies/requirements-tests.txt"
 test-command = [
   '''python -c "import os; from importlib.metadata import version; assert 'v' + version('imsy-htc') == os.getenv('CI_COMMIT_TAG'), os.getenv('CI_COMMIT_TAG')"''',
   '''py.test --doctest-modules --import-mode=importlib --collect-only --pyargs "htc" "htc_projects"''',
@@ -34,7 +35,7 @@ repair-wheel-command = "delocate-wheel --ignore-missing-dependencies --require-a
 archs = [ "AMD64" ]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 
 line-length = 120
 format.preview = true
@@ -80,7 +81,6 @@ lint.ignore = [
   "E741",    # Usually not an issue
   "F841",    # Does not detect df.query usage
   "NPY002",  # Requires manual changes and testing
-  "PERF203", # Not so relevant anymore in Python 3.11+
   "PERF401", # May lead to too complex code
   "RUF001",  # Explicitly intended
   "RUF003",  # Same
@@ -91,3 +91,43 @@ lint.per-file-ignores."__init__.py" = [ "F401" ]
 lint.unfixable = [ "B905" ] # We don't want strict=False but strict=True
 
 lint.pydocstyle.convention = "google"
+
+[tool.pytest.ini_options]
+addopts = "-v -ra --instafail"
+script_launch_mode = "subprocess"
+timeout = 1200
+filterwarnings = [ "ignore::DeprecationWarning:^(?!htc|challenger_pydocker):" ]
+markers = [
+  '''slow: marks tests as slow (deselect with '-m "not slow"')''',
+  "serial: always execute test sequentially (mainly for tests which use the GPU)",
+]
+env = [
+  "D:HTC_ADD_NETWORK_ALTERNATIVES=true",
+  # Allow env monkeypatching during testing
+  "D:HTC_ENV_OVERRIDE=false",
+]
+# Notebooks which use the GPU and hence cannot be run in parallel
+serial_notebooks = [
+  "htc/data_exploration/Augmentations.ipynb",
+  "htc_projects/camera/DistanceCorrelation.ipynb",
+  "htc_projects/camera/colorchecker/Interpolation.ipynb",
+  "htc_projects/species/RatPerfusion.ipynb",
+  "paper/MIA2022/DatasetSize.ipynb",
+  "paper/MICCAI2023/BootstrapRankingBubblePlots.ipynb",
+  "paper/MICCAI2023/OrganTransplantationExample.ipynb",
+  "paper/MIA2024/ExamplePredictions.ipynb",
+  "paper/MIA2024/BootstrapRanking.ipynb",
+]
+# These notebooks must be skipped during testing due to missing files etc.
+blacklisted_notebooks = [
+  "htc_projects/camera/SpectralConversion.ipynb:Requires the susi module",
+  "htc/tivita_studies/TechnicalValidationTivitaMini.ipynb:Too many file accesses",
+  "htc/tivita_studies/TechnicalValidationCam.ipynb:Too many file accesses",
+  "paper/MIA2024/SpatialGranularityComparison.ipynb:Requires a LaTeX installation",
+]
+# Doctests which use the GPU and hence cannot be run in parallel
+serial_doctests = [
+  "htc/models/common/HTCModel.py",
+  "htc/model_processing/SinglePredictor.py",
+  "htc/model_processing/SinglePredictionTable.py",
+]

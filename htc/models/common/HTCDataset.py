@@ -46,6 +46,28 @@ class HTCDataset(ABC, Dataset):
         self.features_dtype = dtype_from_config(self.config)
         self._checked_features_dtype = False
 
+        # Do not use more resources than necessary
+        if (
+            not self.train
+            and self.config["dataloader_kwargs/batch_size"]
+            and len(self.paths) < self.config["dataloader_kwargs/batch_size"]
+        ):
+            # Save memory in case a large batch size is not needed
+            self.batch_size = len(self.paths)
+            settings.log.debug(f"Reducing the batch size to {len(self.paths)} since more images are not given")
+        else:
+            self.batch_size = self.config["dataloader_kwargs/batch_size"]
+        if (
+            not self.train
+            and self.config["dataloader_kwargs/num_workers"]
+            and len(self.paths) < self.config["dataloader_kwargs/num_workers"]
+        ):
+            # No need for extra workers if they will not do anything
+            self.num_workers = len(self.paths)
+            settings.log.debug(f"Reducing the number of workers to {len(self.paths)} since more images are not given")
+        else:
+            self.num_workers = self.config["dataloader_kwargs/num_workers"]
+
         # Data transformations
         if self.train and self.config["input/transforms_cpu"]:
             self.transforms = HTCTransformation.parse_transforms(

@@ -7,9 +7,9 @@ import re
 import subprocess
 from functools import cached_property
 from pathlib import Path
+from typing import Self
 
 from rich.progress import Progress, TimeElapsedColumn
-from typing_extensions import Self
 
 from htc.settings import settings
 from htc.utils.import_extra import requires_extra

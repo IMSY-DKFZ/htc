@@ -2,11 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Self
 
 import torch
 import torch.nn as nn
-from typing_extensions import Self
 
 
 class ForwardHookPromise:

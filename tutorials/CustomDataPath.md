@@ -76,8 +76,8 @@ It can be very useful to store information which apply to all your images at one
 
 Of course, you can add custom information as you wish.
 
--   `label_mapping` is especially interesting if you also overload the `read_segmentation()` method. This basically gives a meaning to the labels in your segmentation mask (which can again be used for remapping tasks for training).
--   `data_path_class` is a very special key. Here you can specify a Python import (`module>class`). If your dataset settings is stored in `data_dir / "dataset_settings.json"` (i.e. in the top of your `data` directory), then you can just write
+- `label_mapping` is especially interesting if you also overload the `read_segmentation()` method. This basically gives a meaning to the labels in your segmentation mask (which can again be used for remapping tasks for training).
+- `data_path_class` is a very special key. Here you can specify a Python import (`module>class`). If your dataset settings is stored in `data_dir / "dataset_settings.json"` (i.e. in the top of your `data` directory), then you can just write
     ```python
     paths = list(DataPath.iterate(Path("your path")))
     ```

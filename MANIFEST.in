@@ -1,3 +1,0 @@
-recursive-include htc *.json
-recursive-include htc *.h
-recursive-include htc *.js

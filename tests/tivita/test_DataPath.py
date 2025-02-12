@@ -459,7 +459,13 @@ class TestDataPath:
         # test whether manual handover of calibration files yields same result
         path_dark = settings.data_dirs.studies / "white_balances/0202-00118/2023_11_14/DarkPattern.dpic"
         path_white = settings.data_dirs.studies / "white_balances/0202-00118/2023_11_14/EqBinWhiteCube.dat"
-        calibration_original = CalibrationFiles(path_dark, path_white)
+        calibration_original = CalibrationFiles(
+            dark=path_dark,
+            white=path_white,
+            cam_id="0202-00118",
+            timestamp_dark=pd.Timestamp("2023-11-14"),
+            timestamp_white=pd.Timestamp("2023-11-14"),
+        )
         calibration_original = CalibrationSwap()._cached_calibration_data(calibration_original)
         cube2 = path.read_cube_raw(calibration_original=calibration_original)
         assert np.all(cube == cube2)

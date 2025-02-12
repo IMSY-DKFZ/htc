@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import get_worker_info
 from torch.utils.data.sampler import Sampler
 
+import htc.settings as settings
 from htc.models.common.StreamDataLoader import StreamDataLoader
 from htc.models.common.torch_helpers import str_to_dtype
 from htc.tivita.DataPath import DataPath
@@ -23,7 +24,7 @@ class SharedMemoryDatasetMixin:
 
         # Each worker operates on its own set of paths and we use a shared memory tensor which stores a random set of path indices
         if self.sampler is None:
-            size = max(len(self.paths), self.config["dataloader_kwargs/num_workers"])
+            size = max(len(self.paths), self.num_workers)
         else:
             size = len(self.sampler)
         self.path_indices_worker = torch.empty(size, dtype=torch.int64).share_memory_()
@@ -45,8 +46,10 @@ class SharedMemoryDatasetMixin:
 
                 for key, tensor in self.shared_dict.items():
                     if type(tensor) == torch.Tensor and tensor.is_pinned():
-                        code = cudart.cudaHostUnregister(tensor.data_ptr())
-                        assert not tensor.is_pinned(), f"Cannot unpin the tensor {key}: {code = }"
+                        res = cudart.cudaHostUnregister(tensor.data_ptr())
+                        assert not tensor.is_pinned(), (
+                            f"Cannot unpin the tensor {key}: error_code={res.value}, error_name={res.name}"
+                        )
         except RuntimeError:
             # We cannot free the memory if we are in a forked process as we otherwise may get the following error:
             # RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
@@ -73,11 +76,11 @@ class SharedMemoryDatasetMixin:
 
         if self.sampler is None:
             indices = torch.randperm(len(self.paths))
-            if len(self.paths) < self.config["dataloader_kwargs/num_workers"]:
+            if len(self.paths) < self.num_workers:
                 # In extreme cases (e.g. in the dataset size experiment) it is possible that less paths than workers are available
                 # In this case, we just repeat the indices for the paths we have so that every worker has one image to work one
                 indices = torch.tensor(
-                    [indices[i % len(indices)] for i in range(self.config["dataloader_kwargs/num_workers"])],
+                    [indices[i % len(indices)] for i in range(self.num_workers)],
                     dtype=indices.dtype,
                 )
 
@@ -141,7 +144,7 @@ class SharedMemoryDatasetMixin:
             )
 
     def _add_image_index_shared(self) -> None:
-        tensor = torch.empty(self.buffer_size, self.config["dataloader_kwargs/batch_size"], dtype=torch.int64)
+        tensor = torch.empty(self.buffer_size, self.batch_size, dtype=torch.int64)
         tensor = tensor.share_memory_()
 
         # The image_index tensor is only shared but not pinned since it is a CPU-only tensor
@@ -149,14 +152,22 @@ class SharedMemoryDatasetMixin:
         self.shared_dict["image_index"] = tensor
 
     def _add_tensor_shared(self, name: str, dtype: torch.dtype, *sizes) -> None:
-        tensor = torch.empty(self.buffer_size, self.config["dataloader_kwargs/batch_size"], *sizes, dtype=dtype)
+        tensor = torch.empty(self.buffer_size, self.batch_size, *sizes, dtype=dtype)
         tensor = tensor.share_memory_()
 
         # Pin tensor
         cudart = torch.cuda.cudart()
         flags = 0  # cudaHostRegisterDefault: https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__MEMORY.html#group__CUDART__MEMORY_1ge8d5c17670f16ac4fc8fcb4181cb490c
         res = cudart.cudaHostRegister(tensor.data_ptr(), tensor.numel() * tensor.element_size(), flags)
-        assert res.value == 0 and res.name == "success", f"Cannot pin memory tensor {name}"
+
+        if res.success != 0:
+            unregister_res = cudart.cudaHostUnregister(tensor.data_ptr())
+            settings.log.error(
+                f"Failed to pin the memory for the tensor {name}. Unfortunately, the reason for this error is not always obvious. One problem may be if the tensor size is to large. The size of the requested tensor is {(tensor.numel() * tensor.element_size()) // 2**20} MiB (a possible solution is to reduce the batch size or the number of workers). Tried to unregister the tensor: error_code={unregister_res.value}, error_name={unregister_res.name}"
+            )
+        assert res.value == 0 and res.name == "success", (
+            f"Cannot pin memory tensor {name}: error_code={res.value}, error_name={res.name}"
+        )
         assert tensor.is_pinned() and tensor.is_shared(), "Each tensor should be shared and pinned"
         assert tensor.is_contiguous(), "Each tensor should be contiguous in memory (otherwise data pointer cannot work)"
 

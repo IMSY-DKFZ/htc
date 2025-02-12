@@ -1,8 +1,11 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import logging
+
 import pytest
 import torch
+from pytest import LogCaptureFixture
 
 from htc import settings
 from htc.model_processing.SinglePredictor import SinglePredictor
@@ -67,7 +70,9 @@ class TestSinglePredictor:
         assert samples_equal(prediction1, prediction4)
 
     @pytest.mark.serial
-    def test_nested(self) -> None:
+    def test_nested(self, caplog: LogCaptureFixture) -> None:
+        caplog.set_level(logging.DEBUG, "htc")
+
         predictor = SinglePredictor(model="image", run_folder="2024-09-11_00-11-38_baseline_rat_nested-*-2", test=True)
         assert len(predictor.run_dir) == 3
         assert predictor.run_dir[0].name == "2024-09-11_00-11-38_baseline_rat_nested-0-2"
@@ -78,3 +83,7 @@ class TestSinglePredictor:
         path = DataPath.from_image_name("R002#2023_09_19_10_14_28#0202-00118")
         prediction = next(iter(predictor.predict_paths(paths=[path], return_batch=False)))["class"]
         assert prediction.shape == (1, len(settings_species.label_mapping), *path.dataset_settings["spatial_shape"])
+
+        assert "Reducing the batch size to 1" in caplog.text
+        assert "Reducing the number of workers to 1" in caplog.text
+        assert predictor.model.paths_dataloader([path]).dataset.shared_dict["features"].shape == (3, 1, 480, 640, 100)

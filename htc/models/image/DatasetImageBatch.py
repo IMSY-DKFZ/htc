@@ -40,8 +40,8 @@ class DatasetImageBatch(SharedMemoryDatasetMixin, DatasetImage):
         assert buffer_index < self.buffer_size, "Invalid buffer location"
 
         # Load all the images which should be part of this batch
-        for i in range(self.config["dataloader_kwargs/batch_size"]):
-            sampler_index = batch_index * self.config["dataloader_kwargs/batch_size"] + i
+        for i in range(self.batch_size):
+            sampler_index = batch_index * self.batch_size + i
             if sampler_index >= len(self.path_indices_worker):
                 return {
                     "buffer_index": buffer_index,
@@ -72,4 +72,4 @@ class DatasetImageBatch(SharedMemoryDatasetMixin, DatasetImage):
 
     @property
     def buffer_size(self) -> int:
-        return self.worker_buffer_size * self.config["dataloader_kwargs/num_workers"]
+        return self.worker_buffer_size * self.num_workers

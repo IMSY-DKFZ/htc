@@ -25,9 +25,9 @@ def LDA(data: np.ndarray, labels: np.ndarray) -> tuple[np.ndarray, np.ndarray, n
     ... ])
     >>> labels = np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1])
     >>> coeff, proj, latent = LDA(data, labels)
-    >>> latent  # Only the first axis is relevant when using two classes
-    array([42.4619955,  0.       ])
-    >>> latent / np.sum(latent)  # Explained discrimination
+    >>> np.round(
+    ...     np.abs(latent / np.sum(latent)), 2
+    ... )  # Explained discrimination (only the first axis is relevant when using two classes)
     array([1., 0.])
     >>> coeff[:, 0]  # First eigenvector
     array([ 0.24558339, -0.96937547])

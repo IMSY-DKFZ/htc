@@ -9,10 +9,10 @@ Start by installing the [repository](https://git.dkfz.de/imsy/issi/htc) accordin
 > These instructions were tested on the `poster_benchmarking_v1` tag. However, for reproducing, we recommend to use the latest master instead as there are some general dependencies (e.g. dataset version, cluster access) which are not guaranteed to work on an old tag in the future.
 > Further, the following hardware was used for reproducing (different setups will yield different runtimes and hence different results):
 >
-> -   GPU: NVIDIA GeForce RTX 4090
-> -   CPU: AMD Ryzen 9 7950X
-> -   SSD: Seagate FireCuda 530 4 TB
-> -   Storage space requirements for the dataset: at least 250 GiB
+> - GPU: NVIDIA GeForce RTX 4090
+> - CPU: AMD Ryzen 9 7950X
+> - SSD: Seagate FireCuda 530 4 TB
+> - Storage space requirements for the dataset: at least 250 GiB
 
 You need the semantic datasets for this poster. Please copy it from the network drive to your computer, for example via: [≈ 1–2 hours]
 

@@ -59,20 +59,30 @@ class HTCLightning(EvaluationMixin, LightningModule):
         )
 
     def val_dataloader(self, **kwargs) -> list[DataLoader]:
-        # We first use the values from the config
-        dataloader_kwargs = copy.deepcopy(self.config["dataloader_kwargs"])
+        dataloaders = []
+        for dataset_val in self.datasets_val:
+            # We first use the values from the config
+            dataloader_kwargs = copy.deepcopy(self.config["dataloader_kwargs"])
 
-        # Then we overwrite it with whatever is passed to this function
-        dataloader_kwargs |= kwargs
+            # Use values from the dataset
+            dataloader_kwargs["num_workers"] = dataset_val.num_workers
+            dataloader_kwargs["batch_size"] = dataset_val.batch_size
 
-        # The last step is to overwrite it with some defaults in case they have not been set before
-        if "persistent_workers" not in dataloader_kwargs:
-            dataloader_kwargs["persistent_workers"] = False
+            # Then we overwrite it with whatever is passed to this function
+            dataloader_kwargs |= kwargs
 
-        return [DataLoader(dataset_val, **dataloader_kwargs) for dataset_val in self.datasets_val]
+            # The last step is to overwrite it with some defaults in case they have not been set before
+            if "persistent_workers" not in dataloader_kwargs:
+                dataloader_kwargs["persistent_workers"] = False
+
+            dataloaders.append(DataLoader(dataset_val, **dataloader_kwargs))
+
+        return dataloaders
 
     def test_dataloader(self, **kwargs) -> DataLoader:
         dataloader_kwargs = copy.deepcopy(self.config["dataloader_kwargs"])
+        dataloader_kwargs["num_workers"] = self.dataset_test.num_workers
+        dataloader_kwargs["batch_size"] = self.dataset_test.batch_size
         dataloader_kwargs |= kwargs
 
         return DataLoader(self.dataset_test, **dataloader_kwargs)
@@ -87,6 +97,8 @@ class HTCLightning(EvaluationMixin, LightningModule):
 
         Returns: The dataloader which can be iterated over.
         """
+        assert len(paths) > 0, f"At least one path is necessary: {len(paths) = }"
+
         # We want to use the existing code for deciding which dataloader to use (e.g., DataLoader or StreamDataLoader) and use the validation datasets for this use case
         datasets_val_old = self.datasets_val
         self.datasets_val = [self.dataset(paths=paths, train=False, config=self.config, fold_name=self.fold_name)]

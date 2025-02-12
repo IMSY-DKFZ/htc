@@ -3,11 +3,11 @@
 
 import pickle
 from collections.abc import Iterator
+from typing import Self
 
 import kornia.augmentation as K
 import numpy as np
 import torch
-from typing_extensions import Self
 
 from htc.models.common.torch_helpers import str_to_dtype
 from htc.models.common.utils import dtype_from_config

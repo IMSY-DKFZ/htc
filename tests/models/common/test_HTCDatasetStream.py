@@ -42,7 +42,7 @@ class TestHTCDatasetStream:
 
         data_specs = DataSpecification.from_config(config)
 
-        dataset = DatasetPixelStream(data_specs.paths(), train=False, config=config)
+        dataset = DatasetPixelStream(data_specs.paths(), train=True, config=config)
         dataloader = StreamDataLoader(dataset, config)
 
         # normalize the data sampling values

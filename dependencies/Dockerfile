@@ -7,7 +7,7 @@ RUN curl -fsSL https://get.docker.com -o /get-docker.sh \
  && rm /get-docker.sh
 
 # Install the Libertinus font
-RUN apt install -y fontconfig wget \
+RUN apt install -y fontconfig wget zstd \
  && mkdir -p /usr/share/fonts/opentype \
  && wget -O /usr/share/fonts/opentype/libertinus.tar.zst https://github.com/alerque/libertinus/releases/download/v7.051/Libertinus-7.051.tar.zst \
  && tar -xvf /usr/share/fonts/opentype/libertinus.tar.zst --directory /usr/share/fonts/opentype \
@@ -34,6 +34,9 @@ RUN git init \
 
 # The code changes basically every time when we use the Docker container so we want to install it at the very end to make use of caching
 COPY . /home/src
-RUN pip install --no-use-pep517 -e /home/src
+
+# We don't need an isolated build environment inside the Docker container and we already have the dependencies installed
+# Further, it would significantly increase the startup time for the Docker container since torch is a build requirement and can take a long time to install (plus, it is a good idea to match the torch installation version with the torch version in the target environment)
+RUN pip install --no-build-isolation -e /home/src
 
 ENTRYPOINT ["python", "dependencies/docker_startup.py"]

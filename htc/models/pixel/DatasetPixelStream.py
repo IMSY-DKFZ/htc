@@ -23,7 +23,7 @@ class DatasetPixelStream(HTCDatasetStream):
     ...     "dataloader_kwargs/batch_size": 5,
     ... })
     >>> paths = [DataPath.from_image_name("P043#2019_12_20_12_38_35")]
-    >>> dataset = DatasetPixelStream(paths, train=False, config=config)
+    >>> dataset = DatasetPixelStream(paths, train=True, config=config)
     >>> dataloader = StreamDataLoader(dataset, config)
     >>> for sample in dataloader:
     ...     print(sample["features"].shape)

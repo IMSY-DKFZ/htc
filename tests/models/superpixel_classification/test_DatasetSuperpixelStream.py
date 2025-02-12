@@ -24,7 +24,7 @@ class TestDatasetSuperpixelStream:
             DataPath.from_image_name("P043#2019_12_20_12_38_35"),
             DataPath.from_image_name("P059#2020_05_14_12_50_10"),
         ]
-        dataset = DatasetSuperpixelStream(paths, train=False, config=config)
+        dataset = DatasetSuperpixelStream(paths, train=True, config=config)
         dataloader = StreamDataLoader(dataset, config)
 
         sample = next(iter(dataloader))

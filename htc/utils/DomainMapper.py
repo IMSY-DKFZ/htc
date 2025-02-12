@@ -2,11 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 import random
-from typing import Any
+from typing import Any, Self
 
 import numpy as np
 import pandas as pd
-from typing_extensions import Self
 
 from htc.models.data.DataSpecification import DataSpecification
 from htc.tivita.DataPath import DataPath

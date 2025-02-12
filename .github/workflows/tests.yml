@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.12"]
+        python-version: ["3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -19,16 +19,18 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
-          cache-dependency-path: "requirements*.txt"
+          cache-dependency-path: "dependencies/requirements*.txt"
 
       - name: Install dependencies
-        run: |
-          pip install -r dependencies/requirements.txt
-          pip install pytest pytest-xdist wheel
+        run: pip install -r dependencies/requirements.txt
 
       - name: Install htc
-        run: pip install --no-use-pep517 -e .
+        run: pip install --no-build-isolation -e .
 
+      # Tests run only in the internal repository. For the public repository, we only check that everything is importable
       - name: Tests
-        # Tests run only in the internal repository. For the public repository, we only check that everything is importable
-        run: py.test --doctest-modules --import-mode=importlib --collect-only --ignore=tests .
+        env:
+          HTC_ADD_NETWORK_ALTERNATIVES: false
+        run: |
+          pip install -r dependencies/requirements-tests.txt
+          py.test --doctest-modules --import-mode=importlib --collect-only --ignore=tests .

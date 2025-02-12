@@ -6,10 +6,9 @@ import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO
+from typing import IO, Self
 
 import pandas as pd
-from typing_extensions import Self
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath

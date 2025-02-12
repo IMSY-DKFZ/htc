@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: MIT
 
 from pathlib import Path
+from typing import Self
 
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from typing_extensions import Self
 
 from htc.models.common.HTCLightning import HTCLightning
 from htc.tivita.DataPath import DataPath

@@ -40,20 +40,20 @@ class StreamDataLoader:
             # Number of batches are solely defined by the epoch size
             adjust_epoch_size(self.config)
 
-            assert self.config["input/epoch_size"] % self.config["dataloader_kwargs/batch_size"] == 0, (
+            assert self.config["input/epoch_size"] % self.dataset.batch_size == 0, (
                 "The epoch size must be divisible by the batch size"
             )
-            self.n_batches = self.config["input/epoch_size"] // self.config["dataloader_kwargs/batch_size"]
+            self.n_batches = self.config["input/epoch_size"] // self.dataset.batch_size
         else:
             # If there is a sampler, we want to make sure that we return all images defined by the sampler. The last batch may be smaller in this case
-            self.n_batches = math.ceil(dataset_length / self.config["dataloader_kwargs/batch_size"])
+            self.n_batches = math.ceil(dataset_length / self.dataset.batch_size)
 
         # With index-based datasets, every worker operates on their own batch
         self.single_mode = not isinstance(self.dataset, IterableDataset)
         if not self.single_mode:
-            assert self.config["dataloader_kwargs/batch_size"] % self.config["dataloader_kwargs/num_workers"] == 0, (
+            assert self.dataset.batch_size % self.dataset.num_workers == 0, (
                 f"The batch size ({self.config['dataloader_kwargs/batch_size']}) must be divisible by the number of"
-                f" workers ({self.config['dataloader_kwargs/num_workers']})"
+                f" workers ({self.dataset.num_workers})"
             )
 
         self.dataset.init_shared()
