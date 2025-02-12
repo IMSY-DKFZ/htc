@@ -6,23 +6,17 @@ import re
 from pathlib import Path
 
 from setuptools import find_namespace_packages, setup
+from setuptools.command.sdist import sdist
 from torch.utils import cpp_extension
 
 
-def read_file(path: Path) -> str:
-    """
-    Reads the content of a file into a string.
-
-    Args:
-        path: Path to the file to read.
-
-    Returns:
-        The content of the file.
-    """
-    with path.open() as f:
-        content = f.read()
-
-    return content
+class ExtendedSdist(sdist):
+    def make_distribution(self):
+        # The requirements files need to be part of the source distribution as otherwise setuptools can't build the package
+        # The wheels don't need the requirements files as they have already been parsed and added to the package metadata
+        self.filelist.append(requirements)
+        self.filelist.append(requirements_extra)
+        super().make_distribution()
 
 
 def parse_requirements(requirements_file: Path) -> list[str]:
@@ -36,7 +30,7 @@ def parse_requirements(requirements_file: Path) -> list[str]:
     """
     req = []
 
-    for line in read_file(requirements_file).splitlines():
+    for line in requirements_file.read_text().splitlines():
         match = re.search(r"^\w+[^+@]*", line)
         if match is not None:
             lib = match.group(0)
@@ -55,7 +49,7 @@ def parse_readme(readme_file: Path) -> str:
 
     Returns: Readme as string with adjusted links.
     """
-    readme = read_file(readme_file)
+    readme = readme_file.read_text()
 
     # Make local anchors and links to files absolute since they don't work on PyPi
     readme = re.sub(r"\(\./([^)]+)\)", r"(https://github.com/IMSY-DKFZ/htc/tree/main/\1)", readme)
@@ -65,6 +59,8 @@ def parse_readme(readme_file: Path) -> str:
 
 
 repo_root = Path(__file__).parent
+requirements = "dependencies/requirements.txt"
+requirements_extra = "dependencies/requirements-extra.txt"
 
 source_files = sorted(repo_root.rglob("htc/cpp/*.cpp"))
 source_files = [str(f.relative_to(repo_root)) for f in source_files]
@@ -76,7 +72,7 @@ else:
 
 setup(
     name="imsy-htc",
-    version="0.0.19",
+    version="0.0.20",
     # We are using find_namespace_packages() instead of find_packages() to resolve this deprecation warning: https://github.com/pypa/setuptools/issues/3340
     packages=find_namespace_packages(include=["htc*"]),
     author="Division of Intelligent Medical Systems, DKFZ",
@@ -95,9 +91,9 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: Microsoft :: Windows",
@@ -111,12 +107,12 @@ setup(
     ],
     long_description=parse_readme(repo_root / "README.md"),
     long_description_content_type="text/markdown",
-    python_requires=">=3.10",
-    install_requires=parse_requirements(repo_root / "dependencies" / "requirements.txt"),
+    python_requires=">=3.11",
+    install_requires=parse_requirements(repo_root / requirements),
     extras_require={
-        "extra": parse_requirements(repo_root / "dependencies" / "requirements-extra.txt"),
+        "extra": parse_requirements(repo_root / requirements_extra),
     },
-    include_package_data=True,
+    package_data={"": ["*.json", "*.h", "*.js"]},
     entry_points={
         "console_scripts": ["htc=htc.cli:main"],
     },
@@ -127,5 +123,5 @@ setup(
             extra_compile_args=compiler_flags,
         )
     ],
-    cmdclass={"build_ext": cpp_extension.BuildExtension},
+    cmdclass={"build_ext": cpp_extension.BuildExtension, "sdist": ExtendedSdist},
 )
