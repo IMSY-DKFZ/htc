@@ -107,7 +107,8 @@ if __name__ == "__main__":
             " transformations. This is an alternative to the run_ttt.py and run_experiment.py scripts and is much"
             " faster because it loads the data only once and performs all transformations and evaluations on the GPU."
             " However, it is limited to the isolation transformations and the DSC metric."
-        )
+        ),
+        default_output_to_run_dir=True,
     )
     runner.add_argument("--test")
     runner.add_argument(

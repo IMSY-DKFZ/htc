@@ -19,7 +19,8 @@ if __name__ == "__main__":
     runner = Runner(
         description=(
             "Create a test table for one of the datasets used in the context problem (e.g. masks isolation dataset)."
-        )
+        ),
+        default_output_to_run_dir=True,
     )
     runner.add_argument("--test")
     runner.add_argument("--metrics")

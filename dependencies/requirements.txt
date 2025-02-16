@@ -1,4 +1,4 @@
-numpy
+numpy>=2  # Older numpy versions do not provide Python 3.13 wheels
 scipy
 scikit-learn
 Pillow

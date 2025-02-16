@@ -30,7 +30,7 @@ def parse_requirements(requirements_file: Path) -> list[str]:
     """
     req = []
 
-    for line in requirements_file.read_text().splitlines():
+    for line in requirements_file.read_text("utf-8").splitlines():
         match = re.search(r"^\w+[^+@]*", line)
         if match is not None:
             lib = match.group(0)
@@ -49,7 +49,7 @@ def parse_readme(readme_file: Path) -> str:
 
     Returns: Readme as string with adjusted links.
     """
-    readme = readme_file.read_text()
+    readme = readme_file.read_text("utf-8")
 
     # Make local anchors and links to files absolute since they don't work on PyPi
     readme = re.sub(r"\(\./([^)]+)\)", r"(https://github.com/IMSY-DKFZ/htc/tree/main/\1)", readme)

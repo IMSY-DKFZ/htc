@@ -25,7 +25,7 @@ from htc.utils.type_from_string import variable_from_string
 
 
 class Runner:
-    def __init__(self, description: str) -> None:
+    def __init__(self, description: str, default_output_to_run_dir: bool = False) -> None:
         r"""
         Helper class to start the producer and the consumers to operate on predictions of images.
 
@@ -53,7 +53,9 @@ class Runner:
 
         Args:
             description: Short description of what the script is doing. Will be added to the help message.
+            default_output_to_run_dir: If set to True and --output-dir is not given, the results will be stored in the run directory. Otherwise, the results will be stored in the default results directory. If the script generates tables (e.g., test_table.pkl.xz) which should usually be stored in the run directory, set this to True.
         """
+        self.default_output_to_run_dir = default_output_to_run_dir
         self.parser = argparse.ArgumentParser(
             description=(
                 "Calculate the inference for a trained (potentially be downloaded) model for a set of images. Script"
@@ -143,7 +145,7 @@ class Runner:
             "--output-dir",
             type=Path,
             default=None,
-            help="Output directory where the generated files should be stored. Subfolders for the model and run_folder will be created. In case of nested cross-validation, the first run folder name will be used.",
+            help=f"Output directory where the generated files should be stored. Subfolders for the model and run_folder will be created. In case of nested cross-validation, the first run folder name will be used. If not given, generated files will be stored in the {'run' if self.default_output_to_run_dir else 'default results'} directory.",
         )
         self.parser.add_argument(
             "--spec",
@@ -282,18 +284,20 @@ class Runner:
     @property
     def output_dir(self) -> Path:
         """
-        Returns: Path to the output directory where the results should be stored. If the --output-dir argument is given, the results will be stored in this directory (with subfolders for model and run_folder). Otherwise, the results will be stored in the run directory.
+        Returns: Path to the output directory where the results should be stored. If the --output-dir argument is given, the results will be stored in this directory (with subfolders for model and run_folder). Otherwise, the results will be stored either in the default results directory or in the run directory (depending on self.default_output_to_run_dir).
         """
         run_dir = self.run_dir[0] if isinstance(self.run_dir, list) else self.run_dir
 
         if self.args.output_dir is not None:
             output_dir: Path = self.args.output_dir / run_dir.parent.name / run_dir.name
             output_dir.mkdir(parents=True, exist_ok=True)
-        else:
+        elif self.default_output_to_run_dir:
             output_dir = run_dir
             if isinstance(output_dir, MultiPath):
                 # New results should be stored in the run directory
                 output_dir.set_default_location(output_dir.find_best_location())
+        else:
+            output_dir = settings.results_dir
 
         return output_dir
 

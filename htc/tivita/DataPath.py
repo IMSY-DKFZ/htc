@@ -78,7 +78,7 @@ class DataPath:
 
         It is possible to select the annotation already as part of the image name to make it the default:
         >>> path = DataPath.from_image_name("P091#2021_04_24_12_02_50@polygon#annotator2")
-        >>> np.all(seg2 == path.read_segmentation())
+        >>> np.all(seg2 == path.read_segmentation()).item()
         True
 
         Datasets can also define a default annotation name which, if available, will be used if no name is given:
@@ -791,7 +791,7 @@ class DataPath:
         if calc_nir is not None and detect_background is not None:
             with np.errstate(divide="ignore", invalid="ignore"):
                 cube = self.read_cube() if cube is None else cube
-                param = np.nan_to_num(np.rot90(calc_nir(cube), k=-1), copy=False)
+                param = np.nan_to_num(np.rot90(calc_nir(cube), k=-1), copy=False).astype(np.float32)
                 background = np.rot90(detect_background(cube), k=-1)
 
                 return np.ma.MaskedArray(param, background == 0, fill_value=0)
@@ -1413,7 +1413,7 @@ class DataPath:
         'data'
 
         Args:
-            data_dir: The path where the data is stored. The data folder should contain a dataset_settings.json file.
+            data_dir: The path where the data is stored. The data folder should contain a dataset_settings.json file. It is also possible to pass the path to the dataset (with subfolders data and intermediates).
             filters: List of filters which can be used to alter the set of images returned by this function. Every filter receives a DataPath instance and the instance is only yielded when all filter return True for this path.
             annotation_name: Include only paths with this annotation name and use it as default in read_segmentation(). Must either be a lists of annotation names or as string in the form name1&name2 (which will automatically be converted to ['name1', 'name2']). If None, no default annotation name will be set and no images will be filtered by annotation name.
             follow_links: If set to True and the data directory contains a `path_links.json` links files, include all paths which are listed in this file as well. Be aware that this might lead to duplicate paths if you combine the result of this iterate with the result of a dataset where the links point to.
@@ -1424,6 +1424,11 @@ class DataPath:
 
         dsettings = DatasetSettings(data_dir / "dataset_settings.json")
         DataPathClass = dsettings.data_path_class()
+
+        if DataPathClass is None and (data_dir / "data").exists():
+            yield from DataPath.iterate(data_dir / "data", filters, annotation_name, follow_links)
+            return
+
         if DataPathClass is None:
             # The user may provide a subpath to the dataset, e.g. DataPath.iterate(settings.data_dirs.sepsis_ICU / "calibrations")
             # In this case, we still want to use the DataPathSepsisICU class which is specified in the dataset_settings.json file in the root data directory
@@ -1443,18 +1448,6 @@ class DataPath:
                         parts.pop()
 
         if DataPathClass is None:
-            if (
-                not (data_dir / "dataset_settings.json").exists()
-                and (data_dir / "data").exists()
-                and not data_dir.name.startswith("Cat_")
-            ):
-                settings.log.warning(
-                    f"No dataset_settings.json file found in the data directory {data_dir} but the subdirectory data"
-                    " exists in this directory. For the default datasets, please point data_dir to the data"
-                    " subdirectory of the dataset, e.g. ~/htc/2021_02_05_Tivita_multiorgan_semantic/data"
-                    " (=settings.data_dirs.semantic)"
-                )
-
             from htc.tivita.DataPathTivita import DataPathTivita
 
             DataPathClass = DataPathTivita

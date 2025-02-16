@@ -57,7 +57,7 @@ def confusion_matrix_groups(
     subject_names = np.array([image_name.split("#")[0] for image_name in image_names])
     result = {}
 
-    for subject_name in np.unique(subject_names):
+    for subject_name in np.unique(subject_names).tolist():
         result[subject_name] = confusion_matrix(
             predictions[subject_names == subject_name],
             labels[subject_names == subject_name],

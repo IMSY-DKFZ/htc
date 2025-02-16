@@ -280,7 +280,10 @@ class TableTestPredictor(EvaluationMixin, TestPredictor):
 
 
 if __name__ == "__main__":
-    runner = Runner(description="Re-create the test or validation table for a run with all requested metrics.")
+    runner = Runner(
+        description="Re-create the test or validation table for a run with all requested metrics.",
+        default_output_to_run_dir=True,
+    )
     runner.add_argument("--test")
     runner.add_argument("--test-looc")
     runner.add_argument("--metrics")

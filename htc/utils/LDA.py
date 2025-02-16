@@ -31,7 +31,7 @@ def LDA(data: np.ndarray, labels: np.ndarray) -> tuple[np.ndarray, np.ndarray, n
     array([1., 0.])
     >>> coeff[:, 0]  # First eigenvector
     array([ 0.24558339, -0.96937547])
-    >>> proj[0, 0]  # Projection of the first data point
+    >>> proj[0, 0].item()  # Projection of the first data point
     -1.6931675538135342
     >>> np.matmul(
     ...     [[1, 2], [1.5, 1.5]], coeff[:, 0]

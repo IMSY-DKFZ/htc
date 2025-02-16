@@ -276,8 +276,14 @@ class StandardizeHSI(HTCTransformation):
         else:
             raise ValueError(f"Could not map the number of input channels {config['input/n_channels']} to any modality")
 
-        self.mean = params[f"{modality}_{stype}_mean"].astype(np.float32)
-        self.std = params[f"{modality}_{stype}_std"].astype(np.float32)
+        if stype == "pixel":
+            self.mean = params[f"{modality}_{stype}_mean"].item()
+            self.std = params[f"{modality}_{stype}_std"].item()
+        elif stype == "channel":
+            self.mean = torch.from_numpy(params[f"{modality}_{stype}_mean"].astype(np.float32))
+            self.std = torch.from_numpy(params[f"{modality}_{stype}_std"].astype(np.float32))
+        else:
+            raise ValueError(f"Unknown stype {stype}")
 
     def __call__(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         batch["features"] = (batch["features"] - self.mean) / self.std
@@ -285,7 +291,10 @@ class StandardizeHSI(HTCTransformation):
         return batch
 
     def __repr__(self) -> str:
-        return f"StandardizeHSI(mean.shape={self.mean.shape})"
+        if isinstance(self.mean, torch.Tensor):
+            return f"StandardizeHSI(mean.shape={self.mean.shape})"
+        else:
+            return f"StandardizeHSI(mean={self.mean}, std={self.std})"
 
 
 class StandardNormalVariate(HTCTransformation):

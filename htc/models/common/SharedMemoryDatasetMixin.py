@@ -166,7 +166,7 @@ class SharedMemoryDatasetMixin:
                 f"Failed to pin the memory for the tensor {name}. Unfortunately, the reason for this error is not always obvious. One problem may be if the tensor size is to large. The size of the requested tensor is {(tensor.numel() * tensor.element_size()) // 2**20} MiB (a possible solution is to reduce the batch size or the number of workers). Tried to unregister the tensor: error_code={unregister_res.value}, error_name={unregister_res.name}"
             )
         assert res.value == 0 and res.name == "success", (
-            f"Cannot pin memory tensor {name}: error_code={res.value}, error_name={res.name}"
+            f"Cannot pin memory tensor {name} of dtype {tensor.dtype} and shape {tensor.shape}: error_code={res.value}, error_name={res.name}"
         )
         assert tensor.is_pinned() and tensor.is_shared(), "Each tensor should be shared and pinned"
         assert tensor.is_contiguous(), "Each tensor should be contiguous in memory (otherwise data pointer cannot work)"

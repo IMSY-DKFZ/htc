@@ -4,6 +4,7 @@
 import logging
 import re
 import shutil
+import warnings
 from pathlib import Path
 
 import pytest
@@ -194,7 +195,13 @@ class TestHTCModel:
     def test_links_accessible(self) -> None:
         for name, info in HTCModel.known_models.items():
             assert info["url"].endswith(".zip"), name
-            assert requests.head(info["url"]).status_code == 200, name
+            req = requests.head(info["url"])
+            if req.status_code != 200:
+                # No failure because the server may be down
+                warnings.warn(
+                    f"The link {name} returned a status code of: {req.status_code}\nPlease check the link manually",
+                    stacklevel=2,
+                )
 
     @pytest.mark.parametrize(
         "model_name, ModelClass, input_shape",

@@ -26,8 +26,9 @@ class NSDToleranceEstimation:
         ... # doctest: +NORMALIZE_WHITESPACE
         array([array([0., 0., 1., 0., 1., 0.]), array([1., 0., 0., 0., 1., 0.])],
         dtype=object)
-        >>> estimator.class_tolerances(np.mean)[0]
-        [0.3333333333333333, 0.3333333333333333]
+        >>> class1, class2 = estimator.class_tolerances(np.mean)[0]
+        >>> class1.item(), class2.item()
+        (0.3333333333333333, 0.3333333333333333)
 
         Args:
             n_classes: The number of classes in the dataset.

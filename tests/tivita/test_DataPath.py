@@ -59,17 +59,6 @@ class TestDataPath:
         assert path_single.subject_folder == "P002_OP002_2018_08_06_Experiment1"
         assert path_single.organ_folder == "Cat_0001_stomach"
 
-    def test_iterate_warning(self, tmp_path: Path, caplog: LogCaptureFixture) -> None:
-        paths = list(DataPath.iterate(tmp_path))
-        assert len(paths) == 0
-        assert len(caplog.records) == 0
-
-        data_dir = tmp_path / "data"
-        data_dir.mkdir(parents=True, exist_ok=True)
-        paths = list(DataPath.iterate(tmp_path))
-        assert len(paths) == 0
-        assert len(caplog.records) == 1 and "subdirectory data exists" in caplog.records[0].msg
-
     def test_sorted_train(self) -> None:
         files_multi = list(DataPath.iterate(settings.data_dirs.semantic, filters=[filter_train]))
         files_multi2 = list(DataPath.iterate(settings.data_dirs.semantic, filters=[filter_train]))
@@ -537,3 +526,10 @@ class TestDataPath:
 
         names_table = df["image_name"] + "@" + df["annotation_name"]
         assert set(names_table) == names
+
+    def test_dataset_or_data_dir(self) -> None:
+        paths_data = list(DataPath.iterate(settings.data_dirs.semantic))
+        paths_dataset = list(DataPath.iterate(settings.datasets.semantic["path_dataset"]))
+
+        assert type(paths_data[0]) == type(paths_dataset[0]) == DataPathMultiorgan
+        assert paths_data == paths_dataset
