@@ -27,10 +27,11 @@ class VariableGeneration:
             + "}"
         )
 
-        df_phys = self.df[self.df.baseline_dataset | self.df.standardized_recordings]
-        df_mal = self.df[~(self.df.baseline_dataset | self.df.standardized_recordings)]
+        df_phys = self.df[self.df.baseline_dataset]
+        assert (df_phys["perfusion_state"] == "physiological").all()
 
-        self.vars["varTotalImagesPhys"] = "\\num{" + f"{df_phys['image_name'].nunique()}" + "}"
+        df_mal = self.df[self.df["perfusion_state"] == "malperfused"]
+        df_icg = self.df[self.df["perfusion_state"] == "icg"]
 
         for species in settings_species.species_colors.keys():
             df_species = self.df[self.df.species_name == species]
@@ -43,6 +44,9 @@ class VariableGeneration:
 
             self.vars[f"varTotalImagesMal{species.capitalize()}"] = (
                 "\\num{" + f"{df_mal[df_mal.species_name == species]['image_name'].nunique()}" + "}"
+            )
+            self.vars[f"varTotalImagesICG{species.capitalize()}"] = (
+                "\\num{" + f"{df_icg[df_icg.species_name == species]['image_name'].nunique()}" + "}"
             )
 
     def baseline_performance_scores(self) -> None:

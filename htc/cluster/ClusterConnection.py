@@ -45,7 +45,11 @@ class ClusterConnection:
         self.environment_names = {}
 
         if dataset_names is None:
-            dataset_names = settings.datasets.dataset_names
+            dataset_names = [
+                name
+                for name in settings.datasets.dataset_names
+                if settings.datasets.get(name, local_only=True) is not None
+            ]
 
         # For the overlapping datasets, we also need the linked datasets
         if (
@@ -60,13 +64,15 @@ class ClusterConnection:
             dataset_names.append("2021_02_05_Tivita_multiorgan_semantic")
 
         for name in dataset_names:
-            entry = settings.datasets[name]
+            entry = settings.datasets.get(name, local_only=True)
+            assert entry is not None, (
+                f"Cannot continue because the dataset {name} is not available locally but is needed for the requested operation"
+            )
 
             self.cluster_dataset_dirs[name] = self.shared_folder / name
-            if entry["location"] == "local":
-                self.local_dataset_dirs[name] = entry["path_dataset"]
-                self.network_dataset_dirs[name] = settings.datasets.network_location(name, path_data=False)
-                self.environment_names[name] = entry["env_name"]
+            self.local_dataset_dirs[name] = entry["path_dataset"]
+            self.network_dataset_dirs[name] = settings.datasets.network_location(name, path_data=False)
+            self.environment_names[name] = entry["env_name"]
 
         # skip syncing the directories which contains the following keywords in the intermediates directory
         self.skip_intermediate_dirs = ["view_"]

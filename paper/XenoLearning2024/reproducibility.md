@@ -23,7 +23,7 @@ export PATH_Tivita_multiorgan_rat=~/htc/2023_12_07_Tivita_multiorgan_rat
 
 > If you are already using this repository, it is recommend to clone it to a new folder and use a fresh conda environment. Existing results folder should not be available for the reproduction.
 
-You also need access to the cluster, i.e. `ssh $DKFZ_USERID@$WORKER_NODE` should work (cf. our [cluster documentation](../../htc/cluster/cluster_usage.md) for more details).
+You also need access to the cluster, i.e. `ssh $DKFZ_USERID@$WORKER_NODE` should work (cf. our [cluster documentation](../../htc/cluster/README.md) for more details).
 
 > Please use a `screen` environment for all of the following commands since they may take a while to complete.
 
@@ -73,11 +73,12 @@ htc table_generation
 
 ## Inference
 
-The trained networks are stored in `$PATH_HTC_RESULTS/training/image` and all run directories will start with the same timestamp (e.g., `2024-09-11_00-11-38`). Use your new timestamp to run inference on the test datasets for all trained networks
+The trained networks are stored in `$PATH_HTC_RESULTS/training/image` and all run directories will start with the same timestamp (e.g., `2025-03-09_19-38-10`). Use your new timestamp to run inference on the test datasets for all trained networks
 
 ```bash
 htc physiological_scores --timestamp "<YOUR_TIMESTAMP>"
 htc perfusion_scores --timestamp "<YOUR_TIMESTAMP>"
+htc icg_scores --timestamp "<YOUR_TIMESTAMP>"
 ```
 
 ## Figures

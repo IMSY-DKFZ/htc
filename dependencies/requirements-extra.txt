@@ -10,7 +10,6 @@ scikit-image
 openpyxl
 statsmodels
 iterative-stratification
-fastkde
 
 --extra-index-url https://read_package:CnzBrgDfKMWS4cxf-r31@git.dkfz.de/api/v4/projects/15/packages/pypi/simple
 challenger-pydocker

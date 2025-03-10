@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import copy
 from collections.abc import Callable
 from datetime import datetime
 
@@ -45,6 +46,7 @@ class RunGenerator:
             "Only configuration objects which were loaded from a file can be used for run generation (because only then"
             " the config_name is set)"
         )
+        config = copy.copy(config)  # Our changes happen in-place and we don't want to modify the original config
         base_name = config["config_name"]
 
         for adjuster in config_adjustments:

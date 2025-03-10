@@ -7,6 +7,7 @@ default:
 stages:
   - build
   - test
+  - pages
   - deploy
 
 build-docker:
@@ -60,6 +61,23 @@ test-sdist:
       cd /home &&
       conda run --no-capture-output --name htc_test py.test --doctest-modules --import-mode=importlib --collect-only --pyargs "htc" "htc_projects"' || exit_code=$?
     - if [ ${exit_code:-0} -ne 0 ]; then echo "Installation of the source distribution failed. Similar to test-package, this can be due to import issues or an issue with the source distribution itself" && exit 1; fi;
+
+pages:
+  stage: pages
+  script:
+    - docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml build
+    - >
+      docker compose -f dependencies/docker-compose.yml -f gitlab_runner/docker-compose.yml run --rm htc bash -c '
+      pip install -r /home/src/dependencies/requirements-docs.txt &&
+      cd /home/src/docs &&
+      export HTC_ADD_NETWORK_ALTERNATIVES="true" &&
+      mkdocs build' || exit_code=$?
+    - if [ ${exit_code:-0} -ne 0 ]; then echo "Building the documentation failed." && exit 1; fi;
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
 
 package:
   stage: deploy

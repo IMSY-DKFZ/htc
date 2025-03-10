@@ -6,16 +6,13 @@ from rich.progress import track
 
 from htc.tivita.DataPath import DataPath
 from htc.utils.Config import Config
-from htc.utils.LabelMapping import LabelMapping
 from htc_projects.species.apply_transforms_paths import apply_transforms_paths_median
 from htc_projects.species.settings_species import settings_species
 from htc_projects.species.tables import baseline_table
 
 if __name__ == "__main__":
     # Transform images and compute the median spectra to show that the xeno-learning method works
-    labels = settings_species.malperfused_labels
-    mapping = LabelMapping({l: i for i, l in enumerate(labels)})
-    df = baseline_table(mapping)
+    df = baseline_table(settings_species.label_mapping_organs)
 
     dfs = []
     for source_species, target_species in track(
@@ -23,14 +20,13 @@ if __name__ == "__main__":
     ):
         # Same settings as during training
         config = Config({
-            "label_mapping": mapping,
+            "label_mapping": settings_species.label_mapping_organs,
             "input/preprocessing": "L1",
             "input/n_channels": 100,
             "input/transforms_gpu": [
                 {
                     "class": "htc_projects.species.species_transforms>ProjectionTransform",
-                    "base_name": settings_species.species_projection[source_species],
-                    "target_labels": labels,
+                    "base_name": settings_species.species_malperfusion_projection[source_species],
                     "interpolation": True,
                     "p": 0.8,
                 }

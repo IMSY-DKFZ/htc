@@ -55,7 +55,15 @@ def nested_cv_adjustment(base_name: str, config: Config, nested_fold_index: int,
     return base_name + f"_nested-{nested_fold_index}-{max_nested_index}"
 
 
-def projection_adjustment(base_name: str, config: Config, source_species: str, **kwargs) -> str:
+def projection_adjustment(
+    base_name: str,
+    config: Config,
+    source_species: str,
+    projection_name: str,
+    projection_labels: list[str],
+    projection_task_name: str,
+    **kwargs,
+) -> str:
     config["input/transforms_gpu"] = [
         {
             "class": "KorniaTransform",
@@ -78,9 +86,9 @@ def projection_adjustment(base_name: str, config: Config, source_species: str, *
         },
         {
             "class": "htc_projects.species.species_transforms>ProjectionTransform",
-            "base_name": settings_species.species_projection[source_species],
+            "base_name": projection_name,
             "interpolate": True,
-            "target_labels": ["kidney"],
+            "target_labels": projection_labels,
             "p": 0.8,
         },
         {
@@ -92,7 +100,7 @@ def projection_adjustment(base_name: str, config: Config, source_species: str, *
         },
     ]
 
-    return base_name.replace("baseline_", f"projected_{source_species}2")
+    return base_name.replace("baseline_", f"projected-{projection_task_name}_{source_species}2")
 
 
 def joint_training_baseline_adjustment(base_name: str, config: Config, **kwargs) -> str:
@@ -127,8 +135,8 @@ if __name__ == "__main__":
         "baseline_rat",
         "baseline_human",
     ]:
+        config = Config(f"species/configs/{config_name}.json")
         for i in range(settings_species.n_nested_folds):
-            config = Config(f"species/configs/{config_name}.json")
             rg.generate_run(
                 config, config_adjustments=[nested_cv_adjustment], memory="16G", single_submit=True, nested_fold_index=i
             )
@@ -139,7 +147,7 @@ if __name__ == "__main__":
                 continue
 
             for i in range(settings_species.n_nested_folds):
-                config = Config(f"species/configs/{config_name}.json")
+                # Malperfusion experiments
                 rg.generate_run(
                     config,
                     config_adjustments=[nested_cv_adjustment, projection_adjustment],
@@ -147,11 +155,28 @@ if __name__ == "__main__":
                     single_submit=True,
                     nested_fold_index=i,
                     source_species=source_species,
+                    projection_name=settings_species.species_malperfusion_projection[source_species],
+                    projection_labels=settings_species.malperfused_labels,
+                    projection_task_name="malperfusion",
                 )
 
+                if target_species != "human":
+                    # ICG experiments
+                    rg.generate_run(
+                        config,
+                        config_adjustments=[nested_cv_adjustment, projection_adjustment],
+                        memory="16G",
+                        single_submit=True,
+                        nested_fold_index=i,
+                        source_species=source_species,
+                        projection_name=settings_species.species_icg_projection[source_species],
+                        projection_labels=settings_species.icg_labels,
+                        projection_task_name="ICG",
+                    )
+
     # Joint training for the human baseline run
+    config = Config("species/configs/baseline_human.json")
     for i in range(settings_species.n_nested_folds):
-        config = Config("species/configs/baseline_human.json")
         rg.generate_run(
             config,
             config_adjustments=[nested_cv_adjustment, joint_training_baseline_adjustment],

@@ -80,7 +80,7 @@ class Datasets:
 
         >>> from htc.settings import settings
         >>> [(name, entry["env_name"]) for name, entry in settings.datasets]  # doctest: +ELLIPSIS
-        [('2021_07_26_Tivita_multiorgan_human', 'PATH_Tivita_multiorgan_human'), ('2021_03_30_Tivita_studies', 'PATH_Tivita_studies'), ...]
+        [('2020_11_24_Tivita_sepsis_study', 'PATH_Tivita_sepsis_study'), ('2021_02_05_Tivita_multiorgan_semantic', 'PATH_Tivita_multiorgan_semantic'), ...]
 
         Yields: Tuple with name of the dataset folder and entry object.
         """

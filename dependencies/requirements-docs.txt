@@ -1,0 +1,5 @@
+mkdocs
+mkdocs-macros-plugin
+mkdocs-gen-files
+mkdocs-material
+mkdocs-glightbox

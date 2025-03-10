@@ -135,39 +135,8 @@ class DatasetSettings:
 
         Returns: Data path type or None if no match could be found.
         """
-        known_datasets = {}
-
         if "data_path_class" in self:
             DataPathClass = type_from_string(self["data_path_class"])
-        elif self.get("dataset_name", "") in known_datasets:
-            DataPathClass = type_from_string(known_datasets[self["dataset_name"]])
-        elif self._path is not None:
-            # Try to infer the data path class from the files in the directory
-            if self._path.is_file() or not self._path.exists():
-                dataset_dir = self._path.parent
-            else:
-                dataset_dir = self._path
-            assert dataset_dir.exists() and dataset_dir.is_dir(), f"The dataset directory {dataset_dir} does not exist"
-
-            files = [f for f in sorted(dataset_dir.iterdir()) if f.is_dir()]
-            if len(files) == 1 and files[0] == "subjects":
-                from htc.tivita.DataPathMultiorgan import DataPathMultiorgan
-
-                DataPathClass = DataPathMultiorgan
-            elif any(f.name.startswith("0") for f in files):
-                from htc.tivita.DataPathMultiorganCamera import DataPathMultiorganCamera
-
-                DataPathClass = DataPathMultiorganCamera
-            elif any(f.name == "sepsis_study" for f in files):
-                from htc.tivita.DataPathSepsis import DataPathSepsis
-
-                DataPathClass = DataPathSepsis
-            elif any(f.stem == "image_references" for f in files):
-                from htc.tivita.DataPathReference import DataPathReference
-
-                DataPathClass = DataPathReference
-            else:
-                DataPathClass = None
         else:
             DataPathClass = None
 

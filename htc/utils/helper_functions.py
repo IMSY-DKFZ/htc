@@ -43,12 +43,12 @@ def basic_statistics(
     ...     label_mapping=settings_seg.label_mapping,
     ... )
     >>> print(df.head().to_string())
-                     image_name  label_index        label_name  label_valid set_type subject_name            timestamp  n_pixels
-    0  P041#2019_12_14_12_00_16            0        background         True    train         P041  2019_12_14_12_00_16    158786
-    1  P041#2019_12_14_12_00_16            4             colon         True    train         P041  2019_12_14_12_00_16     67779
-    2  P041#2019_12_14_12_00_16            5       small_bowel         True    train         P041  2019_12_14_12_00_16     65634
-    3  P041#2019_12_14_12_00_16            9           bladder         True    train         P041  2019_12_14_12_00_16     10594
-    4  P041#2019_12_14_12_00_16           13  fat_subcutaneous         True    train         P041  2019_12_14_12_00_16      4251
+        annotation_name                image_name  label_index        label_name  label_valid set_type subject_name            timestamp  n_pixels
+    0  semantic#primary  P041#2019_12_14_12_00_16            0        background         True    train         P041  2019_12_14_12_00_16    158786
+    1  semantic#primary  P041#2019_12_14_12_00_16            4             colon         True    train         P041  2019_12_14_12_00_16     67779
+    2  semantic#primary  P041#2019_12_14_12_00_16            5       small_bowel         True    train         P041  2019_12_14_12_00_16     65634
+    3  semantic#primary  P041#2019_12_14_12_00_16            9           bladder         True    train         P041  2019_12_14_12_00_16     10594
+    4  semantic#primary  P041#2019_12_14_12_00_16           13  fat_subcutaneous         True    train         P041  2019_12_14_12_00_16      4251
 
     Args:
         dataset_name: Name of the dataset (folder name on the network drive).
@@ -67,7 +67,7 @@ def basic_statistics(
         label_mapping=label_mapping,
         annotation_name=annotation_name,
     )
-    df = df_median[["image_name", "subject_name", "timestamp", "label_name", "n_pixels"]].copy()
+    df = df_median[["image_name", "annotation_name", "subject_name", "timestamp", "label_name", "n_pixels"]].copy()
 
     # Add a set_type column based on the data specification file
     if spec is not None:

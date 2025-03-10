@@ -32,6 +32,8 @@ repos:
     rev: v5.0.0
     hooks:
       - id: check-yaml
+        # mkdocs uses custom tags
+        args: [--unsafe]
       - id: check-toml
       - id: trailing-whitespace
       - id: check-case-conflict

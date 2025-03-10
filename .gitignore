@@ -630,8 +630,7 @@ local_runs*.sh
 docker-compose.override.yml
 
 *.html
-/lab
-/migrated
+docs/site
 
 # Avoid binary files to be committed accidentally
 *.npy

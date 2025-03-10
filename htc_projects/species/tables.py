@@ -1,13 +1,18 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+from functools import partial
+
 import numpy as np
 import pandas as pd
 
 from htc import median_table
 from htc.models.data.DataSpecification import DataSpecification
+from htc.settings import settings
+from htc.tivita.DataPath import DataPath
 from htc.utils.helper_functions import add_times_table, sort_labels
 from htc.utils.LabelMapping import LabelMapping
+from htc.utils.paths import filter_labels, filter_min_labels
 from htc_projects.atlas.tables import standardized_recordings
 from htc_projects.rat.tables import standardized_recordings_rat
 from htc_projects.species.settings_species import settings_species
@@ -24,9 +29,9 @@ def baseline_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
 
     Returns: Median spectra with species information.
     """
-    spec_pig = DataSpecification("pig_semantic-only_5folds_nested-0-2_mapping-12_seed-0.json")
-    spec_rat = DataSpecification("rat_semantic-only_5folds_nested-0-2_mapping-12_seed-0.json")
-    spec_human = DataSpecification("human_semantic-only_physiological-kidney_5folds_nested-0-2_mapping-12_seed-0.json")
+    spec_pig = DataSpecification(settings_species.spec_names["pig"].replace("nested-*", "nested-0"))
+    spec_rat = DataSpecification(settings_species.spec_names["rat"].replace("nested-*", "nested-0"))
+    spec_human = DataSpecification(settings_species.spec_names["human"].replace("nested-*", "nested-0"))
 
     dfs = []
     for spec, species_name in [(spec_pig, "pig"), (spec_rat, "rat"), (spec_human, "human")]:
@@ -52,7 +57,9 @@ def baseline_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
 
 def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     """
-    Load ischemic median spectra data from all species (species_name column). Physiological baseline images are included as well (baseline_dataset column) so that this table is the most comprehensive overview of available images.
+    Load ischemic median spectra data from all species (species_name column). Physiological baseline images are included as well (baseline_dataset column) so that this table is the most comprehensive overview of available images. Only the ICG images are not included (`icg_table()` can be used for this).
+
+    The `perfusion_state` column is available for all images and indicates whether an image is considered physiological or malperfused (or unclear). For animal data, a `phase_type` column is available which additionally indicates the type of ischemia.
 
     The diff_spectrum column contains the difference between the normalized median spectrum for each row and the physiological spectrum.
 
@@ -104,6 +111,13 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
 
         df["diff_spectrum"] = diff_spectra
 
+    phase_type_mapping = {
+        "physiological": "physiological",
+        "ischemia": "malperfused",
+        "stasis": "malperfused",
+        "avascular": "malperfused",
+    }
+
     dfk = median_table(
         dataset_name="2023_04_22_Tivita_multiorgan_kidney",
         annotation_name="semantic#primary",
@@ -115,6 +129,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
 
     dfk["phase_type"] = dfk["phase_type"].astype("category")
     dfk["phase_type"] = dfk["phase_type"].cat.set_categories(["physiological", "ischemia", "avascular", "stasis"])
+    dfk["perfusion_state"] = dfk["phase_type"].map(phase_type_mapping)
     dfk = sort_labels(dfk, sorting_cols=["label_name", "phase_type"])
     add_times_table(dfk, groups=["subject_name"])
     dfk.reset_index(drop=True, inplace=True)
@@ -128,6 +143,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     )
     add_times_table(dfa, groups=["subject_name"])
     dfa["species_name"] = "pig"
+    dfa["perfusion_state"] = dfa["phase_type"].map(phase_type_mapping)
 
     _add_diff_spectra(dfa)
 
@@ -138,15 +154,15 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     )
     add_times_table(dfr, groups=["subject_name"])
     dfr["species_name"] = "rat"
+    dfr["perfusion_state"] = dfr["phase_type"].map(phase_type_mapping)
 
     _add_diff_spectra(dfr)
 
     df_baseline = baseline_table(label_mapping=label_mapping)
+    df_baseline["perfusion_state"] = "physiological"
+    df_baseline["baseline_dataset"] = True
 
     dfh_phys = df_baseline[df_baseline["species_name"] == "human"].copy()
-    dfh_phys["perfusion_state"] = "physiological"
-    dfh_phys["baseline_dataset"] = True
-
     dfh_mal = median_table(
         dataset_name="2021_07_26_Tivita_multiorgan_human",
         annotation_name="polygon#malperfused",
@@ -186,17 +202,20 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     # Also add the other physiological images we have for pig and rat
     df_baseline_rest = df_baseline[df_baseline["species_name"] != "human"].copy()
     df_baseline_rest["phase_type"] = "physiological"
-    df_baseline_rest["baseline_dataset"] = True
     _add_diff_spectra(df_baseline_rest)
 
     df = pd.concat([dfk, dfa, dfr, dfh, df_baseline_rest], ignore_index=True)
     with pd.option_context("future.no_silent_downcasting", True):
         df["baseline_dataset"] = df["baseline_dataset"].fillna(False).astype(bool)
 
+    # Exclude images which are not suitable for our analysis
+    df = df[~df.image_name.isin(settings_species.excluded_images)].copy()
+
     # There may be multiple label names which get mapped to background and hence would have the same image_name and label_name in this table
     assert df[df.label_name != "background"].set_index(["image_name", "label_name"]).index.is_unique, (
         "There must be no overlap between the different tables"
     )
+    assert not pd.isna(df["perfusion_state"]).any(), "All images must have the perfusion_state column"
 
     return df
 
@@ -241,31 +260,114 @@ def ischemic_clear_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     return pd.concat([df_human, df_rat, df_pig], ignore_index=True)
 
 
+def icg_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
+    """
+    Load the ICG median spectra data from the pig and rat species (species_name column).
+
+    The resulting table contains a perfusion_state columns which indicates whether the image is subject to ICG or whether it is considered a physiological image (physiological reference images from the same time series are only available for rats).
+
+    Args:
+        label_mapping: Optional label mapping passed on to the median_table function.
+
+    Returns: The ICG median spectra data.
+    """
+    # Don't include data from subjects which are also part of the training
+    train_subjects = set(
+        baseline_table(label_mapping=label_mapping).query("species_name == 'pig'").subject_name.unique()
+    )
+    filter_subjects = lambda p: p.subject_name not in train_subjects
+
+    filters = [filter_subjects]
+    if label_mapping is not None:
+        filters.append(partial(filter_labels, mapping=label_mapping))
+    else:
+        filters.append(filter_min_labels)
+
+    paths = list(DataPath.iterate(settings.data_dirs.icg_pig, filters=filters))
+    df_pig = median_table(paths=paths, label_mapping=label_mapping, keep_mapped_columns=False)
+    df_pig["species_name"] = "pig"
+    df_pig["perfusion_state"] = "icg"
+
+    assert not pd.isna(df_pig["icg"]).any()
+
+    # Expand icg column
+    df_icg = pd.json_normalize(df_pig["icg"])
+    df_icg.columns = [f"icg_{col}" for col in df_icg.columns]
+
+    # The pig data is already confirmed to be clear cases with ICG
+    df_icg["icg_clear"] = True
+    df_pig = pd.concat([df_pig, df_icg], axis=1)
+
+    df_rat = median_table(
+        dataset_name="2023_12_07_Tivita_multiorgan_rat#ICG_experiments",
+        label_mapping=label_mapping,
+        keep_mapped_columns=False,
+    )
+    df_icg = pd.json_normalize(df_rat["icg"])
+    df_icg.columns = [f"icg_{col}" for col in df_icg.columns]
+
+    # The rat data contains time series ICG data and we consider 10 minutes after the ICG injection as clear cases
+    df_icg["icg_clear"] = df_icg.icg_seconds_after_dose.apply(lambda x: np.min(x) <= 600)
+    df_rat = pd.concat([df_rat, df_icg], axis=1)
+
+    df_rat["species_name"] = "rat"
+
+    states = []
+    for _, row in df_rat.iterrows():
+        if pd.isna(row["icg"]):
+            states.append("physiological")
+        else:
+            states.append("icg")
+
+    df_rat["perfusion_state"] = states
+
+    df = pd.concat([df_pig, df_rat], ignore_index=True)
+    df["icg_last_injection"] = df.icg_seconds_after_dose.apply(np.min)
+    df["icg_series"] = df.icg_seconds_after_dose.apply(lambda x: x if type(x) == float else len(x))
+    df["baseline_dataset"] = False
+    df = df.convert_dtypes()
+
+    assert not df[df.perfusion_state == "physiological"].icg_clear.any(), (
+        "Physiological data must never be clear ICG data"
+    )
+
+    return df
+
+
 def paper_table() -> pd.DataFrame:
     """
     Complete table which includes all data which is used in the paper.
 
     Returns: Median spectra table from all images.
     """
-    # Figure 7 shows all baseline data, Figure 8 all kidney data
-    df = ischemic_table(settings_species.label_mapping)
-    df = df[df.baseline_dataset | df.label_name.isin(settings_species.malperfused_labels)].copy()
-    df["standardized_recordings"] = False
+    # All baseline data from the networks + the malperfused data + the ICG data
+    df_mal = ischemic_table(settings_species.label_mapping)
+    df_mal = df_mal[
+        df_mal.baseline_dataset | df_mal.label_name.isin(settings_species.malperfused_labels_extended)
+    ].copy()
+    df_mal["standardized_recordings"] = False
 
-    # LMM data
+    df_icg = icg_table()
+    df_icg = df_icg[(df_icg["perfusion_state"] == "icg") & (df_icg.label_name.isin(settings_species.icg_labels))]
+    df_icg["standardized_recordings"] = False
+
+    # LMM data (extended data figure)
     label_mapping = settings_species.label_mapping_organs
     df_pig = standardized_recordings()
     df_pig["species_name"] = "pig"
     df_pig["baseline_dataset"] = False
     df_pig["standardized_recordings"] = True
+    df_pig["perfusion_state"] = "physiological"
     df_pig = df_pig.query("label_name in @label_mapping.label_names()").copy()
+
     df_rat = standardized_recordings_rat(label_mapping=label_mapping, Camera_CamID="0202-00118")
     df_rat["species_name"] = "rat"
     df_rat["baseline_dataset"] = False
     df_rat["standardized_recordings"] = True
+    df_rat["perfusion_state"] = "physiological"
 
-    names = set(df.image_name)
+    names = set(df_mal.image_name).union(set(df_icg.image_name))
     df_pig = df_pig[~df_pig.image_name.isin(names)]
     df_rat = df_rat[~df_rat.image_name.isin(names)]
 
-    return pd.concat([df, df_pig, df_rat], ignore_index=True)
+    return pd.concat([df_mal, df_icg, df_pig, df_rat], ignore_index=True)

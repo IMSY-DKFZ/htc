@@ -879,8 +879,9 @@ def create_median_spectra_comparison_figure(
 
     if n_missing != 0:
         # Manually add the x-axis ticks to the plots in the last rows
-        fig.update_xaxes(showticklabels=False)
         ticks = [600, 700, 800, 900]
+        fig.update_xaxes(showticklabels=False, tickvals=ticks)
+
         for i in range(n_missing):
             fig.update_xaxes(
                 tickmode="array",
@@ -902,6 +903,8 @@ def create_median_spectra_comparison_figure(
                 col=i + 1,
             )
 
+    fig.update_xaxes(zeroline=False)
+    fig.update_yaxes(zeroline=False)
     fig.update_layout(
         title="Spectra for organs and cameras (with inter-pig deviation)",
         title_x=0.5,
@@ -2591,15 +2594,15 @@ def boxplot_symbols(
         "triangle-down",
         "triangle-left",
         "triangle-right",
-        "triangle-ne",
-        "triangle-se",
-        "triangle-sw",
-        "triangle-nw",
-        "pentagon",
         "star",
-        "star-diamond",
-        "diamond-tall",
         "diamond-wide",
+        "diamond-tall",
+        "hourglass",
+        "bowtie",
+        "pentagon",
+        "triangle-ne",
+        "star-diamond",
+        "triangle-se",
     ]
 
     if box_index == 0:

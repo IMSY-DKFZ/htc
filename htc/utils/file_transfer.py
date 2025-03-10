@@ -4,6 +4,8 @@
 import subprocess
 from pathlib import Path
 
+import pandas as pd
+
 from htc.settings import settings
 
 
@@ -73,3 +75,25 @@ def upload_content_s3(content: str, remote_path: str) -> str:
     assert res.returncode == 0, f"Could not upload the content to the remote file {remote_path} on the DKFZ S3 storage"
 
     return f"https://e130-hyperspectal-tissue-classification.s3.dkfz.de/{remote_path}"
+
+
+def list_files_s3(remote_path: str) -> list[str]:
+    """
+    Lists all files in the given remote path on our S3 storage.
+
+    Compared to the upload methods, this function does not require any special setup.
+
+    Args:
+        remote_path: Relative path in our vault.
+
+    Returns: A list of all files in the remote path with their full URL.
+    """
+    root = "https://e130-hyperspectal-tissue-classification.s3.dkfz.de"
+    df = pd.read_xml(
+        root, parser="etree", xpath=".//doc:Contents", namespaces={"doc": "http://s3.amazonaws.com/doc/2006-03-01/"}
+    )
+    df = df[df["Key"].str.startswith(remote_path)]
+
+    files_remote = [f"{root}/{f}" for f in df["Key"]]
+
+    return files_remote

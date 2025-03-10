@@ -333,7 +333,11 @@ class LabelMapping:
             data_dir: Path to the data directory which must contain a dataset_settings.json file.
         """
         dsettings = DatasetSettings(data_dir)
-        return cls(dsettings["label_mapping"], dsettings["last_valid_label_index"])
+        kwargs = {}
+        if "label_colors" in dsettings:
+            kwargs["label_colors"] = dsettings["label_colors"]
+
+        return cls(dsettings["label_mapping"], dsettings["last_valid_label_index"], **kwargs)
 
     @classmethod
     def from_config(cls, config: Config, task: Task = None, image_label_entry_index: int = 0) -> Self:

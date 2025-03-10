@@ -83,7 +83,8 @@ lint.ignore = [
   "NPY002",  # Requires manual changes and testing
   "PERF401", # May lead to too complex code
   "RUF001",  # Explicitly intended
-  "RUF003",  # Same
+  "RUF002",  # Usually no problem and can be intended (e.g., narrow non-breaking space)
+  "RUF003",  # Explicitly intended
   "RUF013",  # Produces unnecessary complexity
   "UP031",   # % formatting can be easier with JS string code
 ]
@@ -117,6 +118,7 @@ serial_notebooks = [
   "paper/MICCAI2023/OrganTransplantationExample.ipynb",
   "paper/MIA2024/ExamplePredictions.ipynb",
   "paper/MIA2024/BootstrapRanking.ipynb",
+  "paper/XenoLearning2024/ExamplePredictions.ipynb",
 ]
 # These notebooks must be skipped during testing due to missing files etc.
 blacklisted_notebooks = [

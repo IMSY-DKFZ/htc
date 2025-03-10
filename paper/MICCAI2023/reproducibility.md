@@ -21,7 +21,7 @@ export PATH_HTC_RESULTS=~/htc/results
 
 > If you are already using this repository, it is recommend to clone it to a new folder and use a fresh conda environment. Existing results folder should not be available for the reproduction.
 
-You also need access to the cluster, i.e. `ssh $DKFZ_USERID@$WORKER_NODE` should work (cf. our [cluster documentation](../../htc/cluster/cluster_usage.md) for more details). You may want to run the (short) tests to ensure that everything works (cf. [README](../../README.md)).
+You also need access to the cluster, i.e. `ssh $DKFZ_USERID@$WORKER_NODE` should work (cf. our [cluster documentation](../../htc/cluster/README.md) for more details). You may want to run the (short) tests to ensure that everything works (cf. [README](../../README.md)).
 
 > Please use a `screen` environment for all of the following commands since they may take a while to complete.
 

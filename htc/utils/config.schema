@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$comment": "This schema file defines the common structure of the config files used in this repository. It is not a complete list but describes the most important properties.",
+    "$comment": "This manually created schema file defines the common structure of the config files used in this repository. It is not a complete list but describes the most important properties.",
     "type": "object",
     "properties": {
         "inherits": {

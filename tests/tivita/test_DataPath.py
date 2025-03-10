@@ -533,3 +533,8 @@ class TestDataPath:
 
         assert type(paths_data[0]) == type(paths_dataset[0]) == DataPathMultiorgan
         assert paths_data == paths_dataset
+
+    def test_iterate_calibration_files(seldf) -> None:
+        # Should not collect calibration files
+        paths = list(DataPath.iterate(settings.data_dirs.studies / "white_balances"))
+        assert len(paths) == 1 and "pre-calibration" in str(paths[0]())

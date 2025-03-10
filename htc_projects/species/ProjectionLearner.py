@@ -15,7 +15,7 @@ class ProjectionLearner(nn.Module):
         """
         This class can be used to learn a projection matrix that maps the spectra from one image to the spectra of another image. This is useful if the images show the same object but in different stats, for example physiological and ischemic states.
 
-        The number of pixels do not have to be the same in both images since this optimization is carried out indirectly by enforcing that the mean and standard deviation of the spectra as well as the histogram of values are similar in both images. See the ProjectionExample.ipynb notebook for an example of the usage of this class.
+        The number of pixels do not have to be the same in both images since this optimization is carried out indirectly by enforcing that the mean and standard deviation of the spectra are similar in both images. See the ProjectionExample.ipynb notebook for an example of the usage of this class.
 
         Args:
             config: The configuration object which is used to load the spectral data and the valid pixels.
@@ -49,23 +49,14 @@ class ProjectionLearner(nn.Module):
         optimizer = torch.optim.Adam(self.parameters(), lr=0.01)
         mse_loss = torch.nn.MSELoss()
 
-        min_hist = spectra_to.min()
-        max_hist = spectra_to.max()
-        n_bins = 50
-        hist_to = torch.histc(spectra_to, bins=n_bins, min=min_hist, max=max_hist) / spectra_to.numel()
-
         spectra_to_mean = spectra_to.mean(dim=0)
         spectra_to_std = spectra_to.std(dim=0)
 
         for _ in range(n_steps):
             spectra_transformed = self(spectra_from)
-            hist_transformed = (
-                torch.histc(spectra_transformed, bins=n_bins, min=min_hist, max=max_hist) / spectra_transformed.numel()
-            )
 
             loss = mse_loss(spectra_transformed.mean(dim=0), spectra_to_mean)
             loss += mse_loss(spectra_transformed.std(dim=0), spectra_to_std)
-            loss += mse_loss(hist_transformed, hist_to)
 
             loss.backward()
             optimizer.step()

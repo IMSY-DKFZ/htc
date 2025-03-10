@@ -44,11 +44,17 @@ def test_ischemic_table() -> None:
     paths += list(DataPath.iterate(settings.data_dirs.rat / "perfusion_experiments"))
     assert set(df_ischemic.query("species_name == 'rat'")["image_name"]) == {p.image_name() for p in paths}
 
+    excluded_images = set(settings_species.excluded_images)
+    filter_excluded = lambda p: p.image_name() not in excluded_images
     paths = list(
-        DataPath.iterate(settings.data_dirs.human, annotation_name="semantic#primary", filters=[mapping_filter])
+        DataPath.iterate(
+            settings.data_dirs.human, annotation_name="semantic#primary", filters=[mapping_filter, filter_excluded]
+        )
     )
     paths += list(
-        DataPath.iterate(settings.data_dirs.human, annotation_name="polygon#malperfused", filters=[mapping_filter])
+        DataPath.iterate(
+            settings.data_dirs.human, annotation_name="polygon#malperfused", filters=[mapping_filter, filter_excluded]
+        )
     )
     assert set(df_ischemic.query("species_name == 'human'")["image_name"]) == {p.image_name() for p in paths}
 

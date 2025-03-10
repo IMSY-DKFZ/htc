@@ -14,11 +14,12 @@ from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 from htc.utils.blosc_compression import compress_file
 from htc.utils.Config import Config
+from htc.utils.helper_functions import median_table
 from htc.utils.LabelMapping import LabelMapping
 from htc.utils.parallel import p_map
 from htc_projects.species.ProjectionLearner import ProjectionLearner
 from htc_projects.species.settings_species import settings_species
-from htc_projects.species.tables import ischemic_table
+from htc_projects.species.tables import icg_table, ischemic_table
 
 
 class ProjectionPairs:
@@ -27,64 +28,111 @@ class ProjectionPairs:
         self.highlights_threshold = highlights_threshold
         self.kidney_spec = kidney_spec
 
-    def compute_species_projections(self, species: str) -> None:
-        settings.log.info(f"Computing projections for the {species} species")
+    def compute_species_projections(self, species: str, data_type: str = "malperfusion") -> None:
+        assert data_type in ["malperfusion", "ICG"], f"Unknown data type: {data_type}"
+        settings.log.info(f"Computing {data_type} projections for the {species} species")
         variables = {}
         meta = {}
         df = ischemic_table()
 
         if species == "pig":
-            spec = DataSpecification(self.kidney_spec)
-            paths_kidney = spec.paths("train")
+            if data_type == "malperfusion":
+                spec = DataSpecification(self.kidney_spec)
+                paths_kidney = spec.paths("train")
 
-            phase_type_matrices, phase_type_meta = self.compute_phase_type_projections(paths_kidney, ["kidney"])
-            variables |= phase_type_matrices
-            meta |= phase_type_meta
+                phase_type_matrices, phase_type_meta = self.compute_phase_type_projections(paths_kidney, ["kidney"])
+                variables |= phase_type_matrices
+                meta |= phase_type_meta
 
-            df = df[
-                (df.species_name == species)
-                & (df.clamping_location == "aorta")
-                & (df.label_name.isin(settings_species.pig_aortic_labels))
-                & (df.reperfused == False)  # noqa: E712
-            ]
-            assert df.subject_name.nunique() == 4, "Missing some subjects"
-            assert set(df.label_name.unique()) == set(settings_species.pig_aortic_labels), (
-                f"Labels are missing: {df.label_name.unique()}"
-            )
+                df = df[
+                    (df.species_name == species)
+                    & (df.clamping_location == "aorta")
+                    & (df.label_name.isin(settings_species.pig_aortic_labels))
+                    & (df.reperfused == False)  # noqa: E712
+                    & (~df.baseline_dataset)
+                ]
+                assert df.subject_name.nunique() == 4, "Missing some subjects"
+                assert set(df.label_name.unique()) == set(settings_species.pig_aortic_labels), (
+                    f"Labels are missing: {df.label_name.unique()}"
+                )
 
-            paths = DataPath.from_table(df)
+                paths = DataPath.from_table(df)
 
-            aortic_matrices, aortic_meta = self.compute_phase_type_projections(
-                paths, settings_species.pig_aortic_labels
-            )
-            variables |= aortic_matrices
-            meta |= aortic_meta
+                aortic_matrices, aortic_meta = self.compute_phase_type_projections(
+                    paths, settings_species.pig_aortic_labels
+                )
+                variables |= aortic_matrices
+                meta |= aortic_meta
 
-            kidney_pigs = sorted({p.subject_name for p in paths_kidney})
-            name_datasets = f"kidney={','.join(kidney_pigs)}+aortic"
+                kidney_pigs = sorted({p.subject_name for p in paths_kidney})
+                name_datasets = f"kidney={','.join(kidney_pigs)}+aortic"
+            elif data_type == "ICG":
+                subjects_physiological = ["P062", "P072"]
+                df_physiological = median_table(dataset_name="2021_02_05_Tivita_multiorgan_masks")
+                df_physiological = df_physiological[df_physiological.subject_name.isin(subjects_physiological)]
+                assert set(df_physiological.label_name.unique()).issuperset(settings_species.pig_icg_labels)
+                paths_physiological = DataPath.from_table(df_physiological)
+
+                subjects_icg = ["P076", "P113"]
+                df_icg = icg_table()
+                df_icg = df_icg[df_icg.subject_name.isin(subjects_icg)]
+                assert set(df_icg.label_name.unique()).issuperset(settings_species.pig_icg_labels)
+                paths_icg = DataPath.from_table(df_icg)
+
+                icg_matrices, icg_meta = self.create_pairs(
+                    paths_physiological, paths_icg, settings_species.pig_icg_labels
+                )
+                variables |= icg_matrices
+                meta |= icg_meta
+
+                name_datasets = f"subjects={','.join(subjects_physiological + subjects_icg)}"
         elif species == "rat":
-            labels = ["stomach", "small_bowel", "colon", "liver", "kidney", "spleen"]
-            subjects = ["R017", "R019", "R025", "R029"]
+            if data_type == "malperfusion":
+                subjects = ["R017", "R019", "R025", "R029"]
 
-            df = df[
-                (df.species_name == species)
-                & (df.subject_name.isin(subjects))
-                & (df.label_name.isin(labels))
-                & (df.reperfused == False)  # noqa: E712
-                & (~df.baseline_dataset)
-            ]
-            assert df.clamping_location.nunique() == 2, (
-                f"Aorta and organ clamping locations are needed for rats: {df.clamping_location.unique()}"
-            )
-            assert set(df.label_name.unique()) == set(labels), f"Labels are missing: {df.label_name.unique()}"
+                df = df[
+                    (df.species_name == species)
+                    & (df.subject_name.isin(subjects))
+                    & (df.label_name.isin(settings_species.rat_aortic_labels))
+                    & (df.reperfused == False)  # noqa: E712
+                    & (~df.baseline_dataset)
+                ]
+                assert df.clamping_location.nunique() == 2, (
+                    f"Aorta and organ clamping locations are needed for rats: {df.clamping_location.unique()}"
+                )
+                assert set(df.label_name.unique()) == set(settings_species.rat_aortic_labels), (
+                    f"Labels are missing: {df.label_name.unique()}"
+                )
 
-            paths = DataPath.from_table(df)
+                paths = DataPath.from_table(df)
 
-            phase_type_matrices, phase_type_meta = self.compute_phase_type_projections(paths, labels)
-            variables |= phase_type_matrices
-            meta |= phase_type_meta
+                phase_type_matrices, phase_type_meta = self.compute_phase_type_projections(
+                    paths, settings_species.rat_aortic_labels
+                )
+                variables |= phase_type_matrices
+                meta |= phase_type_meta
 
-            name_datasets = f"subjects={','.join(subjects)}"
+                name_datasets = f"subjects={','.join(subjects)}"
+            elif data_type == "ICG":
+                subjects = ["R043", "R048"]
+                df = icg_table()
+                df = df[df.subject_name.isin(subjects) & (df.label_name.isin(settings_species.rat_icg_labels))]
+
+                df_physiological = df[df["perfusion_state"] == "physiological"]
+                assert set(df_physiological.label_name.unique()) == set(settings_species.rat_icg_labels)
+                paths_physiological = DataPath.from_table(df_physiological)
+
+                df_icg = df[df["perfusion_state"] == "icg"]
+                assert set(df_icg.label_name.unique()) == set(settings_species.rat_icg_labels)
+                paths_icg = DataPath.from_table(df_icg)
+
+                icg_matrices, icg_meta = self.create_pairs(
+                    paths_physiological, paths_icg, settings_species.rat_icg_labels
+                )
+                variables |= icg_matrices
+                meta |= icg_meta
+
+                name_datasets = f"subjects={','.join(subjects)}"
         elif species == "human":
             labels = ["kidney"]
 
@@ -107,7 +155,7 @@ class ProjectionPairs:
             raise ValueError(f"Unknown species: {species}")
 
         name_suffix = f"_highlights={self.highlights_threshold}" if self.highlights_threshold is not None else ""
-        name = f"{self.mode}_{species}_{name_datasets}{name_suffix}"
+        name = f"{self.mode}_{data_type}_{species}_{name_datasets}{name_suffix}"
 
         target_dir = settings_species.results_dir / "projection_matrices"
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -139,7 +187,7 @@ class ProjectionPairs:
             "No duplicates allowed."
         )
         settings.log.info(f"Physiological images: {len(paths_physiological)}")
-        settings.log.info(f"Ischemic images: {len(paths_ischemic)}")
+        settings.log.info(f"Pathological images: {len(paths_ischemic)}")
 
         variables_labels = {}
         meta_labels = {}
@@ -243,3 +291,5 @@ if __name__ == "__main__":
     )
     for species in args.species:
         projection_pairs.compute_species_projections(species)
+        if species != "human":
+            projection_pairs.compute_species_projections(species, data_type="ICG")

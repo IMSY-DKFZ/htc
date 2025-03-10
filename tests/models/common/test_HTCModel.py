@@ -199,7 +199,7 @@ class TestHTCModel:
             if req.status_code != 200:
                 # No failure because the server may be down
                 warnings.warn(
-                    f"The link {name} returned a status code of: {req.status_code}\nPlease check the link manually",
+                    f"The link {info['url']} returned a status code of: {req.status_code}\nPlease check the link manually",
                     stacklevel=2,
                 )
 

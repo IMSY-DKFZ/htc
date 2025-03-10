@@ -270,7 +270,7 @@ class _MedianTableHelper:
         if len(image_names_df) < len(image_names):
             settings.log.warning(
                 f"{len(image_names) - len(image_names_df)} image_names are not used because they were filtered out"
-                f" (e.g. by the label mapping). The following tables were considered: {considered_datasets}"
+                f" (e.g. by the label mapping or because some of the requested images are not annotated). The following tables were considered: {considered_datasets}"
             )
 
         return df
