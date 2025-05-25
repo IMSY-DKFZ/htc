@@ -17,7 +17,6 @@ from htc.settings import settings
 from htc.tivita.DataPath import DataPath
 from htc.utils.blosc_compression import decompress_file
 from htc.utils.helper_functions import median_table
-from htc.utils.parallel import p_map
 
 
 class TestDataGeneratorSemantic:
@@ -61,7 +60,6 @@ class TestDataGeneratorSemantic:
         assert paths == gen.paths
 
         # The make_tmp_example_data already runs the meta file generation function
-        p_map(gen.segmentations, paths, num_cpus=2.0, task_name="Segmentation files")
         gen.median_spectra_table()
         gen.preprocessed_files()
         gen.view_all()

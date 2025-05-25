@@ -242,16 +242,17 @@ class MultiPathMixin:
                 matches = [l for l in locations if self._default_needle in str(l)]
 
             if len(matches) == 1:
-                if matches[0].exists() or writing:
-                    return matches[0]
-                else:
-                    matched_location = matches[0]
+                matched_location = matches[0]
             elif len(matches) > 1:
                 # Select the match with the highest string similarity to the needle
                 matches_diff = [(m, SequenceMatcher(a=self._default_needle, b=str(m))) for m in matches]
                 matches_diff = sorted(matches_diff, key=lambda x: x[1].ratio(), reverse=True)
                 matches_diff = [m[0] for m in matches_diff]
-                return matches_diff[0]
+
+                matched_location = matches_diff[0]
+
+        if matched_location is not None and (matched_location.exists() or writing):
+            return matched_location
 
         # Otherwise, we look for existing files
         for location in locations:
@@ -285,7 +286,11 @@ class MultiPathMixin:
         # Find the root of the current main path (last match)
         alternatives_root = None
         for alternative in self._alternatives:
-            if path_str.startswith(alternative):
+            # If we have the following alternatives
+            #   /my/results
+            #   /my/results_second
+            # and /my/results_second is the current path, then the alternative_root should be /my/results_second and not /my/results but both start with /my/results, hence we need the "/" as boundary marker
+            if (path_str + "/").startswith(alternative + "/"):
                 alternatives_root = alternative
                 break
 

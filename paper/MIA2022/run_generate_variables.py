@@ -198,7 +198,7 @@ model & \\# pixels & epoch size & batch size \\\\
             if row["name"] == "superpixel_classification":
                 n_superpixels = pixels_mapping["image"] / config["input/superpixels/n_segments"]
                 # Round to the next hundred
-                n_pixels = "$\\approx " + str(int(round(n_superpixels / 100.0)) * 100) + "$"
+                n_pixels = "$\\approx " + str(round(n_superpixels / 100.0) * 100) + "$"
             else:
                 n_pixels = "\\num{" + str(pixels_mapping[row["name"]]) + "}"
 

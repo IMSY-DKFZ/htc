@@ -226,8 +226,8 @@ class TestDataPath:
         assert "camera_name" in meta
         assert meta["label_meta"]["omentum"]["situs"] == 2
 
-    def test_meta_labels(self) -> None:
-        DataPath._meta_labels_cache = {}
+    def test_meta_labels(self, monkeypatch: MonkeyPatch) -> None:
+        monkeypatch.setattr(DataPath, "_meta_labels_cache", {})
         path = DataPath.from_image_name("P091#2021_04_24_12_02_50")
         meta_labels = path.read_annotation_meta()
         assert meta_labels["label_meta"]["omentum"]["situs"] == path.meta("label_meta/omentum/situs") == 2

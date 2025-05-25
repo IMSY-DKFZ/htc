@@ -419,8 +419,8 @@ class DataPath:
         >>> for l in np.unique(seg):
         ...     print(f"{l} = {mapping.index_to_name(l)}")
         4 = blue_cloth
-        14 = heart
-        19 = lung
+        15 = heart
+        20 = lung
 
         Args:
             annotation_name: Unique name of the annotation(s) for cases where multiple annotations exist (e.g. inter-rater variability). If None, will use the default set to this path or the default set in the dataset settings (in that order and only if available). If annotation_name is a string, it can also be in the form name1&name which will be treated identical to ['name1', 'name2']. If 'all', the original annotation file with all available annotations is returned.
@@ -642,11 +642,11 @@ class DataPath:
 
         The annotated labels may be a subset of the image labels, if they exist:
         >>> path.meta("image_labels")
-        ['anorganic_artifact', 'fat_subcutaneous', 'foil', 'heart', 'lung', 'metal', 'muscle', 'organic_artifact', 'skin', 'unsure']
+        ['anorganic_artifact', 'background', 'fat_subcutaneous', 'foil', 'heart', 'lung', 'metal', 'muscle', 'organic_artifact', 'skin', 'unclear_organic', 'unsure']
         >>> set(path.meta("image_labels")).issuperset(path.annotated_labels())
         True
 
-        The image labels are weak labels and only indicate that a certain label is present in the image but they convey no information about whether the label is also annotated.
+        The image labels are weak labels and only indicate that a certain label is present in the image but they convey no information about whether the label is also annotated. It is also worth noting that the image labels are based on all available annotations (not just the `annotation_name` used for this function).
 
         Args:
             annotation_name: Name of the annotation(s) passed on to read_segmentation(). If it refers to more than one annotation, the (sorted) unique set of all labels will be returned.
@@ -1043,7 +1043,7 @@ class DataPath:
 
         And `annotation_name` gives an overview over all available annotations for this image:
         >>> path.meta("annotation_name")
-        ['semantic#primary']
+        ['semantic#primary', 'semantic#reannotation']
 
         It is also possible to read annotation meta information with this function:
         >>> path = DataPath.from_image_name("P091#2021_04_24_12_02_50")

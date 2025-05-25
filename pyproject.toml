@@ -10,6 +10,8 @@ requires = [
 [tool.cibuildwheel]
 build = "cp311-* cp312-* cp313-*"
 skip = "*musllinux*"
+# This must be in sync with what PyTorch is using
+manylinux-x86_64-image = "manylinux_2_28"
 # If multiple wheels are built (e.g., all Python versions), the second wheel will fail due to a non-clean build directory
 # Hence, we just delete it to start fresh
 before-build = """\

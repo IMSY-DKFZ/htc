@@ -551,7 +551,7 @@ site
 **/local_runs*.sh
 
 **/*.html
-docs/site
+**/docs/site
 
 # Avoid binary files to be committed accidentally
 **/*.npy

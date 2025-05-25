@@ -834,6 +834,7 @@ def create_median_spectra_comparison_figure(
         horizontal_spacing=0.03,
     )
 
+    shown = set()
     for group_name in df[group_column].unique():
         for i, label in enumerate(labels):
             df_group = df[(df["label_name"] == label) & (df[group_column] == group_name)]
@@ -867,10 +868,12 @@ def create_median_spectra_comparison_figure(
                     color=color_mapping[group_name],
                     line_dash=line_dash,
                     name=group_name,
-                    showlegend=row == 1 and col == 1,
+                    legendgroup=group_name,
+                    showlegend=group_name not in shown,
                     row=row + 1,
                     col=col + 1,
                 )
+                shown.add(group_name)
 
                 if col == 0:
                     fig.update_yaxes(title="<b>L1 normalized<br>reflectance [a.u.]</b>", row=row + 1, col=col + 1)

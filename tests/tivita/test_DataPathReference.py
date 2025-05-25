@@ -44,7 +44,7 @@ class TestDataPathReference:
         rgb1 = path.read_rgb_reconstructed()
 
         monkeypatch.setattr(settings.datasets, "network_dir", None)
-        DataPath._data_paths_cache = {}
+        monkeypatch.setattr(DataPath, "_data_paths_cache", {})
         path = DataPath.from_image_name("ref#2021_03_30_Tivita_studies#2021_03_30_14_41_34")
         assert path.rgb_path_reconstructed().is_relative_to(path.intermediates_dir)
         rgb2 = path.read_rgb_reconstructed()

@@ -71,7 +71,7 @@ def p_map(
     if num_cpus is None:
         num_cpus = psutil.cpu_count(logical=False)
     elif type(num_cpus) == float:
-        num_cpus = int(round(num_cpus * psutil.cpu_count(logical=False)))
+        num_cpus = round(num_cpus * psutil.cpu_count(logical=False))
 
     if num_cpus > len(iterables[0]):
         # We don't need more cpus than tasks

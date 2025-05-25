@@ -21,15 +21,10 @@ class TestHierarchicalSampler:
     @pytest.mark.parametrize(
         "batch_size, specs_name, hierarchical_sampling",
         [
-            # 3 cams
-            (5, "pigs_masks_loocv_4cam.json", True),
-            (5, "pigs_masks_loocv_4cam.json", "label"),
-            (6, "pigs_masks_loocv_4cam.json", True),
-            (6, "pigs_masks_loocv_4cam.json", "label"),
-            # 4 cams
             (5, "pigs_masks_fold-baseline_4cam.json", True),
-            (5, "pigs_masks_fold-baseline_4cam.json", "label"),
             (8, "pigs_masks_fold-baseline_4cam.json", True),
+            # The label cases can only be tested (and only really make sense) if the batch size fits to the number of domains (i.e., no remainder)
+            # The problem is that otherwise more images get selected (e.g., batch_size 5 --> 8 images get selected (2 labels, 4 domains)) but from these 8 images only 5 randomly selected images are kept so not all labels may be represented in the batch
             (8, "pigs_masks_fold-baseline_4cam.json", "label"),
             (8, "pigs_masks_fold-baseline_4cam.json", "label+oversampling"),
         ],

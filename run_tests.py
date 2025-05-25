@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import argparse
+import os
 import subprocess
 import sys
 
@@ -57,6 +58,10 @@ if __name__ == "__main__":
 
     if args.parallel is not None:
         command += f" -n {args.parallel} --dist loadscope"
+
+    assert settings.datasets.network_data is not None and settings.datasets.network_data.exists(), (
+        f"The network folder {settings.datasets.network_data} is not available. Please make sure that the network drive is mounted before running the tests:\n{os.environ['PATH_E130_Projekte'] = }"
+    )
 
     res = subprocess.run(f"{command} {test_directories}", shell=True)
     sys.exit(res.returncode)

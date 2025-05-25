@@ -242,17 +242,17 @@ def hierarchical_bootstrapping(
     Note: This function is not deterministic but you can set a seed.
 
     >>> from lightning import seed_everything
-    >>> seed_everything(0)  # doctest: +ELLIPSIS
+    >>> seed_everything(1)  # doctest: +ELLIPSIS
     [...]
     >>> mapping = {
     ...     0: {0: [10]},  # First camera, one subject with one image
     ...     1: {1: [20, 30], 2: [40]},  # Second camera, two subjects with two and one image each
     ... }
     >>> hierarchical_bootstrapping(mapping, n_subjects=2, n_images=1, n_bootstraps=4)
-    tensor([[30, 20, 10, 10],
-            [30, 20, 10, 10],
-            [40, 40, 10, 10],
-            [30, 40, 10, 10]])
+    tensor([[20, 40, 10, 10],
+            [30, 30, 10, 10],
+            [40, 30, 10, 10],
+            [40, 20, 10, 10]])
 
     Args:
         mapping: Domain to subjects to images mapping.
@@ -303,10 +303,10 @@ def hierarchical_bootstrapping_labels(
     ...     200: [10, 30, 40],  # Images 10, 30 and 40 have label 200
     ... }
     >>> hierarchical_bootstrapping_labels(domain_mapping, label_images_mapping, n_labels=2, n_bootstraps=4)
-    tensor([[20, 10, 30, 10],
-            [20, 10, 20, 11],
-            [20, 11, 20, 11],
-            [30, 10, 20, 11]])
+    tensor([[30, 10, 20, 10],
+            [40, 10, 30, 10],
+            [40, 10, 30, 10],
+            [40, 10, 20, 11]])
 
     Args:
         domain_subjects_images_mapping: Domain to subjects to images mapping.

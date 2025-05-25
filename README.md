@@ -39,10 +39,10 @@ If you use the `htc` framework, please consider citing the [corresponding papers
   author    = {Sellner, Jan and Seidlitz, Silvia},
   publisher = {Zenodo},
   url       = {https://github.com/IMSY-DKFZ/htc},
-  date      = {2025-02-16},
+  date      = {2025-05-25},
   doi       = {10.5281/zenodo.6577614},
   title     = {Hyperspectral Tissue Classification},
-  version   = {v0.0.20},
+  version   = {v0.0.21},
 }
 ```
 
@@ -84,6 +84,7 @@ Our wheels are bound to the PyTorch ABI used during building of the wheel. This 
 | 0.0.18     | 2.5     |
 | 0.0.19     | 2.6     |
 | 0.0.20     | 2.6     |
+| 0.0.21     | 2.7     |
 
 However, we do not make explicit version constraints in the dependencies of the `imsy-htc` package because a future version of PyTorch may still work and we don't want to break the installation if it is not necessary.
 

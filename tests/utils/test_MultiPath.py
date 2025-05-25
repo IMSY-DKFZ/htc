@@ -236,15 +236,37 @@ class TestMultiPath:
         with pytest.raises(IndexError):
             path_child.parents[3]
 
-    def test_multiple_matches(self) -> None:
-        path = MultiPath("/my/results")
-        path.add_alternative("/my/results_camera")
-        path.add_alternative("/my/results_semantic")
-        path.set_default_location("/my/results")
-        assert path.find_best_location() == Path("/my/results")
+    def test_multiple_matches(self, tmp_path: Path) -> None:
+        path = MultiPath(tmp_path / "results")
+        path.add_alternative(tmp_path / "results_camera")
+        path.add_alternative(tmp_path / "results_semantic")
+        path.set_default_location(tmp_path / "results")
+        assert path.find_best_location() == tmp_path / "results"
 
         subpath = path / "x"
-        assert subpath.find_best_location() == Path("/my/results/x")
+        assert subpath.find_best_location() == tmp_path / "results" / "x"
+
+        (tmp_path / "results_camera" / "training" / "image").mkdir(parents=True, exist_ok=True)
+        training_dir = path / "training"
+        assert (training_dir / "image").possible_locations() == [
+            tmp_path / "results" / "training" / "image",
+            tmp_path / "results_camera" / "training" / "image",
+            tmp_path / "results_semantic" / "training" / "image",
+        ]
+
+    def test_multiple_matches_root(self, tmp_path: Path) -> None:
+        path = MultiPath(tmp_path / "results")
+        path.add_alternative(tmp_path / "results_camera")
+        path.add_alternative(tmp_path / "results_semantic")
+        path.set_default_location(tmp_path / "results")
+
+        (tmp_path / "results" / "training" / "image").mkdir(parents=True, exist_ok=True)
+        training_dir = path / "training"
+        assert (training_dir / "image").possible_locations() == [
+            tmp_path / "results" / "training" / "image",
+            tmp_path / "results_camera" / "training" / "image",
+            tmp_path / "results_semantic" / "training" / "image",
+        ]
 
     def test_writing(self, tmp_path: Path) -> None:
         location1 = tmp_path / "location1"

@@ -502,6 +502,12 @@ class Settings:
                         if d.name not in local_location_names:  # Do not add it if it already exists locally
                             self._results_dir.add_alternative(d)
             else:
+                for k in os.environ.keys():
+                    if k.startswith("PATH_HTC_RESULTS_"):
+                        self.log.error(
+                            f"No main results directoy is set via PATH_HTC_RESULTS but the project results directory {k} is set. Project results directories are only available if also a main results directory is set."
+                        )
+
                 self._results_dir = False
                 self.log.warning(
                     "Could not find the environment variable PATH_HTC_RESULTS so that a results directory will not be"

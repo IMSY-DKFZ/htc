@@ -18,6 +18,7 @@ from xdist.scheduler import LoadScopeScheduling
 # from htc.dataset_preparation.run_dataset_semantic import DatasetGeneratorSemantic
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
+from htc.utils.parallel import p_map
 
 # Run all tests marked as serial in sequential order, other tests in load scope
 # https://github.com/pytest-dev/pytest-xdist/issues/385#issuecomment-962288342
@@ -111,11 +112,23 @@ def make_tmp_example_data(tmp_path: Path, monkeypatch: MonkeyPatch) -> Iterator[
             if (context_dir := tmp_data / "context_experiments").exists():
                 shutil.copy2(data_dir / "dataset_settings.json", context_dir / "dataset_settings.json")
                 paths += list(DataPath.iterate(context_dir))
+
+            if all(
+                p.dataset_settings is not None
+                and "2021_02_05_Tivita_multiorgan_semantic" in p.dataset_settings.get("dataset_name", "")
+                for p in paths
+            ):
                 GeneratorClass = DatasetGeneratorSemantic
             else:
                 GeneratorClass = DatasetGenerator
+
             gen = GeneratorClass(output_path=tmp_dataset_dir)
             assert paths == gen.paths
+
+            # Segmentations also affect the meta table
+            if hasattr(gen, "segmentations"):
+                # Multiprocessing may not work well in the testing environment
+                p_map(gen.segmentations, gen.paths, num_cpus=2, task_name="Segmentation files", use_threads=True)
             gen.meta_table()
 
             assert len(paths) == n_images
@@ -125,6 +138,13 @@ def make_tmp_example_data(tmp_path: Path, monkeypatch: MonkeyPatch) -> Iterator[
         assert env_name is not None
         monkeypatch.setenv(env_name, str(tmp_dataset_dir))
         monkeypatch.setattr(settings, "_intermediates_dir_all", tmp_dataset_dir / "intermediates")
+
+        # Reset global caches for this test
+        monkeypatch.setattr(settings, "_datasets", None)
+        monkeypatch.setattr(DataPath, "_local_meta_cache", None)
+        monkeypatch.setattr(DataPath, "_network_meta_cache", None)
+        monkeypatch.setattr(DataPath, "_meta_labels_cache", {})
+        monkeypatch.setattr(DataPath, "_data_paths_cache", {})
 
         return tmp_dataset_dir
 

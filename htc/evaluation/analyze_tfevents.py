@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import os
 from pathlib import Path
 
 import pandas as pd
@@ -29,7 +28,7 @@ def read_tfevent_losses(run_dir: Path) -> pd.DataFrame | None:
 
     loss_tags = None
     for fold_dir in fold_dirs:
-        if len(os.listdir(fold_dir)) == 0:
+        if not any(fold_dir.iterdir()):
             settings.log.warning(f"The folder {run_dir} does not contain valid results")
             return None
 
