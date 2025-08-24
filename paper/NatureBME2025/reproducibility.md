@@ -44,7 +44,11 @@ htc human_physiological_dataset --additional-species pig-p rat-p
 
 ## Xeno-learning: in-species learning
 
-The first step of our xeno-learning approach is to learn how perfusion shifts look like in the source species so that this knowledge can later be applied in the target species. Run the following command to learn how to transform physiological spectra to malperfused spectra separately for each species:
+The first step of our xeno-learning approach is to learn how perfusion shifts look like in the source species so that this knowledge can later be applied in the target species.
+
+> In case you want to re-run the following two commands, you may want to delete/rename the `$PATH_HTC_RESULTS/projection_matrices` and `$PATH_HTC_RESULTS/projections` folders to ensure that no previously computed file remains.
+
+Run the following command to learn how to transform physiological spectra to malperfused/ICG spectra separately for each species:
 
 ```bash
 htc create_projections
@@ -73,7 +77,7 @@ htc table_generation
 
 ## Inference
 
-The trained networks are stored in `$PATH_HTC_RESULTS/training/image` and all run directories will start with the same timestamp (e.g., `2025-03-09_19-38-10`). Use your new timestamp to run inference on the test datasets for all trained networks
+The trained networks are stored in `$PATH_HTC_RESULTS/training/image` and all run directories will start with the same timestamp (e.g., `2025-06-07_20-24-33`). Use your new timestamp to run inference on the test datasets for all trained networks
 
 ```bash
 htc physiological_scores --timestamp "<YOUR_TIMESTAMP>"
@@ -83,11 +87,13 @@ htc icg_scores --timestamp "<YOUR_TIMESTAMP>"
 
 ## Figures
 
-You now have all ingredients together to create the final figures. Run the following commands to produce the figures which utilize the trained networks
+You now have all ingredients together to create the final figures. Run the following commands to produce all figures and assets of the paper.
+
+> Similar to before, delete/rename the `$PATH_HTC_RESULTS/paper` folder to ensure that no previously computed file remains.
 
 ```bash
-HTC_MODEL_TIMESTAMP="<YOUR_TIMESTAMP>" jupyter nbconvert --to html --execute --stdout paper/XenoLearning2024/DomainShiftPerformance.ipynb > /dev/null
-HTC_MODEL_TIMESTAMP="<YOUR_TIMESTAMP>" jupyter nbconvert --to html --execute --stdout paper/XenoLearning2024/PerfusionPerformance.ipynb > /dev/null
+HTC_MODEL_TIMESTAMP="<YOUR_TIMESTAMP>" find paper/XenoLearning2024 -name "*.ipynb" -exec jupyter nbconvert --to html --execute --stdout {} > /dev/null \;
+HTC_MODEL_TIMESTAMP="<YOUR_TIMESTAMP>" htc XenoLearning2024.generate_variables
 ```
 
-You will find the resulting figures in `$PATH_HTC_RESULTS/paper`. You can run the other notebooks in the same way.
+You will find the resulting figures in `$PATH_HTC_RESULTS/paper`. Please note that the figures are post-processed manually for the final paper version.

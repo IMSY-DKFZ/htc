@@ -39,7 +39,7 @@ def cluster_command(args: str, memory: str = "10.7G", n_gpus: int = 1, excluded_
         excluded_hosts = ""
 
     bsubs_command = (
-        f'bsub -R "tensorcore" {excluded_hosts}-q gpu-lowprio'
+        f'bsub -R "tensorcore" {excluded_hosts}-q gpu-lowprio-debian'
         f" -gpu num={n_gpus}:j_exclusive=yes:gmem={memory} ./runner_htc.sh htc training {args}"
     )
 

@@ -228,7 +228,15 @@ def baseline_performance() -> pd.DataFrame:
     return pd.concat(dfs, ignore_index=True)
 
 
-def icg_performance(runs: list[Path]) -> pd.DataFrame:
+def icg_performance(runs: list[Path] = None) -> pd.DataFrame:
+    if runs is None:
+        runs = [
+            settings.training_dir / "image" / f"{settings_species.model_timestamp}_baseline_pig_nested-0-2",
+            settings.training_dir / "image" / f"{settings_species.model_timestamp}_baseline_rat_nested-0-2",
+            settings.training_dir / "image" / f"{settings_species.model_timestamp}_projected-ICG_rat2pig_nested-0-2",
+            settings.training_dir / "image" / f"{settings_species.model_timestamp}_projected-ICG_pig2rat_nested-0-2",
+        ]
+
     np.random.seed(42)
 
     df_icg = icg_table()

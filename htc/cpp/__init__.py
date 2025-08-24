@@ -225,6 +225,7 @@ def map_label_image(label_image: torch.Tensor, label_mapping: "LabelMapping") ->
     Returns: RGBA segmentation image.
     """
     assert len(label_image.shape) == 2, "The label image must be two-dimensional"
+    label_image = label_image.to(torch.int64)
 
     label_color_mapping = {
         i: mpl.colors.to_rgba(label_mapping.index_to_color(i)) for i in label_image.unique().tolist()

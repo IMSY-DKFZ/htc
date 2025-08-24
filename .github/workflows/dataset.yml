@@ -38,7 +38,7 @@ jobs:
           # Include requirements.txt so that the caching works
           sparse-checkout: |
             dependencies/requirements.txt
-            tutorials/website_example.py
+            tutorials/website_HeiPorSPECTRAL_example.py
           sparse-checkout-cone-mode: false
 
       - uses: actions/cache@v4
@@ -59,4 +59,4 @@ jobs:
       - name: Run example
         env:
           PATH_Tivita_HeiPorSPECTRAL: HeiPorSPECTRAL_example
-        run: python tutorials/website_example.py
+        run: python tutorials/website_HeiPorSPECTRAL_example.py

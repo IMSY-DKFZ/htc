@@ -4,6 +4,7 @@
 import os
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Self
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -21,12 +22,13 @@ class DataPathTivita(DataPath):
     def build_path(self, base_folder: Path) -> Path:
         return base_folder / "/".join([*self.attributes, self.timestamp])
 
-    @staticmethod
+    @classmethod
     def iterate(
+        cls,
         data_dir: str | Path,
-        filters: list[Callable[["DataPathTivita"], bool]] = None,
+        filters: list[Callable[[Self], bool]] = None,
         annotation_name: str | list[str] = None,
-    ) -> Iterator["DataPathTivita"]:
+    ) -> Iterator[Self]:
         data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
 
         # Settings of the dataset (shapes etc.) can be referenced by the DataPaths
@@ -53,7 +55,7 @@ class DataPathTivita(DataPath):
                         dataset_settings = list(dataset_settings_dict.values())[
                             -1
                         ]  # last dict item should be closest to path
-                    path = DataPathTivita(Path(root), data_dir, intermediates_dir, dataset_settings, annotation_name)
+                    path = cls(Path(root), data_dir, intermediates_dir, dataset_settings, annotation_name)
                     if all(f(path) for f in filters):
                         yield path
                     used_folders.add(root)

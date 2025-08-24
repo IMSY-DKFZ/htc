@@ -631,6 +631,7 @@ docker-compose.override.yml
 
 *.html
 docs/site
+spectralverse/site
 
 # Avoid binary files to be committed accidentally
 *.npy
@@ -643,3 +644,6 @@ docs/site
 *.pkl
 *.pdf
 *.lprof
+
+# Always include website images
+!spectralverse/pages/images/**/*

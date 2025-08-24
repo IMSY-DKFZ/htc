@@ -7,7 +7,6 @@ from functools import partial
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
@@ -133,24 +132,6 @@ class ProjectionPairs:
                 meta |= icg_meta
 
                 name_datasets = f"subjects={','.join(subjects)}"
-        elif species == "human":
-            labels = ["kidney"]
-
-            df = df[(df.species_name == species) & (df.label_name.isin(labels)) & (df.perfusion_state != "unclear")]
-            assert not pd.isna(df.perfusion_state).any(), "Perfusion state is missing for some images"
-            assert sorted(df.perfusion_state.unique()) == [
-                "malperfused",
-                "physiological",
-            ], "Perfusion states are not complete"
-
-            paths_physiological = DataPath.from_table(df[df.perfusion_state == "physiological"])
-            paths_malperfused = DataPath.from_table(df[df.perfusion_state == "malperfused"])
-
-            phase_type_matrices, phase_type_meta = self.create_pairs(paths_physiological, paths_malperfused, labels)
-            variables |= phase_type_matrices
-            meta |= phase_type_meta
-
-            name_datasets = "subjects=all"
         else:
             raise ValueError(f"Unknown species: {species}")
 
@@ -255,11 +236,11 @@ if __name__ == "__main__":
         "--species",
         type=str,
         nargs="+",
-        choices=["pig", "rat", "human"],
-        default=["pig", "rat", "human"],
+        choices=["pig", "rat"],
+        default=["pig", "rat"],
         help=(
             "One or more species names for which the projections should be compted for. If not given, projections for"
-            " all species will be computed."
+            " all animal species will be computed."
         ),
     )
     parser.add_argument(

@@ -102,7 +102,7 @@ class HTCModel(nn.Module, metaclass=PostInitCaller):
             "sha256": "503258ade835f742759bafa63c50fa0925074189b762bfb391b4a2fecd4ff433",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2023-02-08_14-48-02_organ_transplantation_0.8.zip",
         },
-        # Models from our XenoLearning2024 paper
+        # Models from our NatureBME2025 paper
         "image@2025-03-09_19-38-10_baseline_human_nested-0-2": {
             "sha256": "f043372659f2e7db0913755dca713ff727e9623f672b50a805fc922e18377c98",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2025-03-09_19-38-10_baseline_human_nested-0-2.zip",

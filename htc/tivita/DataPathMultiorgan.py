@@ -4,6 +4,7 @@
 import functools
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Self
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -101,12 +102,13 @@ class DataPathMultiorgan(DataPath):
     def rgb_path_reconstructed(self) -> Path:
         return super().rgb_path_reconstructed()
 
-    @staticmethod
+    @classmethod
     def iterate(
+        cls,
         data_dir: str | Path,
-        filters: list[Callable[["DataPathMultiorgan"], bool]] = None,
+        filters: list[Callable[[Self], bool]] = None,
         annotation_name: str | list[str] = None,
-    ) -> Iterator["DataPathMultiorgan"]:
+    ) -> Iterator[Self]:
         data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
 
         if (data_dir / "subjects").exists():
@@ -116,7 +118,7 @@ class DataPathMultiorgan(DataPath):
             # Multi-organ data
             for subject_name_path in sorted(data_dir.glob("subjects/*")):
                 for image_dir in sorted(subject_name_path.iterdir()):
-                    path = DataPathMultiorgan(image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name)
+                    path = cls(image_dir, data_dir, intermediates_dir, dataset_settings, annotation_name)
                     if all(f(path) for f in filters):
                         yield path
         else:

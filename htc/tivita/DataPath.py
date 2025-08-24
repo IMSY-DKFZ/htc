@@ -425,7 +425,7 @@ class DataPath:
         Args:
             annotation_name: Unique name of the annotation(s) for cases where multiple annotations exist (e.g. inter-rater variability). If None, will use the default set to this path or the default set in the dataset settings (in that order and only if available). If annotation_name is a string, it can also be in the form name1&name which will be treated identical to ['name1', 'name2']. If 'all', the original annotation file with all available annotations is returned.
 
-        Returns: The segmentation mask of the image or None if no annotation is available. Is a dict if multiple annotations are requested.
+        Returns: The segmentation mask of the image or None if no annotation is available. Is a dict if multiple annotations are requested (key = annotation name and value = segmentation mask). A requested annotation name is only included in the dict if it is also available (so the dict may be empty).
         """
         path = self.segmentation_path()
         if path is not None and path.exists():
@@ -454,7 +454,7 @@ class DataPath:
             elif annotation_name == "all":
                 return data
             elif type(annotation_name) == list:
-                return {name: data[name] for name in annotation_name}
+                return {name: data[name] for name in annotation_name if name in data}
             elif annotation_name in data:
                 return data[annotation_name]
             else:

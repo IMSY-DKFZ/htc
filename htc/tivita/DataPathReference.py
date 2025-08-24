@@ -3,7 +3,7 @@
 
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import numpy as np
 import pandas as pd
@@ -138,12 +138,13 @@ class DataPathReference(DataPath):
             annotation_name_default=annotation_name,
         )
 
-    @staticmethod
+    @classmethod
     def iterate(
+        cls,
         data_dir: str | Path,
-        filters: list[Callable[["DataPathReference"], bool]] = None,
+        filters: list[Callable[[Self], bool]] = None,
         annotation_name: str | list[str] = None,
-    ) -> Iterator["DataPathReference"]:
+    ) -> Iterator[Self]:
         data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
 
         dataset_settings = DatasetSettings(data_dir / "dataset_settings.json")
@@ -151,7 +152,7 @@ class DataPathReference(DataPath):
         intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
 
         for i, row in df_references.iterrows():
-            path = DataPathReference(
+            path = cls(
                 network_path=row["network_path"],
                 dataset_name=row["dataset_name"],
                 data_dir=data_dir,

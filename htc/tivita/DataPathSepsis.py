@@ -3,6 +3,7 @@
 
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Self
 
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
@@ -97,17 +98,18 @@ class DataPathSepsis(DataPath):
             "timestamp": self.timestamp,
         }
 
-    @staticmethod
+    @classmethod
     def iterate(
+        cls,
         data_dir: str | Path,
-        filters: list[Callable[["DataPathSepsis"], bool]] = None,
+        filters: list[Callable[[Self], bool]] = None,
         annotation_name: str | list[str] = None,
-    ) -> Iterator["DataPathSepsis"]:
+    ) -> Iterator[Self]:
         data_dir, filters, annotation_name = DataPath._iterate_parse_inputs(data_dir, filters, annotation_name)
 
         if data_dir.name == "data":
-            yield from DataPathSepsis.iterate(data_dir / "hand_posture_study", filters, annotation_name)
-            yield from DataPathSepsis.iterate(data_dir / "sepsis_study", filters, annotation_name)
+            yield from cls.iterate(data_dir / "hand_posture_study", filters, annotation_name)
+            yield from cls.iterate(data_dir / "sepsis_study", filters, annotation_name)
         else:
             root_data_dir = data_dir.parent
             dataset_settings = DatasetSettings(root_data_dir / "dataset_settings.json")
@@ -117,9 +119,7 @@ class DataPathSepsis(DataPath):
                 for subject_name_path in sorted((data_dir / "healthy").iterdir()):
                     for location_path in sorted(subject_name_path.iterdir()):
                         for image_dir in sorted(location_path.iterdir()):
-                            path = DataPathSepsis(
-                                image_dir, root_data_dir, intermediates_dir, dataset_settings, annotation_name
-                            )
+                            path = cls(image_dir, root_data_dir, intermediates_dir, dataset_settings, annotation_name)
                             if all(f(path) for f in filters):
                                 yield path
             elif data_dir.name == "sepsis_study":
@@ -131,7 +131,7 @@ class DataPathSepsis(DataPath):
                         if health_status_path.name == "healthy":
                             for location_path in sorted(subject_name_path.iterdir()):
                                 for image_dir in sorted(location_path.iterdir()):
-                                    path = DataPathSepsis(
+                                    path = cls(
                                         image_dir, root_data_dir, intermediates_dir, dataset_settings, annotation_name
                                     )
                                     if all(f(path) for f in filters):
@@ -140,7 +140,7 @@ class DataPathSepsis(DataPath):
                             for timepoint_path in sorted(subject_name_path.iterdir()):
                                 for location_path in sorted(timepoint_path.iterdir()):
                                     for image_dir in sorted(location_path.iterdir()):
-                                        path = DataPathSepsis(
+                                        path = cls(
                                             image_dir,
                                             root_data_dir,
                                             intermediates_dir,

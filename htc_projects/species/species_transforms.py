@@ -25,10 +25,6 @@ class ProjectionTransform(HTCTransformation):
             "sha256": "7a76aa499e5f97a2e4dc56c15075dfbafd24a17e8c31b28861727b70b3a5d2f4",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/projection_matrices/weights+bias_ICG_rat_subjects=R043,R048.blosc",
         },
-        "weights+bias_malperfusion_human_subjects=all": {
-            "sha256": "73434465253c5c6666f06817788fde3be0522e00f7bb18c831414b51e316b5d5",
-            "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/projection_matrices/weights+bias_malperfusion_human_subjects=all.blosc",
-        },
         "weights+bias_malperfusion_pig_kidney=P091,P095,P097,P098+aortic": {
             "sha256": "f14ec6b2b39bbe98005246a8e31c708938ed7cab9829723199da23754c6ec98e",
             "url": "https://e130-hyperspectal-tissue-classification.s3.dkfz.de/projection_matrices/weights+bias_malperfusion_pig_kidney=P091,P095,P097,P098+aortic.blosc",
@@ -83,7 +79,6 @@ class ProjectionTransform(HTCTransformation):
         | ----------- | ----------- | ----------- | ----------- |
         | weights+bias_ICG_pig_subjects=P062,P072,P076,P113 | weights+bias | ICG | pig |
         | weights+bias_ICG_rat_subjects=R043,R048 | weights+bias | ICG | rat |
-        | weights+bias_malperfusion_human_subjects=all | weights+bias | malperfusion | human |
         | weights+bias_malperfusion_pig_kidney=P091,P095,P097,P098+aortic | weights+bias | malperfusion | pig |
         | weights+bias_malperfusion_rat_subjects=R017,R019,R025,R029 | weights+bias | malperfusion | rat |
 

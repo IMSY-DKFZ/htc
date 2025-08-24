@@ -8,8 +8,8 @@ services:
     build:
       context: ..
       dockerfile: dependencies/Dockerfile
-    depends_on:
-      - htc-base
+      additional_contexts:
+        htc-base: "service:htc-base"
     image: htc
     container_name: htc
     network_mode: host # e.g. for Jupyter Lab

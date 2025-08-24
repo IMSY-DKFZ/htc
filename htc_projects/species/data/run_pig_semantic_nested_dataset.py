@@ -61,7 +61,7 @@ class SpecsGenerationPigSemanticNested(SpecsGenerationRatSemantic):
         paths = list(
             DataPath.iterate(
                 settings.data_dirs.semantic,
-                annotation_name="semantic#primary",
+                annotation_name="semantic#reannotation",
                 filters=[partial(filter_labels, mapping=SpecsGenerationRatSemantic.mapping)],
             )
         )

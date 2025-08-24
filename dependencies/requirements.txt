@@ -7,12 +7,12 @@ pyarrow
 matplotlib
 seaborn
 plotly
-kaleido
+kaleido<1  # v1 is broken at the moment: https://github.com/plotly/Kaleido/issues/386
 jupyterlab
 tensorboard
 lightning
 python-dotenv
-monai
+monai!=1.5.0
 GPUtil
 psutil
 segmentation-models-pytorch

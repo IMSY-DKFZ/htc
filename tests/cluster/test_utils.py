@@ -9,5 +9,5 @@ def test_cluster_command() -> None:
 
     assert (
         cmd
-        == """bsub -R "tensorcore" -R "select[hname!='lsf22-gpu02' && hname!='lsf22-gpu07']" -q gpu-lowprio -gpu num=1:j_exclusive=yes:gmem=16G ./runner_htc.sh htc training my_command"""
+        == """bsub -R "tensorcore" -R "select[hname!='lsf22-gpu02' && hname!='lsf22-gpu07']" -q gpu-lowprio-debian -gpu num=1:j_exclusive=yes:gmem=16G ./runner_htc.sh htc training my_command"""
     )

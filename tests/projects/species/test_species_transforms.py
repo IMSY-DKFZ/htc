@@ -138,14 +138,14 @@ class TestProjectionTransform:
 
         mapping = LabelMapping({"colon": 0, "liver": 1})
         ProjectionTransform(
-            base_name="weights+bias_ICG_rat_subjects=R043,R048",
+            base_name="weights+bias_malperfusion_rat_subjects=R017,R019,R025,R029",
             device="cpu",
             config=Config({"label_mapping": mapping, "input/n_channels": 100}),
         )
         assert len(caplog.records) == 1 and "Successfully downloaded" in caplog.records[0].msg
 
         ProjectionTransform(
-            base_name="weights+bias_ICG_rat_subjects=R043,R048",
+            base_name="weights+bias_malperfusion_rat_subjects=R017,R019,R025,R029",
             device="cpu",
             config=Config({"label_mapping": mapping, "input/n_channels": 100}),
         )

@@ -420,7 +420,12 @@ def sort_labels(
     # 9999_ unknown labels are sorted alphabetically after the known labels
     if type(storage) == dict:
         storage = dict(sorted(storage.items(), key=lambda pair: label_ordering.get(pair[0], f"9999_{pair[0]}")))
-    elif type(storage) == list or type(storage) == np.ndarray or type(storage) == set:
+    elif (
+        type(storage) == list
+        or type(storage) == np.ndarray
+        or type(storage) == set
+        or isinstance(storage, pd.arrays.StringArray)
+    ):
         storage = sorted(storage, key=lambda element: label_ordering.get(element, f"9999_{element}"))
     elif type(storage) == pd.DataFrame:
         sorter = lambda col: [label_ordering.get(v, f"9999_{v}") for v in col] if col.name == "label_name" else col

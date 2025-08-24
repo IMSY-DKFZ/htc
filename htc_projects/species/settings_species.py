@@ -135,9 +135,15 @@ class SettingsSpecies:
             "rat": "#89CCED",
             "human": "#DDCB76",
         }
+        self.species_colors_malperfused = {
+            "pig": "#D8EFEC",
+            "rat": "#DCF0FA",
+            "human": "#F8F5E4",
+        }
         self.xeno_learning_color = "#b86fdc"
+        self.icg_color = "#9ACA3D"
 
-        self.model_timestamp = os.getenv("HTC_MODEL_TIMESTAMP", "2025-03-09_19-38-10")
+        self.model_timestamp = os.getenv("HTC_MODEL_TIMESTAMP", "2025-06-07_20-24-33")
 
         self._results_dir = None
 

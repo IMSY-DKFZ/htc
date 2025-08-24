@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
+import json
 from functools import partial
 
 import numpy as np
@@ -10,6 +11,7 @@ from htc import median_table
 from htc.models.data.DataSpecification import DataSpecification
 from htc.settings import settings
 from htc.tivita.DataPath import DataPath
+from htc.utils.DomainMapper import DomainMapper
 from htc.utils.helper_functions import add_times_table, sort_labels
 from htc.utils.LabelMapping import LabelMapping
 from htc.utils.paths import filter_labels, filter_min_labels
@@ -369,5 +371,53 @@ def paper_table() -> pd.DataFrame:
     names = set(df_mal.image_name).union(set(df_icg.image_name))
     df_pig = df_pig[~df_pig.image_name.isin(names)]
     df_rat = df_rat[~df_rat.image_name.isin(names)]
+    names_standardized = set(df_pig.image_name).union(set(df_rat.image_name))
 
-    return pd.concat([df_mal, df_icg, df_pig, df_rat], ignore_index=True)
+    df = pd.concat([df_mal, df_icg, df_pig, df_rat], ignore_index=True)
+    names = set(df.image_name)
+
+    # Make sure we include the images used for the projection matrices
+    json_files = sorted((settings.results_dir / "projection_matrices").glob("*.json"))
+    assert len(json_files) > 0, "There must be at least one projection matrix file"
+    projection_paths = {"physiological": set(), "icg": set(), "malperfused": set()}
+    for json_file in json_files:
+        with json_file.open() as f:
+            data = json.load(f)
+
+        for values in data.values():
+            for v in values:
+                projection_paths["physiological"].add(DataPath.from_image_name(v["name_physiological"]))
+                if "ICG" in json_file.name:
+                    projection_paths["icg"].add(DataPath.from_image_name(v["name_ischemic"]))
+                elif "malperfusion" in json_file.name:
+                    projection_paths["malperfused"].add(DataPath.from_image_name(v["name_ischemic"]))
+                else:
+                    raise ValueError(f"Unknown ischemic state: {json_file.name}")
+
+    df_projections = []
+    for state, paths in projection_paths.items():
+        if len(paths) == 0:
+            continue
+
+        paths = sorted(paths)
+        df_projection = median_table(
+            paths=paths, label_mapping=settings_species.label_mapping, keep_mapped_columns=False
+        )
+        assert not df_projection.image_name.isin(names_standardized).any(), (
+            "The projection images should not overlap with the standardized recordings"
+        )
+
+        df_projection = df_projection[~df_projection.image_name.isin(names)]
+        df_projection["species_name"] = df_projection.image_name.apply(
+            DomainMapper(paths, target_domain="species_index").domain_name
+        )
+        df_projection["standardized_recordings"] = False
+        df_projection["baseline_dataset"] = False
+        df_projection["perfusion_state"] = state
+
+        df_projections.append(df_projection)
+
+    df = pd.concat([df, *df_projections], ignore_index=True)
+    df = df.convert_dtypes()
+
+    return df

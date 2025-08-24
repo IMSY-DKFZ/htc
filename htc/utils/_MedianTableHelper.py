@@ -73,7 +73,8 @@ class _MedianTableHelper:
             df["image_labels"] = image_labels
 
         if self.label_mapping is not None and not self.keep_mapped_columns:
-            df = df.drop(columns=["label_index", "label_name"])
+            # label_index is optional
+            df = df.drop(columns=["label_index", "label_name"], errors="ignore")
             df = df.rename(
                 columns={
                     "label_index_mapped": "label_index",

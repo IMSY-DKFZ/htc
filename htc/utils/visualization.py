@@ -1094,16 +1094,19 @@ def create_overview_document(
 
             # Add an image for the current label if available
             svg_path = path.data_dir / "extra_label_symbols" / f"Cat_{label_number}_{l}.svg"
-            if not svg_path.exists():
-                # Try to find the label symbol in the masks dataset
-                svg_path = settings.data_dirs.masks / "extra_label_symbols" / f"Cat_{label_ordering.get(l, '')}_{l}.svg"
-            if not svg_path.exists():
-                # In case the label ordering is different, try to find the symbol by name in the masks dataset
-                svg_files = sorted((settings.data_dirs.masks / "extra_label_symbols").glob("*.svg"))
-                for f in svg_files:
-                    if re.search(r"Cat_\d+_" + l, f.stem) is not None:
-                        svg_path = f
-                        break
+            if settings.data_dirs.masks is not None:
+                if not svg_path.exists():
+                    # Try to find the label symbol in the masks dataset
+                    svg_path = (
+                        settings.data_dirs.masks / "extra_label_symbols" / f"Cat_{label_ordering.get(l, '')}_{l}.svg"
+                    )
+                if not svg_path.exists():
+                    # In case the label ordering is different, try to find the symbol by name in the masks dataset
+                    svg_files = sorted((settings.data_dirs.masks / "extra_label_symbols").glob("*.svg"))
+                    for f in svg_files:
+                        if re.search(r"Cat_\d+_" + l, f.stem) is not None:
+                            svg_path = f
+                            break
 
             if svg_path.exists():
                 with svg_path.open("r") as f:

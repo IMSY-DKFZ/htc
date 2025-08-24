@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 
 
@@ -41,7 +42,7 @@ class AdvancedJSONEncoder(json.JSONEncoder):
         elif isinstance(obj, (np.bool_)):
             return bool(obj)
 
-        elif isinstance(obj, (np.void)):
+        elif isinstance(obj, (np.void)) or pd.isna(obj):
             return None
 
         elif isinstance(obj, torch.Tensor):
