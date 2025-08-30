@@ -1,0 +1,32 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  docker-image:
+    name: Create Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build base image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: dependencies/base.Dockerfile
+          tags: imsy-htc-base:latest
+
+      - name: Build main image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: dependencies/Dockerfile
+          tags: ghcr.io/imsy-dkfz/imsy-htc:latest
+          push: true
