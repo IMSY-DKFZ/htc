@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
         override_yml = f"""
 services:
-  htc:
+  imsy-htc:
     environment:
       - {envs}
     volumes:
@@ -93,5 +93,5 @@ services:
 
     subprocess.run(["docker", "compose", *compose_file_cmd, "build"], cwd=file_dir, check=True)
     subprocess.run(
-        ["docker", "compose", *compose_file_cmd, "run", "--rm", "htc", *args.cmd_args], cwd=file_dir, check=True
+        ["docker", "compose", *compose_file_cmd, "run", "--rm", "imsy-htc", *args.cmd_args], cwd=file_dir, check=True
     )

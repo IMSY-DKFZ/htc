@@ -1,17 +1,17 @@
 services:
-  htc-base:
+  imsy-htc-base:
     build:
       context: ..
       dockerfile: dependencies/base.Dockerfile
-    image: htc-base
-  htc:
+    image: imsy-htc-base
+  imsy-htc:
     build:
       context: ..
       dockerfile: dependencies/Dockerfile
       additional_contexts:
-        htc-base: "service:htc-base"
-    image: htc
-    container_name: htc
+        imsy-htc-base: "service:imsy-htc-base"
+    image: imsy-htc
+    container_name: imsy-htc
     network_mode: host # e.g. for Jupyter Lab
     shm_size: 10gb
     volumes:

@@ -1,5 +1,5 @@
 # Base components which are needed for cluster jobs and testing
-FROM nvidia/cuda:12.4.1-base-ubuntu22.04
+FROM nvidia/cuda:12.8.1-base-ubuntu24.04
 
 # Avoid Docker build freeze due to region selection
 ENV DEBIAN_FRONTEND=noninteractive
@@ -14,7 +14,7 @@ RUN apt update && apt install -y \
      rsync \
      tree \
      vim \
-     libgl1-mesa-glx libglib2.0-0
+     libgl1 libglx-mesa0
 
 # Python (via conda for version management and advanced testing, e.g., for public tests)
 ENV PATH="/opt/conda/envs/htc/bin:/opt/conda/condabin:${PATH}"

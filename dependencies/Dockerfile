@@ -1,5 +1,5 @@
 # Components which are needed for testing
-FROM htc-base
+FROM imsy-htc-base
 
 # We need the Docker binaries for challenger-pydocker
 RUN curl -fsSL https://get.docker.com -o /get-docker.sh \
