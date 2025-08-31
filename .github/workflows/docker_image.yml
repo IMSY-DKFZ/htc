@@ -13,8 +13,6 @@ jobs:
           echo "Package version: $PACKAGE_VERSION"
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
     
-      - uses: actions/checkout@v5
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -31,8 +29,8 @@ jobs:
           context: .
           file: dependencies/base.Dockerfile
           tags: imsy-htc-base:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=user/app:buildcache
+          cache-to: type=registry,ref=user/app:buildcache,mode=max
 
       - name: Build main image
         uses: docker/build-push-action@v6
@@ -43,5 +41,5 @@ jobs:
             ghcr.io/imsy-dkfz/imsy-htc:${{ env.PACKAGE_VERSION }}
             ghcr.io/imsy-dkfz/imsy-htc:latest
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=user/app:buildcache
+          cache-to: type=registry,ref=user/app:buildcache,mode=max
