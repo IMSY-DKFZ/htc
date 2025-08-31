@@ -1,4 +1,4 @@
-name: Tests
+name: Docker Images
 
 on: [push, pull_request]
 
@@ -28,5 +28,7 @@ jobs:
         with:
           context: .
           file: dependencies/Dockerfile
-          tags: ghcr.io/imsy-dkfz/imsy-htc:latest
+          tags: |
+            ghcr.io/imsy-dkfz/imsy-htc:${GITHUB_REF_NAME#v}
+            ghcr.io/imsy-dkfz/imsy-htc:latest
           push: true
