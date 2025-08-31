@@ -31,13 +31,16 @@ ENV PIP_ROOT_USER_ACTION=ignore
 # Cache common pretrained models
 RUN curl -L https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b5-b6417697.pth --create-dirs -o /root/.cache/torch/hub/checkpoints/efficientnet-b5-b6417697.pth
 
+# Installing all dependencies at once leads to a huge image layer which can lead to problems. Hence, we move out the largest dependency to a separate layer
+RUN python -m pip install --no-cache-dir -U pip \
+ && pip install --no-cache-dir torch
+
 # Install all requirements separately so that this step can be cached
 COPY dependencies/requirements.txt /requirements.txt
 COPY dependencies/requirements-extra.txt /requirements-extra.txt
 COPY dependencies/requirements-tests.txt /requirements-tests.txt
 COPY dependencies/requirements-dev.txt /requirements-dev.txt
-RUN python -m pip install -U pip \
- && pip install -r /requirements-dev.txt
+RUN pip install --no-cache-dir -r /requirements-dev.txt
 
 # Folders supposed to be mapped during runtime
 RUN mkdir /home/results
