@@ -26,7 +26,6 @@ jobs:
       - name: Build base image
         uses: docker/build-push-action@v6
         with:
-          context: .
           file: dependencies/base.Dockerfile
           tags: imsy-htc-base:latest
           cache-from: type=registry,ref=user/app:buildcache
@@ -35,7 +34,6 @@ jobs:
       - name: Build main image
         uses: docker/build-push-action@v6
         with:
-          context: .
           file: dependencies/Dockerfile
           tags: |
             ghcr.io/imsy-dkfz/imsy-htc:${{ env.PACKAGE_VERSION }}
