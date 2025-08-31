@@ -7,6 +7,12 @@ jobs:
     name: Create Docker image
     runs-on: ubuntu-latest
     steps:
+      - name: Get version number
+        run: |
+          PACKAGE_VERSION=${GITHUB_REF_NAME#v}
+          echo "Package version: $PACKAGE_VERSION"
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
+    
       - uses: actions/checkout@v5
 
       - name: Login to GitHub Container Registry
@@ -29,6 +35,6 @@ jobs:
           context: .
           file: dependencies/Dockerfile
           tags: |
-            ghcr.io/imsy-dkfz/imsy-htc:${GITHUB_REF_NAME#v}
+            ghcr.io/imsy-dkfz/imsy-htc:${{ env.PACKAGE_VERSION }}
             ghcr.io/imsy-dkfz/imsy-htc:latest
           push: true
