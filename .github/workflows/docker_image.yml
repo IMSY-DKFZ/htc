@@ -27,7 +27,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           file: dependencies/base.Dockerfile
-          tags: imsy-htc-base:latest
+          tags: |
+            ghcr.io/imsy-dkfz/imsy-htc-base:${{ env.PACKAGE_VERSION }}
+            ghcr.io/imsy-dkfz/imsy-htc-base:latest
+          push: true
           cache-from: type=registry,ref=user/app:buildcache
           cache-to: type=registry,ref=user/app:buildcache,mode=max
 
