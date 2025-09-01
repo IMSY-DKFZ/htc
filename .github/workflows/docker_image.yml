@@ -41,5 +41,5 @@ jobs:
             ghcr.io/imsy-dkfz/imsy-htc:${{ env.PACKAGE_VERSION }}
             ghcr.io/imsy-dkfz/imsy-htc:latest
           push: true
-          cache-from: type=registry,ref=ghcr.io/imsy-dkfz/imsy-htc:buildcache
+          cache-from: imsy-htc-base:latest
           cache-to: type=registry,ref=ghcr.io/imsy-dkfz/imsy-htc:buildcache,mode=max
