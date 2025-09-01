@@ -31,7 +31,7 @@ jobs:
             ghcr.io/imsy-dkfz/imsy-htc-base:${{ env.PACKAGE_VERSION }}
             ghcr.io/imsy-dkfz/imsy-htc-base:latest
             imsy-htc-base:latest
-          outputs: type=image
+          outputs: type=image,name=imsy-htc-base
           cache-from: type=registry,ref=ghcr.io/imsy-dkfz/imsy-htc-base:buildcache
 
       - name: Build main image
