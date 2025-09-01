@@ -33,7 +33,7 @@ jobs:
             imsy-htc-base:latest
           outputs: type=image,name=imsy-htc-base
           cache-from: type=registry,ref=ghcr.io/imsy-dkfz/imsy-htc-base:buildcache
-          cache-to: type=local,src=path/to/dir
+          cache-to: type=local,dest=path/to/dir
 
       - name: Build main image
         uses: docker/build-push-action@v6
