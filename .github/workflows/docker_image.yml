@@ -32,6 +32,7 @@ jobs:
             ghcr.io/imsy-dkfz/imsy-htc-base:latest
             imsy-htc-base:latest
           cache-from: type=registry,ref=ghcr.io/imsy-dkfz/imsy-htc-base:buildcache
+          cache-to: type=inline
 
       - name: Build main image
         uses: docker/build-push-action@v6
@@ -43,4 +44,4 @@ jobs:
             ghcr.io/imsy-dkfz/imsy-htc:latest
           push: true
           cache-from: type=registry,ref=ghcr.io/imsy-dkfz/imsy-htc:buildcache
-          cache-to: type=registry,ref=ghcr.io/imsy-dkfz/imsy-htc:buildcache,mode=max
+          cache-to: type=inline
