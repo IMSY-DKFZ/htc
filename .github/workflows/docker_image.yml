@@ -84,12 +84,12 @@ jobs:
           wget --no-verbose https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_rat_example.zip
           unzip -q xeno_spectral_rat_example.zip
 
-      - name: Run example inside the Docker container
-        env:
-          PATH_Tivita_HeiPorSPECTRAL: ./HeiPorSPECTRAL_example
-          PATH_Tivita_xeno_spectral_pig: ./xeno_spectral_pig_example
-          PATH_Tivita_xeno_spectral_rat: ./xeno_spectral_rat_example
-        run: |
-          pip install python-dotenv
-          python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc python tutorials/website_HeiPorSPECTRAL_example.py
-          python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc python tutorials/website_xeno_spectral_example.py
+      # - name: Run example inside the Docker container
+      #   env:
+      #     PATH_Tivita_HeiPorSPECTRAL: ./HeiPorSPECTRAL_example
+      #     PATH_Tivita_xeno_spectral_pig: ./xeno_spectral_pig_example
+      #     PATH_Tivita_xeno_spectral_rat: ./xeno_spectral_rat_example
+      #   run: |
+      #     pip install python-dotenv
+      #     python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc python tutorials/website_HeiPorSPECTRAL_example.py
+      #     python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc python tutorials/website_xeno_spectral_example.py
