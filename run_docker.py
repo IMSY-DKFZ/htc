@@ -93,6 +93,32 @@ services:
         if override_file.exists():
             override_file.unlink()
 
+    # TOOD: sync back to main repo
+    # TODO: use filename in arguments
+    override_gpu_yml = file_dir / "dependencies" / "docker-compose_gpu.override.yml"
+    try:
+        subprocess.check_output('nvidia-smi')
+        override_gpu_yml = f"""
+services:
+  {"imsy-htc" if args.image_name is None else "custom_image_name"}:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+"""
+        
+        with override_gpu_yml.open("w") as f:
+            f.write(override_gpu_yml)
+
+        compose_file_cmd.append("-f")
+        compose_file_cmd.append("dependencies/docker-compose_gpu.override.yml")
+    except Exception:
+        if override_gpu_yml.exists():
+            override_gpu_yml.unlink()
+
     # Override file for custom image name
     override_service_file = file_dir / "dependencies" / "docker-compose_service.override.yml"
     if args.image_name is not None:
@@ -109,13 +135,6 @@ services:
       - SYS_ADMIN
     security_opt:
       - apparmor:unconfined
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 """
 
         with override_service_file.open("w") as f:
