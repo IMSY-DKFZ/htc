@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
         override_yml = f"""
 services:
-  {"imsy-htc" if args.image_name is None else args.image_name}:
+  {"imsy-htc" if args.image_name is None else "custom_image_name"}:
     environment:
       - {envs}
     volumes:
@@ -98,7 +98,7 @@ services:
     if args.image_name is not None:
         override_service_yml = f"""\
 services:
-  {args.image_name}:
+  custom_image_name:
     image: {args.image_name}
     container_name: {args.image_name}
     network_mode: host
@@ -129,7 +129,7 @@ services:
 
     if args.image_name is not None:
         subprocess.run(
-            ["docker", "compose", *compose_file_cmd, "run", "--rm", args.image_name, *args.cmd_args], cwd=file_dir, check=True
+            ["docker", "compose", *compose_file_cmd, "run", "--rm", "custom_image_name", *args.cmd_args], cwd=file_dir, check=True
         )
     else:
         subprocess.run(["docker", "compose", *compose_file_cmd, "build"], cwd=file_dir, check=True)
