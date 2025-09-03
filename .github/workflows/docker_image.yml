@@ -46,7 +46,36 @@ jobs:
           cache-from: type=registry,ref=ghcr.io/imsy-dkfz/imsy-htc:latest
           cache-to: type=inline
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+          cache: "pip"
+
+      - name: Compute unique identifier for the datasets
+        run: |
+          pip install requests
+          DATASETS_KEY=`python -c "\
+          import requests;\
+          datasets=[requests.head('https://heiporspectral.org/example.zip').headers.get('Last-Modified'),\
+                    requests.head('https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_pig_example.zip').headers.get('Last-Modified'),\
+                    requests.head('https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_rat_example.zip').headers.get('Last-Modified')];\
+          print('_'.join(datasets).replace(' ', '-').replace(',', '').replace(':', '-'))"`
+          echo "Datasets key: $DATASETS_KEY"
+          echo "DATASETS_KEY=$DATASETS_KEY" >> $GITHUB_ENV
+
+      - name: Cache datasets
+        id: cache-datasets
+        uses: actions/cache@v4
+        with:
+          path: |
+            HeiPorSPECTRAL_example
+            xeno_spectral_pig_example
+            xeno_spectral_rat_example
+          key: datasets-${{ env.DATASETS_KEY }}
+
       - name: Download datasets
+        if: steps.cache-datasets.outputs.cache-hit != 'true'
         run: |
           wget --no-verbose https://heiporspectral.org/example.zip
           unzip -q example.zip
@@ -54,12 +83,6 @@ jobs:
           unzip -q xeno_spectral_pig_example.zip
           wget --no-verbose https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_rat_example.zip
           unzip -q xeno_spectral_rat_example.zip
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.13
-          cache: "pip"
 
       - name: Run example inside the Docker container
         env:
