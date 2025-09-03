@@ -18,6 +18,7 @@ if __name__ == "__main__":
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    parser.add_argument("--image-name", default=None, type=str, help="Name of the existing Docker image to use (no build will be performed if this argument is given). Without this argument, the local registry is used while performing a rebuild if necessary.")
     parser.add_argument(
         "cmd_args", nargs=argparse.REMAINDER, help="Command and arguments which will be run in the Docker container"
     )
@@ -68,6 +69,7 @@ if __name__ == "__main__":
 
     compose_file_cmd = ["-f", "dependencies/docker-compose.yml"]
 
+    # Override file for environment settings
     override_file = file_dir / "dependencies" / "docker-compose.override.yml"
     if len(volumes) > 0:
         volumes = "\n      - ".join(volumes)
@@ -75,7 +77,7 @@ if __name__ == "__main__":
 
         override_yml = f"""
 services:
-  imsy-htc:
+  {"imsy-htc" if args.image_name is None else args.image_name}:
     environment:
       - {envs}
     volumes:
@@ -91,7 +93,46 @@ services:
         if override_file.exists():
             override_file.unlink()
 
-    subprocess.run(["docker", "compose", *compose_file_cmd, "build"], cwd=file_dir, check=True)
-    subprocess.run(
-        ["docker", "compose", *compose_file_cmd, "run", "--rm", "imsy-htc", *args.cmd_args], cwd=file_dir, check=True
-    )
+    # Override file for custom image name
+    override_service_file = file_dir / "dependencies" / "docker-compose_service.override.yml"
+    if args.image_name is not None:
+        override_service_yml = f"""\
+services:
+  {args.image_name}:
+    image: {args.image_name}
+    container_name: {args.image_name}
+    network_mode: host
+    shm_size: 10gb
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+"""
+
+        with override_service_file.open("w") as f:
+            f.write(override_service_yml)
+
+        compose_file_cmd.append("-f")
+        compose_file_cmd.append("dependencies/docker-compose_service.override.yml")
+    else:
+        if override_service_file.exists():
+            override_service_file.unlink()
+
+    if args.image_name is not None:
+        subprocess.run(
+            ["docker", "compose", *compose_file_cmd, "run", "--rm", args.image_name, *args.cmd_args], cwd=file_dir, check=True
+        )
+    else:
+        subprocess.run(["docker", "compose", *compose_file_cmd, "build"], cwd=file_dir, check=True)
+        subprocess.run(
+            ["docker", "compose", *compose_file_cmd, "run", "--rm", "imsy-htc", *args.cmd_args], cwd=file_dir, check=True
+        )
