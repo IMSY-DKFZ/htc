@@ -54,7 +54,7 @@ class TestPaperContextFiles:
         for run_dir in run_dirs:
             tmp_model_dir = tmp_results / "training" / run_dir.parent.name
             tmp_model_dir.mkdir(parents=True, exist_ok=True)
-            os.symlink(run_dir, tmp_model_dir / run_dir.name)
+            (tmp_model_dir / run_dir.name).symlink_to(run_dir)
 
         # Make all the additional files which we need for the figures available
         required_files = [
@@ -76,7 +76,7 @@ class TestPaperContextFiles:
             tmp_f = tmp_results / f.relative_to(settings.results_dir)
             if not tmp_f.parent.exists():
                 tmp_f.parent.mkdir(parents=True, exist_ok=True)
-            os.symlink(f, tmp_f)
+            tmp_f.symlink_to(f)
 
         # ScriptRunner always use subprocesses so they make use of the new results_dir
         monkeypatch.setenv("PATH_HTC_RESULTS", str(tmp_results))

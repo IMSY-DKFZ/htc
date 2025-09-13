@@ -9,18 +9,41 @@ on:
 jobs:
   download_dataset:
     runs-on: ubuntu-latest
+    outputs:
+      datasets_key: ${{ steps.compute_key.outputs.DATASETS_KEY }}
     steps:
-      - name: Download dataset
+      - name: Compute unique identifier for the datasets
+        id: compute_key
+        run: |
+          pip install requests
+          DATASETS_KEY=`python -c "\
+          import requests;\
+          datasets=[requests.head('https://heiporspectral.org/example.zip').headers.get('Last-Modified'),\
+                    requests.head('https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_pig_example.zip').headers.get('Last-Modified'),\
+                    requests.head('https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_rat_example.zip').headers.get('Last-Modified')];\
+          print('_'.join(datasets).replace(' ', '-').replace(',', '').replace(':', '-'))"`
+          echo "Datasets key: $DATASETS_KEY"
+          echo "DATASETS_KEY=$DATASETS_KEY" >> $GITHUB_ENV
+
+      - name: Cache datasets
+        id: cache-datasets
+        uses: actions/cache@v4
+        with:
+          path: |
+            HeiPorSPECTRAL_example
+            xeno_spectral_pig_example
+            xeno_spectral_rat_example
+          key: datasets-${{ env.DATASETS_KEY }}
+
+      - name: Download datasets
+        if: steps.cache-datasets.outputs.cache-hit != 'true'
         run: |
           wget --no-verbose https://heiporspectral.org/example.zip
           unzip -q example.zip
-      - uses: actions/cache@v4
-        with:
-          path: HeiPorSPECTRAL_example
-          key: dataset
-
-      - name: List files
-        run: tree HeiPorSPECTRAL_example
+          wget --no-verbose https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_pig_example.zip
+          unzip -q xeno_spectral_pig_example.zip
+          wget --no-verbose https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_rat_example.zip
+          unzip -q xeno_spectral_rat_example.zip
 
   test_dataset:
     name: Test the dataset on ${{ matrix.os }}
@@ -39,13 +62,17 @@ jobs:
           sparse-checkout: |
             dependencies/requirements.txt
             tutorials/website_HeiPorSPECTRAL_example.py
+            tutorials/website_xeno_spectral_example.py
           sparse-checkout-cone-mode: false
 
       - uses: actions/cache@v4
         with:
-          path: HeiPorSPECTRAL_example
+          path: |
+            HeiPorSPECTRAL_example
+            xeno_spectral_pig_example
+            xeno_spectral_rat_example
           enableCrossOsArchive: true
-          key: dataset
+          key: datasets-${{ needs.download_dataset.outputs.datasets_key }}
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
@@ -56,7 +83,11 @@ jobs:
       - name: Install htc package
         run: pip install imsy-htc
 
-      - name: Run example
+      - name: Run examples
         env:
           PATH_Tivita_HeiPorSPECTRAL: HeiPorSPECTRAL_example
-        run: python tutorials/website_HeiPorSPECTRAL_example.py
+          PATH_Tivita_xeno_spectral_pig: xeno_spectral_pig_example
+          PATH_Tivita_xeno_spectral_rat: xeno_spectral_rat_example
+        run: |
+          python tutorials/website_HeiPorSPECTRAL_example.py
+          python tutorials/website_xeno_spectral_example.py

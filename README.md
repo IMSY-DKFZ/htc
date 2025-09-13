@@ -39,10 +39,10 @@ If you use the `htc` framework, please consider citing the [corresponding papers
   author    = {Sellner, Jan and Seidlitz, Silvia},
   publisher = {Zenodo},
   url       = {https://github.com/IMSY-DKFZ/htc},
-  date      = {2025-05-25},
+  date      = {2025-09-13},
   doi       = {10.5281/zenodo.6577614},
   title     = {Hyperspectral Tissue Classification},
-  version   = {v0.0.21},
+  version   = {v0.0.22},
 }
 ```
 
@@ -60,9 +60,11 @@ pip install imsy-htc
 
 This installs all the required dependencies defined in [`requirements.txt`](./dependencies/requirements.txt). The requirements include the default [PyTorch](https://pytorch.org/) version for your system. In case you have special requirements on the PyTorch version (e.g. CUDA version), you need to manually install and build the `imsy-htc` package (see below).
 
-> &#x26a0;&#xfe0f; This framework was developed and tested using the Ubuntu 20.04+ Linux distribution. Despite we do provide wheels for Windows and macOS as well, they are not tested.
+The installation uses the latest versions of the dependencies to not break your existing environment. However, it can happen that a future update of a dependency breaks the installation or introduces incompatibilities. Unfortunately, we cannot guarantee that we will always make a new release which fixes the dependency problems. For this case, we provide a Docker image (see below) where you can work with the last working set of dependencies. This hopefully retains the functionality of this package even in the (far) future.
 
-> &#x26a0;&#xfe0f; Network training and inference was conducted using an RTX 3090 GPU with 24 GiB of memory. It should also work with GPUs which have less memory but you may have to adjust some settings (e.g. the batch size).
+> &#x26a0;&#xfe0f; This framework was developed and tested using the Ubuntu 24.04+ Linux distribution. Despite we do provide wheels for Windows and macOS as well, they are not tested.
+
+> &#x26a0;&#xfe0f; Network training and inference was conducted using an RTX 4090 GPU with 24 GiB of memory. It should also work with GPUs which have less memory but you may have to adjust some settings (e.g. the batch size).
 
 <details close>
 <summary>PyTorch Compatibility and Custom Pytorch Versions</summary>
@@ -85,6 +87,7 @@ Our wheels are bound to the PyTorch ABI used during building of the wheel. This 
 | 0.0.19     | 2.6     |
 | 0.0.20     | 2.6     |
 | 0.0.21     | 2.7     |
+| 0.0.22     | 2.8     |
 
 However, we do not make explicit version constraints in the dependencies of the `imsy-htc` package because a future version of PyTorch may still work and we don't want to break the installation if it is not necessary.
 
@@ -130,24 +133,29 @@ This installs the optional dependencies defined in [`requirements-extra.txt`](./
 <details close>
 <summary>Docker</summary>
 
-We also provide a Docker setup for testing. As a prerequisite:
+We also provide a Docker setup. As a prerequisite:
 
 - Clone this repository
 - Install [Docker](https://docs.docker.com/get-docker/) and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-- Install the required dependencies to run the Docker startup script:
+- Run arbitrary commands inside the container via the provided `run_docker.py` script:
 
-```bash
-pip install python-dotenv
-```
+    ```bash
+    # Start an interactive python shell inside the container
+    python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc ipython
 
-Make sure that your environment variables are available and then bash into the container
+    # Start any Python script inside the container
+    python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc python tutorials/website_HeiPorSPECTRAL_example.py
 
-```bash
-export PATH_Tivita_HeiPorSPECTRAL="/path/to/the/dataset"
-python run_docker.py bash
-```
+    # Run any htc command inside the container
+    python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc htc info
 
-You can now run any commands you like. All datasets you provided via an environment variable that starts with `PATH_Tivita` will be accessible in your container (you can also check the generated `dependencies/docker-compose.override.yml` file for details). Please note that the Docker container is meant for small testing only and not for development. This is also reflected by the fact that per default all results are stored inside the container and hence will also be deleted after exiting the container. If you want to keep your results, let the environment variable `PATH_HTC_DOCKER_RESULTS` point to the directory where you want to store the results.
+    # Do anything you want inside the container
+    python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc bash
+    ```
+
+    The example makes use of our prebuilt Docker image from the [GitHub registry](https://github.com/IMSY-DKFZ/htc/pkgs/container/imsy-htc). There are also images for specific versions available. If you want to build the Docker image yourself, you can omit the `--image-name` argument.
+
+All datasets you provided via an environment variable that starts with `PATH_Tivita` will be accessible in your container (you can also check the generated `dependencies/docker-compose*.override.yml` files for details). Per default, the Docker container is meant for small testing and not for development. This is reflected by the fact that all results are stored inside the container and hence will also be deleted after exiting the container. If you want to keep your results, let the environment variable `PATH_HTC_DOCKER_RESULTS` point to the directory where you want to store the results.
 
 </details>
 

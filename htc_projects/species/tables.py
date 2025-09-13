@@ -132,6 +132,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     dfk["phase_type"] = dfk["phase_type"].astype("category")
     dfk["phase_type"] = dfk["phase_type"].cat.set_categories(["physiological", "ischemia", "avascular", "stasis"])
     dfk["perfusion_state"] = dfk["phase_type"].map(phase_type_mapping)
+    dfk["malperfusion_clear"] = dfk["perfusion_state"] == "malperfused"
     dfk = sort_labels(dfk, sorting_cols=["label_name", "phase_type"])
     add_times_table(dfk, groups=["subject_name"])
     dfk.reset_index(drop=True, inplace=True)
@@ -146,6 +147,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     add_times_table(dfa, groups=["subject_name"])
     dfa["species_name"] = "pig"
     dfa["perfusion_state"] = dfa["phase_type"].map(phase_type_mapping)
+    dfa["malperfusion_clear"] = dfa["perfusion_state"] == "malperfused"
 
     _add_diff_spectra(dfa)
 
@@ -157,6 +159,10 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     add_times_table(dfr, groups=["subject_name"])
     dfr["species_name"] = "rat"
     dfr["perfusion_state"] = dfr["phase_type"].map(phase_type_mapping)
+    dfr["malperfusion_clear"] = (
+        (pd.isna(dfr.reperfused) | (dfr.reperfused == False))  # noqa: E712
+        & (pd.isna(dfr.phase_time) | dfr.phase_time != 0)
+    )
 
     _add_diff_spectra(dfr)
 
@@ -181,6 +187,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
 
     dfh_mal["species_name"] = "human"
     dfh_mal["perfusion_state"] = "malperfused"
+    dfh_mal["malperfusion_clear"] = True
 
     # Every semantically annotated image which has not been used previously
     dfh_unclear = median_table(
@@ -197,6 +204,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     )
     dfh_unclear["species_name"] = "human"
     dfh_unclear["perfusion_state"] = "unclear"
+    dfh_unclear["malperfusion_clear"] = False
 
     dfh = pd.concat([dfh_phys, dfh_mal, dfh_unclear], ignore_index=True)
     _add_diff_spectra(dfh)
@@ -224,7 +232,7 @@ def ischemic_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
 
 def ischemic_clear_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     """
-    Subset of the ischemic table which only includes clear perfusion states.
+    Subset of the ischemic table which only includes clear perfusion states + physiological images from the baseline dataset.
 
     Args:
         label_mapping: Optional label mapping passed on to the median_table function.
@@ -234,27 +242,11 @@ def ischemic_clear_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     df = ischemic_table(label_mapping=label_mapping)
 
     # Select for each species only the clear perfusion states
-    df_rat = df.query("species_name == 'rat'").copy()
-    df_rat = df_rat[
-        (pd.isna(df_rat.reperfused) | (df_rat.reperfused == False))  # noqa: E712
-        & (pd.isna(df_rat.phase_time) | df_rat.phase_time != 0)
-    ]
+    df_rat = df.query("species_name == 'rat' and (baseline_dataset or malperfusion_clear)").copy()
     assert not pd.isna(df_rat["phase_type"]).any(), "All rat images must have a phase type"
-    df_rat["perfusion_state"] = df_rat["phase_type"].map({
-        "physiological": "physiological",
-        "ischemia": "malperfused",
-        "stasis": "malperfused",
-        "avascular": "malperfused",
-    })
 
     df_pig = df.query("species_name == 'pig'").copy()
     assert not pd.isna(df_pig["phase_type"]).any(), "All pig images must have a phase type"
-    df_pig["perfusion_state"] = df_pig["phase_type"].map({
-        "physiological": "physiological",
-        "ischemia": "malperfused",
-        "stasis": "malperfused",
-        "avascular": "malperfused",
-    })
 
     df_human = df.query("species_name == 'human'").copy()
     df_human = df_human[df_human["perfusion_state"] != "unclear"]
@@ -308,7 +300,7 @@ def icg_table(label_mapping: LabelMapping = None) -> pd.DataFrame:
     df_icg = pd.json_normalize(df_rat["icg"])
     df_icg.columns = [f"icg_{col}" for col in df_icg.columns]
 
-    # The rat data contains time series ICG data and we consider 10 minutes after the ICG injection as clear cases
+    # The rat data contains time series ICG data and we consider every image within 10 minutes after the ICG injection as clear cases
     df_icg["icg_clear"] = df_icg.icg_seconds_after_dose.apply(lambda x: np.min(x) <= 600)
     df_rat = pd.concat([df_rat, df_icg], axis=1)
 

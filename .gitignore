@@ -627,7 +627,7 @@ generated*.tex
 submit_jobs*.sh
 submit_missing_jobs.sh
 local_runs*.sh
-docker-compose.override.yml
+*.override.yml
 
 *.html
 docs/site

@@ -1,0 +1,180 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # cibuildwheel is configured via pyproject.toml
+      - name: Build wheels with cibuildwheel
+        uses: pypa/cibuildwheel@v3
+        env:
+          CIBW_ENVIRONMENT: CI_COMMIT_TAG="${{  github.ref_name }}"
+          # Force UTF-8 mode (especially for Windows)
+          PYTHONUTF8: 1
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution (sdist)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.13"]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: "dependencies/requirements*.txt"
+
+      - name: Install build dependencies
+        run: pip install build
+
+      - name: Build sdist
+        run: python -m build . --sdist
+
+      - name: Upload sdist package
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-source
+          path: dist/*.tar.gz
+
+      - name: Build building extension from sdist package
+        env:
+          HTC_ADD_NETWORK_ALTERNATIVES: false
+        run: |
+          pip install -r dependencies/requirements-tests.txt
+          pip install torch
+          pip install dist/*.tar.gz
+
+      - name: Basic test for the sdist package
+        run: py.test --doctest-modules --import-mode=importlib --collect-only --pyargs "htc" "htc_projects"
+
+  docker-image:
+    name: Create Docker image
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.13"]
+
+    steps:
+      - name: Get version number
+        run: |
+          PACKAGE_VERSION=${GITHUB_REF_NAME#v}
+          echo "Package version: $PACKAGE_VERSION"
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v5
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build base image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: dependencies/base.Dockerfile
+          tags: imsy-htc-base:latest
+
+      - name: Build main image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: dependencies/Dockerfile
+          tags: |
+            ghcr.io/imsy-dkfz/imsy-htc:${{ env.PACKAGE_VERSION }}
+            ghcr.io/imsy-dkfz/imsy-htc:latest
+          load: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Compute unique identifier for the datasets
+        run: |
+          pip install requests
+          DATASETS_KEY=`python -c "\
+          import requests;\
+          datasets=[requests.head('https://heiporspectral.org/example.zip').headers.get('Last-Modified'),\
+                    requests.head('https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_pig_example.zip').headers.get('Last-Modified'),\
+                    requests.head('https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_rat_example.zip').headers.get('Last-Modified')];\
+          print('_'.join(datasets).replace(' ', '-').replace(',', '').replace(':', '-'))"`
+          echo "Datasets key: $DATASETS_KEY"
+          echo "DATASETS_KEY=$DATASETS_KEY" >> $GITHUB_ENV
+
+      - name: Cache datasets
+        id: cache-datasets
+        uses: actions/cache@v4
+        with:
+          path: |
+            HeiPorSPECTRAL_example
+            xeno_spectral_pig_example
+            xeno_spectral_rat_example
+          key: datasets-${{ env.DATASETS_KEY }}
+
+      - name: Download datasets
+        if: steps.cache-datasets.outputs.cache-hit != 'true'
+        run: |
+          wget --no-verbose https://heiporspectral.org/example.zip
+          unzip -q example.zip
+          wget --no-verbose https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_pig_example.zip
+          unzip -q xeno_spectral_pig_example.zip
+          wget --no-verbose https://extra.spectralverse-heidelberg.org/xeno-spectral/xeno_spectral_rat_example.zip
+          unzip -q xeno_spectral_rat_example.zip
+
+      - name: Run example inside the Docker container
+        env:
+          PATH_Tivita_HeiPorSPECTRAL: HeiPorSPECTRAL_example
+          PATH_Tivita_xeno_spectral_pig: xeno_spectral_pig_example
+          PATH_Tivita_xeno_spectral_rat: xeno_spectral_rat_example
+        run: |
+          python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc python tutorials/website_HeiPorSPECTRAL_example.py
+          python run_docker.py --image-name ghcr.io/imsy-dkfz/imsy-htc python tutorials/website_xeno_spectral_example.py
+
+      - name: Push Docker image
+        run: docker push --all-tags ghcr.io/imsy-dkfz/imsy-htc
+
+  # Only upload to PyPI when everything else was successful
+  upload_pypi:
+    needs: [build_wheels, build_sdist, docker-image]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: dist
+          pattern: wheels-*
+          merge-multiple: true
+
+      - name: upload_pypi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

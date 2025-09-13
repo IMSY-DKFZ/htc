@@ -67,7 +67,7 @@ class TestPaperSemanticFiles:
         for run_dir in run_dirs:
             tmp_model_dir = tmp_results / "training" / run_dir.parent.name
             tmp_model_dir.mkdir(parents=True, exist_ok=True)
-            os.symlink(run_dir, tmp_model_dir / run_dir.name)
+            (tmp_model_dir / run_dir.name).symlink_to(run_dir)
 
         # ScriptRunner always use subprocesses so they make use of the new results_dir
         monkeypatch.setenv("PATH_HTC_RESULTS", str(tmp_results))

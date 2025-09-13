@@ -10,5 +10,5 @@ authors:
 doi: 10.5281/zenodo.6577614
 repository-code: "https://github.com/IMSY-DKFZ/htc"
 license: MIT
-version: v0.0.21
-date-released: "2025-05-25"
+version: v0.0.22
+date-released: "2025-09-13"

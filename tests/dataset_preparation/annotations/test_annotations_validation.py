@@ -77,7 +77,7 @@ class TestAnnotationsValidation:
         assert validate_annotations.missing_annotations_primary == {paths[3].image_name()}
 
         # adding a nrrd file which is not part of the temporary dataset
-        with pytest.raises(AssertionError, match="Data directory mismatch.*"):
+        with pytest.raises(AssertionError, match=r"Data directory mismatch.*"):
             seg_mask = np.ones(shape=seg_mask_shape, dtype=int)
             nrrd_file_missing = nrrd_path / "R002#2023_09_19_10_14_28#0202-00118.nrrd"
             mapping = LabelMapping(mapping_name_index={"stomach": 1}, zero_is_invalid=True)

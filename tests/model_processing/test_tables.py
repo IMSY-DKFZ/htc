@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 
 import json
-import os
 from pathlib import Path
 
 import numpy as np
@@ -65,7 +64,7 @@ class TestTables:
         run_dir = settings.training_dir / model_name / run_folder
         for f in sorted(run_dir.iterdir()):
             if f.name not in ["validation_table.pkl.xz", "config.json"]:
-                os.symlink(f, tmp_run_dir / f.name)
+                (tmp_run_dir / f.name).symlink_to(f)
 
         config = Config(run_dir / "config.json")
         config["input/data_spec"] = spec

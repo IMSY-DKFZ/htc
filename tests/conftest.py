@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import os
 import random
 import shutil
 import subprocess
@@ -77,7 +76,7 @@ def make_tmp_example_data(tmp_path: Path, monkeypatch: MonkeyPatch) -> Iterator[
         if include_intermediates:
             intermediates_dir = settings.datasets.find_intermediates_dir(data_dir)
             assert intermediates_dir.is_dir(), f"Intermediates directory {intermediates_dir} does not exist"
-            os.symlink(intermediates_dir, tmp_dataset_dir / "intermediates")
+            (tmp_dataset_dir / "intermediates").symlink_to(intermediates_dir)
         else:
             (tmp_dataset_dir / "intermediates").mkdir(parents=True, exist_ok=True)
 
@@ -99,7 +98,7 @@ def make_tmp_example_data(tmp_path: Path, monkeypatch: MonkeyPatch) -> Iterator[
             assert "overlap" not in str(p), "Overlap file detected, best to use a different seed"
             tmp_subject_dir = (tmp_data / p().relative_to(data_dir)).parent
             tmp_subject_dir.mkdir(parents=True, exist_ok=True)
-            os.symlink(p(), tmp_subject_dir / p.timestamp)
+            (tmp_subject_dir / p.timestamp).symlink_to(p())
 
         shutil.copy2(data_dir / "dataset_settings.json", tmp_data / "dataset_settings.json")
 

@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2022 Division of Intelligent Medical Systems, DKFZ
 # SPDX-License-Identifier: MIT
 
-import os
 import shutil
 from pathlib import Path
 
@@ -24,7 +23,7 @@ def test_example_image(script_runner: ScriptRunner, tmp_path: Path) -> None:
     path = DataPath.from_image_name("P072#2020_08_08_18_05_23")
     image_dir = data_dir / "subjects" / path.subject_name
     image_dir.mkdir(parents=True, exist_ok=True)
-    os.symlink(path(), image_dir / path.timestamp)
+    (image_dir / path.timestamp).symlink_to(path())
     shutil.copy2(path.dataset_settings.settings_path, data_dir / "dataset_settings.json")
 
     seg_dir = tmp_path / "input/intermediates/segmentations"

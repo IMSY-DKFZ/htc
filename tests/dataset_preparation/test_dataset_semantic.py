@@ -35,7 +35,7 @@ class TestDataGeneratorSemantic:
         assert torch.all(label_mask == torch.tensor([[1, 1, 2], [10, 20, 20]], dtype=torch.uint8))
 
         label_image[1, 2, :] = torch.tensor([0, 0, 4], dtype=torch.uint8)
-        with pytest.raises(AssertionError, match="not part of the mapping.*(0, 0, 4)"):
+        with pytest.raises(AssertionError, match=r"not part of the mapping.*(0, 0, 4)"):
             segmentation_mask(label_image, color_mapping)
 
     def test_data_generation(self, make_tmp_example_data: Callable) -> None:

@@ -18,7 +18,7 @@ RUN apt install -y fontconfig wget zstd \
 
 # ImageMagick for PDF image comparison (used in paper tests)
 RUN apt install -y libmagickwand-dev \
- && pip install Wand \
+ && pip install --no-cache-dir Wand \
  && sed -i '/disable ghostscript format types/,+6d' /etc/ImageMagick-6/policy.xml
 
 # Install chromium for kaleido, as it is explicitly required now

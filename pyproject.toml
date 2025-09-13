@@ -88,6 +88,7 @@ lint.ignore = [
   "RUF002",  # Usually no problem and can be intended (e.g., narrow non-breaking space)
   "RUF003",  # Explicitly intended
   "RUF013",  # Produces unnecessary complexity
+  "RUF059",  # Similar to F841, does not detect query usage
   "UP031",   # % formatting can be easier with JS string code
 ]
 lint.per-file-ignores."__init__.py" = [ "F401" ]
