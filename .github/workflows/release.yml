@@ -18,7 +18,7 @@ jobs:
 
       # cibuildwheel is configured via pyproject.toml
       - name: Build wheels with cibuildwheel
-        uses: pypa/cibuildwheel@v3
+        uses: pypa/cibuildwheel@v3.1.4
         env:
           CIBW_ENVIRONMENT: CI_COMMIT_TAG="${{  github.ref_name }}"
           # Force UTF-8 mode (especially for Windows)
