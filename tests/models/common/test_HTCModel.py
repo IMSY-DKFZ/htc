@@ -179,18 +179,39 @@ class TestHTCModel:
             == HTCModel.known_models["pixel@2022-02-03_22-58-44_generated_default_model_comparison"]["sha256"]
         )
 
-    def test_markdown_table(self, caplog: LogCaptureFixture) -> None:
+    def test_markdown_table_segmentation(self, caplog: LogCaptureFixture) -> None:
         with (settings.src_dir / "README_public.md").open() as f:
             table_readme = f.read()
-        match = re.search(r"(\| model type.*\|)\s+>", table_readme, flags=re.DOTALL)
+        match = re.search(r"(\| model type.*\|)\s+The", table_readme, flags=re.DOTALL)
         assert match is not None
         table_readme = match.group(1)
 
         # This also ensures that every model can be loaded
-        table_new = HTCModel.markdown_table()
+        table_new = HTCModel.markdown_table_segmentation()
 
         assert "Successfully downloaded" not in caplog.text
-        assert table_readme == table_new, "The pretrained models table in the README is not up-to-date"
+        assert table_readme == table_new, (
+            "The pretrained models table for surgical scene segmentation in the README is not up-to-date"
+        )
+
+    def test_markdown_table_sepsis_icu(self, caplog: LogCaptureFixture) -> None:
+        with (settings.src_dir / "README_public.md").open() as f:
+            table_readme = f.read()
+        match = re.search(
+            r"sepsis diagnosis and mortality prediction:\s+<!-- prettier-ignore -->\s+(\| model type.*\|)\s+>",
+            table_readme,
+            flags=re.DOTALL,
+        )
+        assert match is not None
+        table_readme = match.group(1)
+
+        # This also ensures that every model can be loaded
+        table_new = HTCModel.markdown_table_sepsis_icu()
+
+        assert "Successfully downloaded" not in caplog.text
+        assert table_readme == table_new, (
+            "The pretrained models table for sepsis diagnosis and mortality prediction in the README is not up-to-date"
+        )
 
     def test_links_accessible(self) -> None:
         for name, info in HTCModel.known_models.items():

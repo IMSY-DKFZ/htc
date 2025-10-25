@@ -1,0 +1,26 @@
+{
+    "inherits": "htc_projects/sepsis_icu/configs/sepsis-inclusion_palm_image-meta.json",
+    "inherits_skip": [
+        "input/hierarchical_sampling",
+        "input/target_domain",
+        "input/spatial_shape",
+        "model/encoder",
+        "model/encoder_weights",
+        "model/per_model_output_size"
+    ],
+    "lightning_class": "htc_projects.sepsis_icu.models.LightningMetaSepsis>LightningMetaSepsis",
+    "input": {
+        "epoch_size": 500000,
+        "transforms_gpu": null,
+        "oversampling": true
+    },
+    "optimization": {
+        "optimizer": {
+            "lr": 0.0001
+        }
+    },
+    "dataloader_kwargs": {
+        "batch_size": 20000,
+        "num_workers": 2
+    }
+}

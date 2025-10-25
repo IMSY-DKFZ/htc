@@ -1,0 +1,28 @@
+{
+    "inherits": "models/median_pixel/configs/default.json",
+    "inherits_skip": ["label_mapping"],
+    "lightning_class": "htc_projects.sepsis_icu.models.LightningMedianPixelSepsis>LightningMedianPixelSepsis",
+    "task": "classification",
+    "input": {
+        "data_spec": "sepsis-inclusion_palm_5folds_test-0.25_seed-0.json",
+        "table_name": "recalibrated",
+        "image_labels": [
+            {
+                "meta_attributes": ["sepsis_status"],
+                "image_label_mapping": "htc_projects.sepsis_icu.settings_sepsis_icu>sepsis_label_mapping"
+            }
+        ],
+        "epoch_size": 500000,
+        "oversampling": true
+    },
+    "model": {
+        "dropout": 0.5
+    },
+    "validation": {
+        "checkpoint_metric": "accuracy",
+        "checkpoint_metric_kwargs": {
+            "average": "macro"
+        },
+        "checkpoint_saving": "last"
+    }
+}

@@ -47,6 +47,9 @@ class ModelSuperpixelClassification(HTCModel):
             aux_params=dict(pooling="avg", dropout=self.config["model/dropout"], classes=n_classes),
         )
 
+        if "timm-" in self.config["model/encoder"]:
+            self.load_keys_pattern = {"model.architecture.encoder": "architecture.encoder.model"}
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.channel_preprocessing(x)
         x = self.architecture(x)

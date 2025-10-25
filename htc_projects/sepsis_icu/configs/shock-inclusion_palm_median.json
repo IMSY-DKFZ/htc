@@ -1,0 +1,12 @@
+{
+    "inherits": "htc_projects/sepsis_icu/configs/sepsis-inclusion_palm_median.json",
+    "input": {
+        "image_labels": [
+            {
+                "meta_attributes": ["shock"],
+                "image_label_mapping": "htc_projects.sepsis_icu.settings_sepsis_icu>shock_label_mapping"
+            }
+        ],
+        "n_classes": 2
+    }
+}

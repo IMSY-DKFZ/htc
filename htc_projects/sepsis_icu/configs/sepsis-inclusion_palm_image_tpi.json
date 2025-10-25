@@ -1,0 +1,8 @@
+{
+    "inherits": "htc_projects/sepsis_icu/configs/sepsis-inclusion_palm_image.json",
+    "input": {
+        "preprocessing": "parameter_images_recalibrated_crop_reshape_224+224",
+        "parameter_names": ["StO2", "NIR", "TWI", "THI"],
+        "n_channels": 4
+    }
+}

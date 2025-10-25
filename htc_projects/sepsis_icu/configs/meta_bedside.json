@@ -1,0 +1,66 @@
+{
+    "input": {
+        "meta": {
+            "attributes": [
+                // demographic
+                { "name": "age" },
+                { "name": "sex", "mapping": { "male": 0, "female": 1 } },
+                { "name": "weight" },
+                { "name": "type_weight_measurement", "mapping": { "estimated": 0, "measured": 1 } },
+                {
+                    "name": "type_skin",
+                    "mapping": {
+                        "I": 0,
+                        "I-II": 1,
+                        "II": 2,
+                        "II-III": 3,
+                        "III": 4,
+                        "III-IV": 5,
+                        "IV": 6,
+                        "IV-V": 7,
+                        "V": 8
+                    }
+                },
+
+                // diagnosis
+                { "name": "renal_replacement_therapy" },
+                { "name": "ECMO" },
+                { "name": "impella" },
+                { "name": "liver_replacement_therapy" },
+
+                // vital
+                { "name": "heart_frequency" },
+                { "name": "sinusrhythm" },
+                { "name": "MAP" },
+                { "name": "systolic_blood_pressure" },
+                { "name": "temperature" },
+                { "name": "SpO2" },
+
+                // BGA
+                { "name": "pCO2" },
+                { "name": "PaO2" },
+                { "name": "Hb_BGA" },
+                { "name": "lactate" },
+                { "name": "SaO2" },
+                { "name": "pH" },
+                { "name": "type_BGA", "mapping": { "arterial": 0, "venous": 1 } },
+
+                // catecholamines
+                { "name": "noradrenaline_dose_SOFA" },
+                { "name": "adrenaline_dose_SOFA" },
+                { "name": "vasopressor_dose_SOFA" },
+                { "name": "dobutamine_dose_SOFA" },
+                { "name": "milrinone_dose" },
+
+                // ventilation
+                { "name": "ventilation_tubus_tracheostoma" },
+                { "name": "ventilation_currently" },
+                { "name": "APRV" },
+                { "name": "FiO2" },
+                { "name": "PEEP" },
+                { "name": "PPEAK" },
+                { "name": "respiratory_frequency" }
+            ]
+        }
+    }
+}

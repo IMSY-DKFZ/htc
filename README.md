@@ -12,6 +12,7 @@
 This package is a framework for automated tissue classification and segmentation on medical hyperspectral imaging (HSI) data. It contains:
 
 - The implementation of deep learning models to solve supervised classification and segmentation problems for a variety of different input spatial granularities (pixels, superpixels, patches and entire images, cf. figure below) and modalities (RGB data, raw and processed HSI data) from our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488). It is based on [PyTorch](https://pytorch.org/) and [PyTorch Lightning](https://lightning.ai/).
+- The implementation of deep learning models for automated sepsis diagnosis and mortality prediciton, as described in our paper ["AI-powered skin spectral imaging enables instant sepsis diagnosis and outcome prediction in critically ill patients"](https://www.science.org/doi/10.1126/sciadv.adw1968). The models are based on skin HSI data at various spatial granularities (median spectra, patches) and across different modalities (RGB images, raw and processed HSI data). We further provide a multimodal approach that combines HSI data with clinical features such as demographics and blood gas analysis parameters.
 - Corresponding pretrained models.
 - A pipeline to efficiently load and process HSI data, to aggregate deep learning results and to validate and visualize findings.
 - Presentation of several solutions to speed up the data loading process (see [Pytorch Conference 2023 poster details](./README.md#-dealing-with-io-bottlenecks-in-high-throughput-model-training) below).
@@ -23,9 +24,8 @@ This package is a framework for automated tissue classification and segmentation
 This framework is designed to work on HSI data from the [Tivita](https://diaspective-vision.com/en/) cameras but you can adapt it to different HSI datasets as well. Potential applications include:
 
 - Use our data loading and processing pipeline to easily access image and meta data for any work utilizing Tivita datasets.
-- This repository is tightly coupled to work with the public [HeiPorSPECTRAL](https://heiporspectral.org/) dataset. If you already downloaded the data, you only need to perform the setup steps and then you can directly use the `htc` framework to work on the data (cf. [our tutorials](./README.md#tutorials)).
+- This repository is tightly coupled to work with the public [HeiPorSPECTRAL](https://heiporspectral.org/) and [xeno-spectral](https://spectralverse-heidelberg.org/xeno-spectral) datasets. If you already downloaded the data, you only need to perform the setup steps and then you can directly use the `htc` framework to work on the data (cf. [our tutorials](./README.md#tutorials)).
 - Train your own networks and benefit from a pipeline offering e.g. efficient data loading, correct hierarchical aggregation of results and a set of helpful visualizations.
-- Apply deep learning models for different spatial granularities and modalities on your own semantically annotated dataset.
 - Use our pretrained models to initialize the weights for your own training.
 - Use our pretrained models to generate predictions for your own data.
 
@@ -39,10 +39,10 @@ If you use the `htc` framework, please consider citing the [corresponding papers
   author    = {Sellner, Jan and Seidlitz, Silvia},
   publisher = {Zenodo},
   url       = {https://github.com/IMSY-DKFZ/htc},
-  date      = {2025-09-13},
+  date      = {2025-10-25},
   doi       = {10.5281/zenodo.6577614},
   title     = {Hyperspectral Tissue Classification},
-  version   = {v0.0.22},
+  version   = {v0.0.23},
 }
 ```
 
@@ -88,6 +88,7 @@ Our wheels are bound to the PyTorch ABI used during building of the wheel. This 
 | 0.0.20     | 2.6     |
 | 0.0.21     | 2.7     |
 | 0.0.22     | 2.8     |
+| 0.0.23     | 2.9     |
 
 However, we do not make explicit version constraints in the dependencies of the `imsy-htc` package because a future version of PyTorch may still work and we don't want to break the installation if it is not necessary.
 
@@ -226,13 +227,15 @@ A series of [tutorials](./tutorials) can help you get started on the `htc` frame
 - If you are interested in our technical validation (e.g. because you want to compare your colorchecker images with ours) and need to create a mask to detect the different colorchecker fields, you might find our automatic [colorchecker mask creation pipeline](./htc/utils/ColorcheckerMaskCreation.ipynb) useful.
 - If you are coming from our xeno-learning publication and want to know more about the handling of the data, then we have you covered with an extra tutorial on the [xeno-spectral dataset](./tutorials/XenoSpectral.ipynb).
 
-We do not have a separate documentation website for our framework yet. However, most of the functions and classes are documented so feel free to explore the source code or use your favorite IDE to display the documentation. If something does not become clear from the documentation, feel free to open an issue!
+We do not have a separate documentation website for our framework yet. However, most of the functions and classes are documented, so feel free to explore the source code or use your favorite IDE to display the documentation. If something does not become clear from the documentation, feel free to open an issue!
 
 ## Pretrained Models
 
 This framework gives you access to a variety of pretrained segmentation and classification models. The models will be automatically downloaded, provided you specify the model type (e.g. `image`) and the run folder (e.g. `2022-02-03_22-58-44_generated_default_model_comparison`). It can then be used for example to [create predictions](./tutorials/CreatingPredictions.ipynb) on some data or as a baseline for your own training (see example below).
 
-The following table lists all the models you can get:
+The following table lists all the models you can get for surgical scene segmentation:
+
+<!-- prettier-ignore -->
 | model type | modality | class | run folder |
 | ----------- | ----------- | ----------- | ----------- |
 | image | hsi | [`ModelImage`](./htc/models/image/ModelImage.py) | `2025-03-09_19-38-10_projected-malperfusion_rat2pig_nested-*-2` (outer folds: [0](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2025-03-09_19-38-10_projected-malperfusion_rat2pig_nested-0-2.zip), [1](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2025-03-09_19-38-10_projected-malperfusion_rat2pig_nested-1-2.zip), [2](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/image@2025-03-09_19-38-10_projected-malperfusion_rat2pig_nested-2-2.zip)) |
@@ -263,9 +266,39 @@ The following table lists all the models you can get:
 | pixel | param | [`ModelPixelRGB`](./htc/models/pixel/ModelPixelRGB.py) | [`2022-02-03_22-58-44_generated_default_parameters_model_comparison`](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_parameters_model_comparison.zip) |
 | pixel | rgb | [`ModelPixelRGB`](./htc/models/pixel/ModelPixelRGB.py) | [`2022-02-03_22-58-44_generated_default_rgb_model_comparison`](https://e130-hyperspectal-tissue-classification.s3.dkfz.de/models/pixel@2022-02-03_22-58-44_generated_default_rgb_model_comparison.zip) |
 
-> 💡 The modality `param` refers to stacked tissue parameter images (named TPI in our paper [“Robust deep learning-based semantic organ segmentation in hyperspectral images”](https://doi.org/10.1016/j.media.2022.102488)). For the model type `patch`, pretrained models are available for the patch sizes 64 x 64 and 32 x 32 pixels. The modality and patch size is not specified when loading a model as it is already characterized by specifying a certain run folder.
+The following table lists all the models you can get for sepsis diagnosis and mortality prediction:
+
+<!-- prettier-ignore -->
+| model type | modality | class | run folder |
+| ----------- | ----------- | ----------- | ----------- |
+| median_pixel | hsi | [`ModelPixel`](./htc/models/pixel/ModelPixel.py) | `2025-03-07_13-00-00_survival-inclusion_palm_median_nested-*-4_seed-*-2` |
+| median_pixel | hsi | [`ModelPixel`](./htc/models/pixel/ModelPixel.py) | `2025-03-07_13-00-00_survival-inclusion_finger_median_nested-*-4_seed-*-2` |
+| median_pixel | hsi | [`ModelPixel`](./htc/models/pixel/ModelPixel.py) | `2025-03-07_13-00-00_sepsis-inclusion_palm_median_nested-*-4_seed-*-2` |
+| median_pixel | hsi | [`ModelPixel`](./htc/models/pixel/ModelPixel.py) | `2025-03-07_13-00-00_sepsis-inclusion_finger_median_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_survival-inclusion_palm_stacked_image_nested-*-4_seed-*-2` |
+| image | param | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_survival-inclusion_palm_image_tpi_nested-*-4_seed-*-2` |
+| image | rgb | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_survival-inclusion_palm_image_rgb_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_survival-inclusion_palm_image_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_survival-inclusion_palm_image-meta_demographic+vital+BGA+diagnosis+ventilation+catecholamines_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_survival-inclusion_palm_image-meta_demographic+vital+BGA+diagnosis+ventilation+catecholamines+lab_nested-*-4_seed-*-2` |
+| image | param | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_survival-inclusion_finger_image_tpi_nested-*-4_seed-*-2` |
+| image | rgb | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_survival-inclusion_finger_image_rgb_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_survival-inclusion_finger_image_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_sepsis-inclusion_palm_stacked_image_nested-*-4_seed-*-2` |
+| image | param | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_sepsis-inclusion_palm_image_tpi_nested-*-4_seed-*-2` |
+| image | rgb | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_sepsis-inclusion_palm_image_rgb_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_sepsis-inclusion_palm_image_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_sepsis-inclusion_palm_image-meta_demographic+vital+BGA+diagnosis+ventilation+catecholamines_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_sepsis-inclusion_palm_image-meta_demographic+vital+BGA+diagnosis+ventilation+catecholamines+lab_nested-*-4_seed-*-2` |
+| image | param | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_sepsis-inclusion_finger_image_tpi_nested-*-4_seed-*-2` |
+| image | rgb | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_sepsis-inclusion_finger_image_rgb_nested-*-4_seed-*-2` |
+| image | hsi | [`ModelSuperpixelClassification`](./htc/models/superpixel_classification/ModelSuperpixelClassification.py) | `2025-03-07_13-00-00_sepsis-inclusion_finger_image_nested-*-4_seed-*-2` |
+
+> 💡 The modality `param` refers to stacked tissue parameter images (named TPI in our papers). For the model type `patch`, pretrained models are available for the patch sizes 64 x 64 and 32 x 32 pixels in the case of surgical scene segmentation models. For sepsis diagnosis and mortality prediction models, a patch size of 224 x 224 is utilized. The modality and patch size is not specified when loading a model as it is already characterized by specifying a certain run folder.
 
 > 💡 A wildcard `*` in the run folder name refers to a collection of models (e.g. from nested cross validation). You can use the name as noted in the table to retrieve all models from this collection as list of models or explicitly set the index to only retrieve one specific model from the collection. If you keep the wildcard for creating predictions (see below), all models will be loaded and the final prediction is an ensemble of the output from all individual networks (e.g. 15 networks with 3 outer and 5 inner folds).
+
+> 💡 In the sepsis diagnosis and mortality prediction models, the term `palm_stacked` in the run folder name indicates models trained on combined palm and finger data. In these models, palm and finger patches were concatenated along the spectral dimension.
 
 After successful installation of the `htc` package, you can use any of the pretrained models listed in the table. There are several ways to use them but the general principle is that models are always specified via their `model` and `run_folder`.
 
@@ -330,13 +363,42 @@ There is a common command line interface for many scripts in this repository. Mo
 
 This repository contains code to reproduce our publications listed below:
 
+### 📝 [AI-powered skin spectral imaging enables instant sepsis diagnosis and outcome prediction in critically ill patients](https://www.science.org/doi/10.1126/sciadv.adw1968)
+
+<div align="center">
+<a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/sepsis_overview.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/sepsis_overview.png" alt="Logo" width="700" /></a>
+</div>
+
+This paper presents a deep learning framework for automated sepsis diagnosis and mortality prediciton in intensive care patients. We show that models based on skin HSI data achieve high accuracy, which can be further enhanced through multimodal fusion with minimal clinical data. Our approach outperforms widely used clinical scores and biomarkers while enabling non-invasive, rapid, and mobile predictions. All trained networks are available as pretrained models. We utilized a nested cross-validation scheme with 5 outer and 5 inner folds, as well as 3 different random seed settings, so each training configuration is composed of 15 run folders on disk. However, you can still refer to them via the `run_folder` argument by using a wildcard (e.g., `2025-03-07_13-00-00_sepsis-inclusion_palm_image_nested-*-4_seed-*-2`) to get the corresponding networks. You can find all notebooks which generate the paper figures in [paper/ScienceAdvances2025](./paper/ScienceAdvances2025) accompanied by [reproducibility instructions](./paper/ScienceAdvances2025/reproducibility.md). The code for all experiments is located in the [htc_projects/sepsis_icu](./htc_projects/sepsis_icu/) folder.
+
+> 📂 The dataset for this paper is not publicly available.
+
+<details closed>
+<summary>Cite via BibTeX</summary>
+
+```bibtex
+@article{seidlitz_sepsis_2025,
+  author       = {Seidlitz, Silvia and Hölzl, Katharina and von Garrel, Ayca and Sellner, Jan and Katzenschlager, Stephan and Hölle, Tobias and Fischer, Dania and von der Forst, Maik and Schmitt, Felix C. F. and Studier-Fischer, Alexander and Weigand, Markus A. and Maier-Hein, Lena and Dietrich, Maximilian},
+  date         = {2025},
+  doi          = {10.1126/sciadv.adw1968},
+  eprint       = {https://www.science.org/doi/pdf/10.1126/sciadv.adw1968},
+  journaltitle = {Science Advances},
+  number       = {29},
+  pages        = {eadw1968},
+  title        = {AI-powered skin spectral imaging enables instant sepsis diagnosis and outcome prediction in critically ill patients},
+  volume       = {11},
+}
+```
+
+</details>
+
 ### 📝 [Xeno-learning: knowledge transfer across species in deep learning-based spectral image analysis](https://doi.org/10.48550/arXiv.2410.19789)
 
 <div align="center">
 <a href="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/species_motivation.pdf"><img src="https://e130-hyperspectal-tissue-classification.s3.dkfz.de/figures/species_motivation.png" alt="Logo" width="700" /></a>
 </div>
 
-This paper introduces a cross-species knowledge transfer paradigm termed <i>xeno-learning</i> to make use of what has been learned in one species in other species. Specifically, we showcase how human segmentation performance on malperfused tissues can be improved by leveraging perfusion knowledge obtained from animal data via a <q>physiology-based data augmentation</q> method. All trained networks are available as pretrained models (baseline networks and networks which included the new data augmentation method during training). Compared to previous papers, we switched to a nested cross-validation scheme with 3 outer folds so each training configuration is composed of three run folders on disk. However, you can still refer to them via the `run_folder` argument by using a wildcard (e.g., `2025-03-09_19-38-10_baseline_human_nested-*-2` to get the baseline networks `0`, `1` and `2` trained on human data). You can find all notebooks which generate the paper figures in [paper/NatureBME2025](./paper/NatureBME2025) accompanied by [reproducibility instructions](./paper/NatureBME2025/reproducibility.md). The code for all experiments is located in the [htc_projects/species](./htc_projects/species/) folder.
+This paper introduces a cross-species knowledge transfer paradigm termed <i>xeno-learning</i> to make use of what has been learned in one species in other species. Specifically, we showcase how human segmentation performance on malperfused tissues can be improved by leveraging perfusion knowledge obtained from animal data via a <q>physiology-based data augmentation</q> method. All trained networks are available as pretrained models (baseline networks and networks which included the new data augmentation method during training). Compared to previous papers, we switched to a nested cross-validation scheme with 3 outer folds so each training configuration is composed of 3 run folders on disk. However, you can still refer to them via the `run_folder` argument by using a wildcard (e.g., `2025-03-09_19-38-10_baseline_human_nested-*-2` to get the baseline networks `0`, `1` and `2` trained on human data). You can find all notebooks which generate the paper figures in [paper/NatureBME2025](./paper/NatureBME2025) accompanied by [reproducibility instructions](./paper/NatureBME2025/reproducibility.md). The code for all experiments is located in the [htc_projects/species](./htc_projects/species/) folder.
 
 > 📂 The dataset for this paper is not fully publicly available, but a subset of the data is available through the public [HeiPorSPECTRAL](https://heiporspectral.org/) dataset.
 

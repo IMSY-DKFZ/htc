@@ -1,0 +1,75 @@
+{
+    "lightning_class": "htc_projects.sepsis_icu.models.LightningImageSepsis>LightningImageSepsis",
+    "task": "classification",
+    "input": {
+        "data_spec": "sepsis-inclusion_palm_5folds_test-0.25_seed-0.json",
+        "preprocessing": "L1_recalibrated_crop_reshape_224+224",
+        "spatial_shape": [224, 224],
+        "no_labels": true,
+        "image_labels": [
+            {
+                "meta_attributes": ["sepsis_status"],
+                "image_label_mapping": "htc_projects.sepsis_icu.settings_sepsis_icu>sepsis_label_mapping"
+            }
+        ],
+        "n_channels": 100,
+        "hierarchical_sampling": "image_label+oversampling",
+        "target_domain": ["no_domain"],
+        "epoch_size": 500,
+        "transforms_gpu": [
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomAffine",
+                "degrees": 180,
+                "p": 0.5
+            },
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomHorizontalFlip",
+                "p": 0.5
+            },
+            {
+                "class": "KorniaTransform",
+                "transformation_name": "RandomVerticalFlip",
+                "p": 0.5
+            }
+        ]
+    },
+    "optimization": {
+        "optimizer": {
+            "name": "AdamW",
+            "lr": 0.001,
+            "weight_decay": 0.001
+        },
+        "lr_scheduler": {
+            "name": "ExponentialLR",
+            "gamma": 0.99
+        }
+    },
+    "model": {
+        "encoder": "timm-resnest14d",
+        "encoder_weights": "imagenet",
+        "dropout": null
+    },
+    "dataloader_kwargs": {
+        "batch_size": 32,
+        "num_workers": 2
+    },
+    "trainer_kwargs": {
+        "max_epochs": 10,
+        "precision": "16-mixed",
+        "devices": 1,
+        "accelerator": "gpu",
+        "log_every_n_steps": 0
+    },
+    "swa_kwargs": {
+        "annealing_epochs": 0
+    },
+    "validation": {
+        "checkpoint_metric": "accuracy",
+        "checkpoint_metric_kwargs": {
+            "average": "macro"
+        },
+        "checkpoint_saving": "last"
+    }
+}

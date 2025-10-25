@@ -1,0 +1,8 @@
+{
+    "inherits": "htc_projects/sepsis_icu/configs/sepsis-inclusion_palm_image.json",
+    "input": {
+        "preprocessing": "rgb_sensor_aligned_crop_reshape_224+224",
+        "n_channels": 3,
+        "features_dtype": "float32"
+    }
+}

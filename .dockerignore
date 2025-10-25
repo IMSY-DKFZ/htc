@@ -564,3 +564,6 @@ site
 **/*.pkl
 **/*.pdf
 **/*.lprof
+
+# Always include website images
+!**/spectralverse/pages/images/**/*

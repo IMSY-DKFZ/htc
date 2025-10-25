@@ -29,7 +29,7 @@ You also need access to the cluster, i.e. `ssh $DKFZ_USERID@$WORKER_NODE` should
 
 ## Sanity check
 
-The figures for this paper are created via the notebooks in [`paper/XenoLearning2024`](../XenoLearning2024). Run the [paper/XenoLearning2024/DomainShiftPerformance.ipynb](../XenoLearning2024/DomainShiftPerformance.ipynb) notebook now and you should get an error about missing paths.
+The figures for this paper are created via the notebooks in [`paper/NatureBME2025`](../NatureBME2025). Run the [paper/NatureBME2025/DomainShiftPerformance.ipynb](../NatureBME2025/DomainShiftPerformance.ipynb) notebook now and you should get an error about missing paths.
 
 ## Data specification files
 
@@ -92,8 +92,8 @@ You now have all ingredients together to create the final figures. Run the follo
 > Similar to before, delete/rename the `$PATH_HTC_RESULTS/paper` folder to ensure that no previously computed file remains.
 
 ```bash
-HTC_MODEL_TIMESTAMP="<YOUR_TIMESTAMP>" find paper/XenoLearning2024 -name "*.ipynb" -exec jupyter nbconvert --to html --execute --stdout {} > /dev/null \;
-HTC_MODEL_TIMESTAMP="<YOUR_TIMESTAMP>" htc XenoLearning2024.generate_variables
+HTC_MODEL_TIMESTAMP="<YOUR_TIMESTAMP>" find paper/NatureBME2025 -name "*.ipynb" -exec jupyter nbconvert --to html --execute --stdout {} > /dev/null \;
+HTC_MODEL_TIMESTAMP="<YOUR_TIMESTAMP>" htc NatureBME2025.generate_variables
 ```
 
 You will find the resulting figures in `$PATH_HTC_RESULTS/paper`. Please note that the figures are post-processed manually for the final paper version.

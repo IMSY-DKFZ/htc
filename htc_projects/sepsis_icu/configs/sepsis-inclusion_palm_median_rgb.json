@@ -1,0 +1,10 @@
+{
+    "inherits": "htc_projects/sepsis_icu/configs/sepsis-inclusion_palm_median.json",
+    "input": {
+        "preprocessing": null,
+        "n_channels": 3
+    },
+    "model": {
+        "model_name": "htc.models.pixel.ModelPixelRGB>ModelPixelRGB"
+    }
+}

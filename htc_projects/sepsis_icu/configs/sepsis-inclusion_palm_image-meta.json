@@ -1,0 +1,20 @@
+{
+    "inherits": [
+        "htc_projects/sepsis_icu/configs/sepsis-inclusion_palm_image.json",
+        "htc_projects/sepsis_icu/configs/meta_bedside.json"
+    ],
+    "lightning_class": "htc_projects.sepsis_icu.models.LightningImageSepsisMeta>LightningImageSepsisMeta",
+    "model": {
+        "per_model_output_size": 10,
+        "activation_function": "elu",
+        "normalization": "BatchNorm",
+        "dropout": 0.5,
+        "meta": {
+            "layer1_size": 50,
+            "layer2_size": 30,
+            "activation_function": "elu",
+            "normalization": "BatchNorm",
+            "dropout": 0.5
+        }
+    }
+}

@@ -281,7 +281,7 @@ def run_info(run_dir: Path) -> dict:
     if model_name == "patch":
         model_name = f"{model_name}_{config['input/patch_size'][0]}"
 
-    if "parameters" in run_dir.name:
+    if "parameters" in run_dir.name or "_tpi_" in run_dir.name:
         model_type = "param"
     elif "rgb" in run_dir.name:
         model_type = "rgb"
