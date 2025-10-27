@@ -25,7 +25,7 @@ jobs:
           PYTHONUTF8: 1
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
@@ -55,7 +55,7 @@ jobs:
         run: python -m build . --sdist
 
       - name: Upload sdist package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-source
           path: dist/*.tar.gz
