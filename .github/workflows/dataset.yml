@@ -27,7 +27,7 @@ jobs:
 
       - name: Cache datasets
         id: cache-datasets
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             HeiPorSPECTRAL_example
@@ -65,7 +65,7 @@ jobs:
             tutorials/website_xeno_spectral_example.py
           sparse-checkout-cone-mode: false
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: |
             HeiPorSPECTRAL_example
